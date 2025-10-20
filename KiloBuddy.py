@@ -81,12 +81,8 @@ def load_prompt():
             # Validate prompt content
             if len(prompt_content) == 0:
                 print("Warning: prompt file is empty, using default")
-            elif len(prompt_content) > 2000:
-                print("Warning: prompt file is very long, may cause API issues")
-                PROMPT = prompt_content[:2000]  # Truncate if too long
             else:
                 PROMPT = prompt_content
-                print("Loaded Prompt")
     except Exception as e:
         print(f"Error loading prompt: {e}")
 
@@ -107,7 +103,7 @@ def generate_text(input_prompt):
         if timeout_triggered.is_set():
             return
         try:
-            model = genai.GenerativeModel("gemini-2.0-flash-exp")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             response = model.generate_content(input_prompt)
             if not timeout_triggered.is_set():
                 result["text"] = response.text.strip()
@@ -189,6 +185,7 @@ def listen_for_command():
         print(f"No command detected within timeout.")
         return None
 
+# Process Command using Gemini
 def process_command(command):
     if not command:
         print("No command to process.")
