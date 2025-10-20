@@ -13,6 +13,7 @@ PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded 
 def initialize():
     load_api_key()
     load_prompt()
+    print("KiloBuddy Initialized.")
 
 # Load API Key for Gemini from file
 def load_api_key():
@@ -47,6 +48,7 @@ def load_prompt():
                 PROMPT = prompt_content[:2000]  # Truncate if too long
             else:
                 PROMPT = prompt_content
+                print("Loaded Prompt")
     except Exception as e:
         print(f"Error loading prompt: {e}")
 
@@ -92,3 +94,10 @@ def generate_text():
 
     timer.cancel()
     return result["text"]
+
+def main():
+    initialize()
+
+if __name__ == "__main__":
+    print("KiloBuddy Launching...")
+    main()
