@@ -8,12 +8,30 @@ import threading
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded from prompt file
+WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 
 # Initialize Necessary Variables
 def initialize():
     load_api_key()
     load_prompt()
+    load_wake_word()
     print("KiloBuddy Initialized.")
+
+# Load Wake Word from file
+def load_wake_word():
+    global WAKE_WORD
+    try:
+        with open(get_source_path("wake_word"), "r") as f:
+            word = f.read().strip().lower()
+            if word == "null" or word == "" or word == "none":
+                print("No wake word provided, using default 'computer'")
+            else:
+                WAKE_WORD = word
+                print(f"Loaded Wake Word: {WAKE_WORD}")
+    except FileNotFoundError:
+        print("Wake word file not found, using fallback 'computer'")
+    except Exception as e:
+        print(f"Error loading wake word: {e}, using default 'computer'")
 
 # Load API Key for Gemini from file
 def load_api_key():
