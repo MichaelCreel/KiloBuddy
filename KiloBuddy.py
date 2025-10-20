@@ -81,7 +81,7 @@ def get_source_path(filename):
     return os.path.join(base_path, filename)
 
 # Generate Text using Gemini
-def generate_text():
+def generate_text(input_prompt):
     result = {"text": None}
     timeout_triggered = threading.Event()
 
@@ -90,7 +90,7 @@ def generate_text():
             return
         try:
             model = genai.GenerativeModel("gemini-2.0-flash-exp")
-            response = model.generate_content(PROMPT)
+            response = model.generate_content(input_prompt)
             if not timeout_triggered.is_set():
                 result["text"] = response.text.strip()
         except Exception as e:
@@ -170,6 +170,21 @@ def listen_for_command():
     except sr.WaitTimeoutError:
         print(f"No command detected within timeout.")
         return None
+
+def process_command(command):
+    if not command:
+        print("No command to process.")
+        return
+    
+    global PROMPT
+    combined_prompt = f"Instructions for generation:\n{PROMPT}\n\nUser Command: {command}"
+
+    print("Generating response...")
+    response = generate_text(combined_prompt)
+    if response:
+        print(f"{response}")
+    else:
+        print("No response generated.")
 
 def main():
     initialize()
