@@ -1,3 +1,4 @@
+from click import command
 import speech_recognition as sr
 import re
 import os
@@ -5,12 +6,14 @@ import sys
 import google.generativeai as genai
 import threading
 import time
+import subprocess
 
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded from prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 LINUX_VERSION = "debian" # Linux version for command generation
+PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
 
 # Initialize Necessary Variables
 def initialize():
@@ -201,6 +204,64 @@ def process_command(command):
         print(f"{response}")
     else:
         print("No response generated.")
+
+def process_response(response):
+    todo_list = extract_todo_list(response)
+    if todo_list:
+        process_todo_list(todo_list)
+    else:
+        print("No todo list found in response.")
+    return;
+
+# Extract the todo list from Gemini response
+def extract_todo_list(response):
+    task_pattern = re.compile(r"\[(\d+)\] (.+?) # (USER|GEMINI) --- (DONE|DO NEXT|PENDING|SKIPPED)")
+    return task_pattern.findall(response);
+
+# Interprets the todo list and decides on user or Gemini call
+def process_todo_list(todo_list):
+    for i, (step_num, command, executor, status) in enumerate(todo_list):
+        if status == "DO NEXT":
+            if executor == "USER":
+                user_call(command)
+                update_status(todo_list, i)
+                continue
+            elif executor == "GEMINI":
+                print(f"Requesting GEMINI command: {command}")
+                gemini_call(todo_list)
+                break
+
+# Update the status of a task in the todo list
+def update_status(todo_list, current_step):
+    step_num, command, executor, status = todo_list[current_step]
+    todo_list[current_step] = (step_num, command, executor, "DONE")
+
+    if current_step + 1 < len(todo_list):
+        next_step_num, next_command, next_executor, next_status = todo_list[current_step + 1]
+        if next_status == "PENDING":
+            todo_list[current_step + 1] = (next_step_num, next_command, next_executor, "DO NEXT")
+
+# USER Call Subprocess
+def user_call(command):
+    global PREVIOUS_COMMAND_OUTPUT
+    print(f"Running USER command: {command}")
+    result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
+    PREVIOUS_COMMAND_OUTPUT = result.stdout
+
+# GEMINI Call Method
+def gemini_call(task_list):
+    global LINUX_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT
+    combined_prompt = f"Linux: {LINUX_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nTodo List:\n{format_todo_list(task_list)}"
+    print("Generating response...")
+    generate_text(combined_prompt)
+
+# Formats parsed todo list back into string
+def format_todo_list(todo_list):
+    lines = [">>"]
+    for step_num, command, executor, status in todo_list:
+        lines.append(f"[{step_num}] {command} # {executor} --- {status}")
+    lines.append("<<")
+    return "\n".join(lines)
 
 # Main Method that controls KiloBuddy
 def main():
