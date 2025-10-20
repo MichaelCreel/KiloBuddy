@@ -4,6 +4,7 @@ import os
 import sys
 import google.generativeai as genai
 import threading
+import time
 
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -12,6 +13,7 @@ WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from w
 
 # Initialize Necessary Variables
 def initialize():
+    print("Initializing KiloBuddy...")
     load_api_key()
     load_prompt()
     load_wake_word()
@@ -112,6 +114,62 @@ def generate_text():
 
     timer.cancel()
     return result["text"]
+
+# Listen for Wake Word
+def listen_for_wake_word():
+    recognizer = sr.Recognizer()
+    microphone = sr.Microphone()
+
+    print(f"Listening for wake word ('{WAKE_WORD}')...")
+
+    while True:
+        try:
+            with microphone as source:
+                audio = recognizer.listen(source, timeout=1, phrase_time_limit=3)
+            try:
+                text = recognizer.recognize_google(audio, show_all=False).lower()
+                if text:
+                    print(f"Heard: {text}")
+
+                    if WAKE_WORD in text:
+                        print(f"Wake word detected...")
+                        return True
+            except sr.UnknownValueError:
+                # Didn't understand speech. It happens.
+                pass
+            except sr.RequestError as e:
+                print(f"Speech Recognition error: {e}")
+                time.sleep(0.25)
+        except sr.WaitTimeoutError:
+            # No speech detected before timeout. It happens.
+            pass
+        except Exception as e:
+            print(f"Error during listening: {e}")
+            time.sleep(0.25)
+
+# Listen for Command after Wake Word
+def listen_for_command():
+    recognizer = sr.Recognizer()
+
+    print(f"Listening for command...")
+
+    try:
+        with sr.Microphone() as source:
+            # 10 seconds to say command, no command limit
+            audio = recognizer.listen(source, timeout=10)
+        print ("Processing command...")
+        command = recognizer.recognize_google(audio)
+        print(f"Command received: {command}")
+        return command
+    except sr.UnknownValueError:
+        print(f"Failed to understand command.")
+        return None
+    except sr.RequestError as e:
+        print(f"Speech Recognition error: {e}")
+        return None
+    except sr.WaitTimeoutError:
+        print(f"No command detected within timeout.")
+        return None
 
 def main():
     initialize()
