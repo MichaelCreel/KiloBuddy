@@ -186,8 +186,23 @@ def process_command(command):
     else:
         print("No response generated.")
 
+# Main Method that controls KiloBuddy
 def main():
     initialize()
+
+    print(f"KiloBuddy successfully started. Say '{WAKE_WORD}' followed by your command.")
+    try:
+        while True:
+            # Start Listening for Wake Word
+            if listen_for_wake_word():
+                # Start Listening for Command
+                command = listen_for_command()
+                if command:
+                    process_command(command)
+
+                print("Returning to wake word listening...")
+    except KeyboardInterrupt:
+        print("KiloBuddy Shutting Down...")
 
 if __name__ == "__main__":
     print("KiloBuddy Launching...")
