@@ -10,6 +10,7 @@ API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded from prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
+LINUX_VERSION = "debian" # Linux version for command generation
 
 # Initialize Necessary Variables
 def initialize():
@@ -17,7 +18,24 @@ def initialize():
     load_api_key()
     load_prompt()
     load_wake_word()
+    load_linux_version()
     print("KiloBuddy Initialized.")
+
+# Load Linux Version from file
+def load_linux_version():
+    global LINUX_VERSION
+    try:
+        with open(get_source_path("linux_version"), "r") as f:
+            version = f.read().strip().lower()
+            if version == "null" or version == "" or version == "none":
+                print("No Linux version provided, using default 'debian'")
+            else:
+                LINUX_VERSION = version
+                print(f"Loaded Linux Version: {LINUX_VERSION}")
+    except FileNotFoundError:
+        print("Linux version file not found, using fallback 'debian'")
+    except Exception as e:
+        print(f"Error loading Linux version: {e}, using default 'debian'")
 
 # Load Wake Word from file
 def load_wake_word():
@@ -177,7 +195,8 @@ def process_command(command):
         return
     
     global PROMPT
-    combined_prompt = f"Instructions for generation:\n{PROMPT}\n\nUser Command: {command}"
+    global LINUX_VERSION
+    combined_prompt = f"Linux: {LINUX_VERSION}\n\n{PROMPT}\n\nUser Command: {command}"
 
     print("Generating response...")
     response = generate_text(combined_prompt)
@@ -191,6 +210,20 @@ def main():
     initialize()
 
     print(f"KiloBuddy successfully started. Say '{WAKE_WORD}' followed by your command.")
+
+    print("Use debug text version? (y/n): ")
+    debug_input = input().strip().lower()
+    if debug_input == 'y':
+        while True:
+            print("Enter a command: ")
+            user_command = input().strip()
+            process_command(user_command)
+        return
+    elif debug_input == 'n':
+        print("Starting voice mode...")
+    else:
+        print("Invalid input, starting voice mode...")
+
     try:
         while True:
             # Start Listening for Wake Word
