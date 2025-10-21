@@ -202,6 +202,7 @@ def process_command(command):
     response = generate_text(combined_prompt)
     if response:
         print(f"{response}")
+        process_response(response)
     else:
         print("No response generated.")
 
@@ -251,9 +252,10 @@ def user_call(command):
 # GEMINI Call Method
 def gemini_call(task_list):
     global LINUX_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT
-    combined_prompt = f"Linux: {LINUX_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nTodo List:\n{format_todo_list(task_list)}"
+    combined_prompt = f"Linux: {LINUX_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nTodo List:\n{format_todo_list(task_list)}\n\nThis is a continuation of a previous task. Continue the task list by fulfilling the task marked 'DO NEXT'."
     print("Generating response...")
-    generate_text(combined_prompt)
+    response_text = generate_text(combined_prompt)
+    process_response(response_text)
 
 # Formats parsed todo list back into string
 def format_todo_list(todo_list):
