@@ -208,6 +208,7 @@ def process_command(command):
 
 def process_response(response):
     todo_list = extract_todo_list(response)
+    print(f"\n\n{extract_user_output(response)}\n\n")
     if todo_list:
         process_todo_list(todo_list)
     else:
@@ -218,6 +219,13 @@ def process_response(response):
 def extract_todo_list(response):
     task_pattern = re.compile(r"\[(\d+)\] (.+?) # (USER|GEMINI) --- (DONE|DO NEXT|PENDING|SKIPPED)")
     return task_pattern.findall(response);
+
+# Extract output for the user from Gemini response
+def extract_user_output(response):
+    output_pattern = re.search(r'"""(.*?)"""', response, re.DOTALL)
+    if output_pattern:
+        return output_pattern.group(1).strip()
+    return None
 
 # Interprets the todo list and decides on user or Gemini call
 def process_todo_list(todo_list):
