@@ -2,6 +2,7 @@ import speech_recognition as sr
 import re
 import os
 import sys
+import platform
 import google.generativeai as genai
 import threading
 import time
@@ -11,7 +12,7 @@ API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded from prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
-LINUX_VERSION = "debian" # Linux version for command generation
+OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
 
 # Initialize Necessary Variables
@@ -20,24 +21,60 @@ def initialize():
     load_api_key()
     load_prompt()
     load_wake_word()
-    load_linux_version()
+    load_os_version()
     print("KiloBuddy Initialized.")
 
-# Load Linux Version from file
-def load_linux_version():
-    global LINUX_VERSION
+# Auto-detect operating system
+def detect_os():
+    """Auto-detect operating system and return appropriate identifier"""
+    system = platform.system().lower()
+    
+    if system == "linux":
+        # Try to detect Linux distribution
+        try:
+            with open("/etc/os-release", "r") as f:
+                for line in f:
+                    if line.startswith("ID="):
+                        distro = line.split("=")[1].strip().strip('"')
+                        return f"linux-{distro}"
+        except FileNotFoundError:
+            pass
+        return "linux"
+    elif system == "darwin":
+        # Get macOS version
+        try:
+            version = platform.mac_ver()[0]
+            return f"macos-{version}"
+        except:
+            return "macos"
+    elif system == "windows":
+        # Get Windows version
+        try:
+            version = platform.release()
+            return f"windows-{version}"
+        except:
+            return "windows"
+    else:
+        return "unknown"
+
+# Load Operating System Version from file
+def load_os_version():
+    global OS_VERSION
     try:
-        with open(get_source_path("linux_version"), "r") as f:
+        with open(get_source_path("os_version"), "r") as f:
             version = f.read().strip().lower()
-            if version == "null" or version == "" or version == "none":
-                print("No Linux version provided, using default 'debian'")
+            if version == "null" or version == "" or version == "none" or version == "auto-detect":
+                OS_VERSION = detect_os()
+                print(f"Auto-detected OS: {OS_VERSION}")
             else:
-                LINUX_VERSION = version
-                print(f"Loaded Linux Version: {LINUX_VERSION}")
+                OS_VERSION = version
+                print(f"Loaded OS Version: {OS_VERSION}")
     except FileNotFoundError:
-        print("Linux version file not found, using fallback 'debian'")
+        OS_VERSION = detect_os()
+        print(f"OS version file not found, auto-detected: {OS_VERSION}")
     except Exception as e:
-        print(f"Error loading Linux version: {e}, using default 'debian'")
+        OS_VERSION = detect_os()
+        print(f"Error loading OS version: {e}, auto-detected: {OS_VERSION}")
 
 # Load Wake Word from file
 def load_wake_word():
@@ -194,8 +231,8 @@ def process_command(command):
         return
     
     global PROMPT
-    global LINUX_VERSION
-    combined_prompt = f"Linux: {LINUX_VERSION}\n\n{PROMPT}\n\nUser Command: {command}"
+    global OS_VERSION
+    combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nUser Command: {command}"
 
     print("Generating response...")
     response = generate_text(combined_prompt)
@@ -270,8 +307,8 @@ def user_call(command):
 
 # GEMINI Call Method
 def gemini_call(task_list):
-    global LINUX_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT
-    combined_prompt = f"Linux: {LINUX_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nTodo List:\n{format_todo_list(task_list)}\n\nThis is a continuation of a previous task. Continue the task list by fulfilling the task marked 'DO NEXT'."
+    global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT
+    combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nTodo List:\n{format_todo_list(task_list)}\n\nThis is a continuation of a previous task. Continue the task list by fulfilling the task marked 'DO NEXT'."
     print("Generating response...")
     response_text = generate_text(combined_prompt)
     process_response(response_text)
