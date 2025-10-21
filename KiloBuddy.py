@@ -207,18 +207,34 @@ def process_command(command):
         print("No response generated.")
 
 def process_response(response):
+    if not response:
+        print("ERROR: No response from Gemini")
+        return
+    
     todo_list = extract_todo_list(response)
-    print(f"\n\n{extract_user_output(response)}\n\n")
+    
+    # Always show user output first
+    user_output = extract_user_output(response)
+    if user_output:
+        print(f"\n=== KiloBuddy Output ===\n{user_output}\n=======================\n")
+    
     if todo_list:
+        print(f"Found {len(todo_list)} todo items")
         process_todo_list(todo_list)
     else:
-        print("No todo list found in response.")
-    return;
+        print("WARNING: No todo list found in response.")
+        print("This might be a direct answer without tasks.")
+        print("\nFull Gemini Response:")
+        print(response)
+    return
 
 # Extract the todo list from Gemini response
 def extract_todo_list(response):
-    task_pattern = re.compile(r"\[(\d+)\] (.+?) # (USER|GEMINI) --- (DONE|DO NEXT|PENDING|SKIPPED)")
-    return task_pattern.findall(response);
+    # More flexible regex pattern - allows variable spacing
+    task_pattern = re.compile(r"\[(\d+)\]\s+(.+?)\s+#\s+(USER|GEMINI)\s+---\s+(DONE|DO NEXT|PENDING|SKIPPED)")
+    matches = task_pattern.findall(response)
+    
+    return matches
 
 # Extract output for the user from Gemini response
 def extract_user_output(response):
