@@ -201,7 +201,6 @@ def process_command(command):
     print("Generating response...")
     response = generate_text(combined_prompt)
     if response:
-        print(f"{response}")
         process_response(response)
     else:
         print("No response generated.")
@@ -216,16 +215,13 @@ def process_response(response):
     # Always show user output first
     user_output = extract_user_output(response)
     if user_output:
-        print(f"\n=== KiloBuddy Output ===\n{user_output}\n=======================\n")
+        print(f"\n=== KiloBuddy Output ===\n{user_output}\n========================\n")
     
     if todo_list:
         print(f"Found {len(todo_list)} todo items")
         process_todo_list(todo_list)
     else:
-        print("WARNING: No todo list found in response.")
-        print("This might be a direct answer without tasks.")
-        print("\nFull Gemini Response:")
-        print(response)
+        print("No todo list found in response.")
     return
 
 # Extract the todo list from Gemini response
@@ -319,7 +315,7 @@ def main():
 
                 print("Returning to wake word listening...")
     except KeyboardInterrupt:
-        print("KiloBuddy Shutting Down...")
+        print("\nKiloBuddy Shutting Down...")
 
 if __name__ == "__main__":
     print("KiloBuddy Launching...")
