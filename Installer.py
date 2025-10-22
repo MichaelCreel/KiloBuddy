@@ -7,7 +7,13 @@ import shutil
 
 REQUIRED_PACKAGES = ["speechrecognition", "google-generativeai", "pyaudio"]
 
-# Get th einstallation directory for the platform
+# Remove old installation if exists
+def remove_old_installation(install_dir):
+    if os.path.exists(install_dir):
+        print(f"Removing old installation at: {install_dir}")
+        shutil.rmtree(install_dir)
+
+# Get the installation directory for the platform
 def get_install_directory():
     system = platform.system()
     if system == "Windows":
@@ -55,6 +61,10 @@ def install_packages(install_dir):
 
 def run_terminal_installer():
     print("=== KiloBuddy Installer Terminal Mode ===")
+    
+    # Remove any old installation first
+    install_dir = get_install_directory()
+    remove_old_installation(install_dir)
     
     # Set up installation directory
     install_dir = setup_install_directory()
@@ -253,6 +263,10 @@ def run_gui_installer():
     from tkinter import messagebox
     from tkinter import ttk
     import threading
+
+    # Remove any old installation first
+    install_dir = get_install_directory()
+    remove_old_installation(install_dir)
 
     # Set up installation directory at start
     install_dir = setup_install_directory()
