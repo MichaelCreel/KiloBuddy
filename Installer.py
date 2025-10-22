@@ -7,8 +7,8 @@ import shutil
 
 REQUIRED_PACKAGES = ["speechrecognition", "google-generativeai", "pyaudio"]
 
+# Get th einstallation directory for the platform
 def get_install_directory():
-    """Get the platform-appropriate installation directory"""
     system = platform.system()
     if system == "Windows":
         # Windows: %APPDATA%\KiloBuddy
@@ -17,8 +17,8 @@ def get_install_directory():
         # Unix (Linux/macOS): ~/.kilobuddy
         return os.path.expanduser('~/.kilobuddy')
 
+# Create and set up directory of installation
 def setup_install_directory():
-    """Create and set up the installation directory"""
     install_dir = get_install_directory()
     
     if not os.path.exists(install_dir):
@@ -35,15 +35,15 @@ def setup_install_directory():
     
     return install_dir
 
+# Create a virtual environment for the app
 def create_virtual_env(install_dir):
-    """Create virtual environment in the install directory"""
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     print(f"Creating virtual environment at: {venv_path}")
     venv.create(venv_path, with_pip=True)
     return venv_path
 
+# Install packages into the virtual environment
 def install_packages(install_dir):
-    """Install packages in the virtual environment"""
     # Use the virtual environment python instead of system python
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     python_path = os.path.join(venv_path, "bin", "python") if platform.system() != "Windows" else os.path.join(venv_path, "Scripts", "python.exe")
@@ -101,8 +101,8 @@ def run_terminal_installer():
         print("Error: Virtual environment not found. Please run installer again.")
     input("Press Enter to exit...")
 
+# Launch KiloBuddy from the installation folder
 def launch_app(install_dir):
-    """Launch KiloBuddy from the installation directory"""
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     python_path = os.path.join(venv_path, "bin", "python") if platform.system() != "Windows" else os.path.join(venv_path, "Scripts", "python.exe")
     kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")
@@ -110,8 +110,8 @@ def launch_app(install_dir):
     print(f"Launching KiloBuddy from: {install_dir}")
     subprocess.run([python_path, kilobuddy_script], cwd=install_dir)
 
+# Create shortcuts for the app
 def create_system_shortcuts(install_dir):
-    """Create system menu entry and optionally desktop shortcut"""
     system = platform.system()
     
     if system == "Linux":
@@ -121,8 +121,8 @@ def create_system_shortcuts(install_dir):
     elif system == "Darwin":  # macOS
         create_macos_shortcuts(install_dir)
 
+# Linux Shortcuts
 def create_linux_shortcuts(install_dir):
-    """Create .desktop files for Linux"""
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     python_path = os.path.join(venv_path, "bin", "python")
     kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")
@@ -179,8 +179,8 @@ Keywords=AI;Assistant;Voice;Gemini;
             else:
                 print("Desktop directory not found")
 
+# Windows Shortcuts
 def create_windows_shortcuts(install_dir):
-    """Create shortcuts for Windows"""
     try:
         import winshell
         from win32com.client import Dispatch
@@ -218,9 +218,8 @@ def create_windows_shortcuts(install_dir):
             
     except ImportError:
         print("Windows shortcut creation requires pywin32. Install with: pip install pywin32 winshell")
-
+# MacOS Shortcuts
 def create_macos_shortcuts(install_dir):
-    """Create shortcuts for macOS"""
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     python_path = os.path.join(venv_path, "bin", "python")
     kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")

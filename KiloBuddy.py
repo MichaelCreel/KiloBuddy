@@ -14,6 +14,7 @@ PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded 
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
+LAST_GEMINI_OUTPUT = "" # Store the last output by Gemini that was designated for the user
 
 # Initialize Necessary Variables
 def initialize():
@@ -26,7 +27,6 @@ def initialize():
 
 # Auto-detect operating system
 def detect_os():
-    """Auto-detect operating system and return appropriate identifier"""
     system = platform.system().lower()
     
     if system == "linux":
@@ -246,11 +246,15 @@ def process_response(response):
         print("ERROR: No response from Gemini")
         return
     
+    global LAST_GEMINI_OUTPUT
+    
     todo_list = extract_todo_list(response)
     
     # Always show user output first
     user_output = extract_user_output(response)
     if user_output:
+        # Store the output in the global variable
+        LAST_GEMINI_OUTPUT = user_output
         print(f"\n=== KiloBuddy Output ===\n{user_output}\n========================\n")
     
     if todo_list:
@@ -300,7 +304,13 @@ def update_status(todo_list, current_step):
 
 # USER Call Subprocess
 def user_call(command):
-    global PREVIOUS_COMMAND_OUTPUT
+    global PREVIOUS_COMMAND_OUTPUT, LAST_GEMINI_OUTPUT
+    
+    # Replace $LAST_OUTPUT with the actual Gemini output
+    if "$LAST_OUTPUT" in command:
+        command = command.replace("$LAST_OUTPUT", LAST_GEMINI_OUTPUT)
+        print(f"Substituted $LAST_OUTPUT in command")
+    
     print(f"Running USER command: {command}")
     result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
     PREVIOUS_COMMAND_OUTPUT = result.stdout
