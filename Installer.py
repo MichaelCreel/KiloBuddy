@@ -51,7 +51,7 @@ def install_packages(install_dir):
     for package in REQUIRED_PACKAGES:
         print(f"Installing {package}...")
         subprocess.check_call([python_path, "-m", "pip", "install", package])
-    print("KiloBuddy installed successfully.")
+    print("KiloBuddy installed successfully. The original download folder can now be deleted.")
 
 def run_terminal_installer():
     print("=== KiloBuddy Installer Terminal Mode ===")
@@ -264,7 +264,6 @@ def run_gui_installer():
                 api_key_path = os.path.join(install_dir, "gemini_api_key")
                 with open(api_key_path, "w") as f:
                     f.write(api_key)
-                messagebox.showinfo("Success", "API key saved!")
                 return True
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to save API key: {e}")
@@ -315,7 +314,7 @@ def run_gui_installer():
                     print(f"Could not create shortcuts: {e}")
                 
                 install_button.config(state='normal', text="Launch KiloBuddy", command=lambda: launch_app(install_dir))
-                messagebox.showinfo("Success", f"KiloBuddy installed successfully!\n\nLocation: {install_dir}")
+                messagebox.showinfo("Success", f"KiloBuddy installed successfully!\n\nLocation: {install_dir}\n\nThe original download folder can now be deleted.")
             except subprocess.CalledProcessError as e:
                 install_button.config(state='normal', text="Install")
                 messagebox.showerror("Error", f"Error installing packages: {e}")
