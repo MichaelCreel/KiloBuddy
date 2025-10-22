@@ -86,6 +86,12 @@ def run_terminal_installer():
         print(f"\nKiloBuddy installed successfully!")
         print(f"Installation location: {install_dir}")
         
+        # Create system shortcuts
+        try:
+            create_system_shortcuts(install_dir)
+        except Exception as e:
+            print(f"Could not create shortcuts: {e}")
+        
         launch_choice = input("Launch KiloBuddy now? (y/n): ").lower()
         if launch_choice in ['y', 'yes']:
             launch_app(install_dir)
@@ -103,6 +109,145 @@ def launch_app(install_dir):
     
     print(f"Launching KiloBuddy from: {install_dir}")
     subprocess.run([python_path, kilobuddy_script], cwd=install_dir)
+
+def create_system_shortcuts(install_dir):
+    """Create system menu entry and optionally desktop shortcut"""
+    system = platform.system()
+    
+    if system == "Linux":
+        create_linux_shortcuts(install_dir)
+    elif system == "Windows":
+        create_windows_shortcuts(install_dir)
+    elif system == "Darwin":  # macOS
+        create_macos_shortcuts(install_dir)
+
+def create_linux_shortcuts(install_dir):
+    """Create .desktop files for Linux"""
+    venv_path = os.path.join(install_dir, "kilobuddy_env")
+    python_path = os.path.join(venv_path, "bin", "python")
+    kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")
+    
+    # Create .desktop file content
+    desktop_content = f"""[Desktop Entry]
+Version=0.1
+Type=Application
+Name=KiloBuddy
+Comment=AI Voice Assistant
+Exec={python_path} {kilobuddy_script}
+Icon=audio-input-microphone
+Path={install_dir}
+Terminal=true
+StartupNotify=true
+Categories=Utility;AudioVideo;
+Keywords=AI;Assistant;Voice;Gemini;
+"""
+    
+    # Create system menu entry
+    applications_dir = os.path.expanduser('~/.local/share/applications')
+    os.makedirs(applications_dir, exist_ok=True)
+    
+    desktop_file_path = os.path.join(applications_dir, 'kilobuddy.desktop')
+    with open(desktop_file_path, 'w') as f:
+        f.write(desktop_content)
+    
+    # Make it executable
+    os.chmod(desktop_file_path, 0o755)
+    print("Added KiloBuddy to system menu")
+    
+    # For GUI mode, create desktop shortcut by default
+    # For terminal mode, ask the user
+    if hasattr(create_linux_shortcuts, '_gui_mode') and create_linux_shortcuts._gui_mode:
+        # GUI mode - create desktop shortcut automatically
+        desktop_dir = os.path.expanduser('~/Desktop')
+        if os.path.exists(desktop_dir):
+            desktop_shortcut_path = os.path.join(desktop_dir, 'KiloBuddy.desktop')
+            with open(desktop_shortcut_path, 'w') as f:
+                f.write(desktop_content)
+            os.chmod(desktop_shortcut_path, 0o755)
+            print("Desktop shortcut created")
+    else:
+        # Terminal mode - ask user
+        create_desktop = input("Create desktop shortcut? (y/n): ").lower().strip()
+        if create_desktop in ['y', 'yes']:
+            desktop_dir = os.path.expanduser('~/Desktop')
+            if os.path.exists(desktop_dir):
+                desktop_shortcut_path = os.path.join(desktop_dir, 'KiloBuddy.desktop')
+                with open(desktop_shortcut_path, 'w') as f:
+                    f.write(desktop_content)
+                os.chmod(desktop_shortcut_path, 0o755)
+                print("Desktop shortcut created")
+            else:
+                print("Desktop directory not found")
+
+def create_windows_shortcuts(install_dir):
+    """Create shortcuts for Windows"""
+    try:
+        import winshell
+        from win32com.client import Dispatch
+        
+        venv_path = os.path.join(install_dir, "kilobuddy_env")
+        python_path = os.path.join(venv_path, "Scripts", "python.exe")
+        kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")
+        
+        # Create Start Menu shortcut
+        start_menu = winshell.start_menu()
+        shortcut_path = os.path.join(start_menu, "KiloBuddy.lnk")
+        
+        shell = Dispatch('WScript.Shell')
+        shortcut = shell.CreateShortCut(shortcut_path)
+        shortcut.Targetpath = python_path
+        shortcut.Arguments = f'"{kilobuddy_script}"'
+        shortcut.WorkingDirectory = install_dir
+        shortcut.IconLocation = python_path
+        shortcut.save()
+        print("Added KiloBuddy to Start Menu")
+        
+        # Ask about desktop shortcut
+        create_desktop = input("Create desktop shortcut? (y/n): ").lower().strip()
+        if create_desktop in ['y', 'yes']:
+            desktop = winshell.desktop()
+            desktop_shortcut_path = os.path.join(desktop, "KiloBuddy.lnk")
+            
+            desktop_shortcut = shell.CreateShortCut(desktop_shortcut_path)
+            desktop_shortcut.Targetpath = python_path
+            desktop_shortcut.Arguments = f'"{kilobuddy_script}"'
+            desktop_shortcut.WorkingDirectory = install_dir
+            desktop_shortcut.IconLocation = python_path
+            desktop_shortcut.save()
+            print("Desktop shortcut created")
+            
+    except ImportError:
+        print("Windows shortcut creation requires pywin32. Install with: pip install pywin32 winshell")
+
+def create_macos_shortcuts(install_dir):
+    """Create shortcuts for macOS"""
+    venv_path = os.path.join(install_dir, "kilobuddy_env")
+    python_path = os.path.join(venv_path, "bin", "python")
+    kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")
+    
+    # Create a simple shell script launcher
+    launcher_script = os.path.join(install_dir, "launch_kilobuddy.sh")
+    with open(launcher_script, 'w') as f:
+        f.write(f"""#!/bin/bash
+cd "{install_dir}"
+"{python_path}" "{kilobuddy_script}"
+""")
+    os.chmod(launcher_script, 0o755)
+    
+    print("Created launcher script")
+    print(f"You can run KiloBuddy with: {launcher_script}")
+    
+    # Ask about desktop shortcut (Alias)
+    create_desktop = input("Create desktop alias? (y/n): ").lower().strip()
+    if create_desktop in ['y', 'yes']:
+        desktop_dir = os.path.expanduser('~/Desktop')
+        if os.path.exists(desktop_dir):
+            desktop_alias = os.path.join(desktop_dir, 'KiloBuddy')
+            try:
+                os.symlink(launcher_script, desktop_alias)
+                print("Desktop alias created")
+            except OSError:
+                print("Could not create desktop alias")
 
 def run_gui_installer():
     import tkinter as tk
@@ -161,6 +306,15 @@ def run_gui_installer():
                 
                 print("KiloBuddy installed successfully.")
                 progress['value'] = 100
+                
+                # Create system shortcuts
+                try:
+                    # Mark as GUI mode for shortcut creation
+                    create_linux_shortcuts._gui_mode = True
+                    create_system_shortcuts(install_dir)
+                except Exception as e:
+                    print(f"Could not create shortcuts: {e}")
+                
                 install_button.config(state='normal', text="Launch KiloBuddy", command=lambda: launch_app(install_dir))
                 messagebox.showinfo("Success", f"KiloBuddy installed successfully!\n\nLocation: {install_dir}")
             except subprocess.CalledProcessError as e:
