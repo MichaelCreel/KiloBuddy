@@ -7,6 +7,7 @@ import google.generativeai as genai
 import threading
 import time
 import subprocess
+import tkinter as tk
 
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -256,6 +257,7 @@ def process_response(response):
         # Store the output in the global variable
         LAST_GEMINI_OUTPUT = user_output
         print(f"\n=== KiloBuddy Output ===\n{user_output}\n========================\n")
+        show_overlay(user_output)
     
     if todo_list:
         print(f"Found {len(todo_list)} todo items")
@@ -330,6 +332,61 @@ def format_todo_list(todo_list):
         lines.append(f"[{step_num}] {command} # {executor} --- {status}")
     lines.append("<<")
     return "\n".join(lines)
+
+# Show overlay for Gemini output designated for user
+def show_overlay(text):
+    def open_overlay():
+        root = tk.Tk()
+        root.title("KiloBuddy")
+        root.geometry("1000x500+100+100")
+        root.attributes("-topmost", True)
+        root.overrideredirect(True)
+        root.configure(bg="#1e1e1e")
+        root.lift()
+        root.attributes("-alpha", 0.8)
+        
+        # Create a frame for the scrollable text
+        frame = tk.Frame(root, bg="#1e1e1e", relief=tk.FLAT, borderwidth=0)
+        frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+        
+        # Create text widget with scrollbar
+        text_widget = tk.Text(frame, 
+                             font=("Helvetica", 18), 
+                             fg="white", 
+                             bg="#2a2a2a", 
+                             wrap=tk.WORD,
+                             selectbackground="#4a4a4a",
+                             selectforeground="white",
+                             insertbackground="white",
+                             relief=tk.FLAT,
+                             borderwidth=0,
+                             highlightthickness=0)
+        
+        # Create scrollbar
+        scrollbar = tk.Scrollbar(frame, command=text_widget.yview, bg="#1e1e1e", troughcolor="#1e1e1e", 
+                                relief=tk.FLAT, borderwidth=0, highlightthickness=0)
+        text_widget.config(yscrollcommand=scrollbar.set)
+        
+        # Pack text widget and scrollbar
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Insert text and make it selectable but not editable
+        text_widget.insert(tk.END, text)
+        text_widget.config(state=tk.DISABLED)  # Prevents editing but allows selection
+        
+        # Add a close button or click-to-close functionality
+        def close_overlay(event=None):
+            root.destroy()
+        
+        # Double-click to close
+        text_widget.bind("<Double-Button-1>", close_overlay)
+        root.bind("<Escape>", close_overlay)
+        
+        root.after(len(text) * 15 + 5000, root.destroy)  # Extended time for reading
+        root.mainloop()
+
+    threading.Thread(target=open_overlay).start()
 
 # Main Method that controls KiloBuddy
 def main():
