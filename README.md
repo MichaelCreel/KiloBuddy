@@ -28,10 +28,11 @@ KiloBuddy is a powerful computer assitant to assist users in executing commands 
   - Sign in with your Google account
   - Click "Create API key"
   - Copy the API key when it generates
-2. Run `Installer.py`
-3. If it takes a bit to launch, have some patience
-4. Paste your API Key in the input field
-5. Click "Install"
+2. Download the KiloBuddy zip file from [Releases](https://github.com/MichaelCreel/KiloBuddy/releases)
+3. Run `Installer.py`
+4. If it takes a bit to launch, have some patience
+5. Paste your API Key in the input field
+6. Click "Install"
 
 ## Notes
 
