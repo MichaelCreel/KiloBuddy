@@ -338,6 +338,14 @@ def show_overlay(text):
     def open_overlay():
         root = tk.Tk()
         root.title("KiloBuddy")
+        
+        # Set window icon if icon.png exists
+        if os.path.exists("icon.png"):
+            try:
+                root.iconphoto(False, tk.PhotoImage(file="icon.png"))
+            except Exception:
+                pass  # If icon fails to load, continue without it
+        
         root.attributes("-topmost", True)
         root.overrideredirect(True)
         root.configure(bg="#1e1e1e")
