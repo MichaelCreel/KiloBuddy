@@ -338,20 +338,50 @@ def show_overlay(text):
     def open_overlay():
         root = tk.Tk()
         root.title("KiloBuddy")
-        root.geometry("1000x500+100+100")
         root.attributes("-topmost", True)
         root.overrideredirect(True)
         root.configure(bg="#1e1e1e")
         root.lift()
         root.attributes("-alpha", 0.8)
         
-        # Create a frame for the scrollable text
-        frame = tk.Frame(root, bg="#1e1e1e", relief=tk.FLAT, borderwidth=0)
-        frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+        max_width = 1000
+        max_height = 500
+        min_width = 1
+        min_height = 1
         
-        # Create text widget with scrollbar
+        lines = text.split('\n')
+        char_width = 8.5
+        line_height = 30
+        padding = 30
+        
+        max_line_chars = max(len(line) for line in lines) if lines else 10
+        ideal_width = min(max_line_chars * char_width + padding, max_width)
+        ideal_width = max(ideal_width, min_width)
+
+        chars_per_line = max(1, int((ideal_width - padding) / char_width))
+        total_lines = 0
+        
+        for line in lines:
+            if len(line) == 0:
+                total_lines += 1
+            else:
+                line_wrapped_count = max(1, (len(line) + chars_per_line - 1) // chars_per_line)
+                total_lines += line_wrapped_count
+
+        ideal_height = min(total_lines * line_height + padding, max_height)
+        ideal_height = max(ideal_height, min_height)  # Minimum reasonable height
+        
+        print(f"DEBUG: Text length: {len(text)}, Lines: {len(lines)}, Max line chars: {max_line_chars}")
+        print(f"DEBUG: Chars per line: {chars_per_line}, Total lines: {total_lines}")
+        print(f"DEBUG: Calculated size: {int(ideal_width)}x{int(ideal_height)}")
+        
+        root.geometry(f"{int(ideal_width)}x{int(ideal_height)}+100+100")
+        
+        frame = tk.Frame(root, bg="#1e1e1e", relief=tk.FLAT, borderwidth=0)
+        frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
         text_widget = tk.Text(frame, 
-                             font=("Helvetica", 18), 
+                             font=("Helvetica", 14), 
                              fg="white", 
                              bg="#2a2a2a", 
                              wrap=tk.WORD,
@@ -359,23 +389,25 @@ def show_overlay(text):
                              selectforeground="white",
                              insertbackground="white",
                              relief=tk.FLAT,
-                             borderwidth=0,
+                             borderwidth=1,
                              highlightthickness=0)
         
-        # Create scrollbar
-        scrollbar = tk.Scrollbar(frame, command=text_widget.yview, bg="#1e1e1e", troughcolor="#1e1e1e", 
-                                relief=tk.FLAT, borderwidth=0, highlightthickness=0)
-        text_widget.config(yscrollcommand=scrollbar.set)
+        # Only add scrollbar if content exceeds max height
+        needs_scrollbar = ideal_height >= max_height
         
-        # Pack text widget and scrollbar
-        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        if needs_scrollbar:
+            scrollbar = tk.Scrollbar(frame, command=text_widget.yview, bg="#1e1e1e", troughcolor="#1e1e1e", 
+                                    relief=tk.FLAT, borderwidth=0, highlightthickness=0)
+            text_widget.config(yscrollcommand=scrollbar.set)
+            
+            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        else:
+            text_widget.pack(fill=tk.BOTH, expand=True)
         
-        # Insert text and make it selectable but not editable
         text_widget.insert(tk.END, text)
-        text_widget.config(state=tk.DISABLED)  # Prevents editing but allows selection
+        text_widget.config(state=tk.DISABLED)
         
-        # Add a close button or click-to-close functionality
         def close_overlay(event=None):
             root.destroy()
         
@@ -383,7 +415,7 @@ def show_overlay(text):
         text_widget.bind("<Double-Button-1>", close_overlay)
         root.bind("<Escape>", close_overlay)
         
-        root.after(len(text) * 15 + 5000, root.destroy)  # Extended time for reading
+        root.after(len(text) * 15 + 5000, root.destroy)
         root.mainloop()
 
     threading.Thread(target=open_overlay).start()
