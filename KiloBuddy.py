@@ -8,6 +8,9 @@ import threading
 import time
 import subprocess
 import tkinter as tk
+from tkinter import messagebox
+import tempfile
+import atexit
 
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -379,10 +382,6 @@ def show_overlay(text):
         ideal_height = min(total_lines * line_height + padding, max_height)
         ideal_height = max(ideal_height, min_height)  # Minimum reasonable height
         
-        print(f"DEBUG: Text length: {len(text)}, Lines: {len(lines)}, Max line chars: {max_line_chars}")
-        print(f"DEBUG: Chars per line: {chars_per_line}, Total lines: {total_lines}")
-        print(f"DEBUG: Calculated size: {int(ideal_width)}x{int(ideal_height)}")
-        
         root.geometry(f"{int(ideal_width)}x{int(ideal_height)}+100+100")
         
         frame = tk.Frame(root, bg="#1e1e1e", relief=tk.FLAT, borderwidth=0)
@@ -428,6 +427,119 @@ def show_overlay(text):
 
     threading.Thread(target=open_overlay).start()
 
+# Dashboard for KiloBuddy
+class KiloBuddyDashboard:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("KiloBuddy")
+        self.root.geometry("900x900")
+        self.root.configure(bg="#1e1e1e")
+
+        if os.path.exists("icon.png"):
+            try:
+                self.root.iconphoto(False, tk.PhotoImage(file="icon.png"))
+            except Exception:
+                pass
+        
+        self.setup_ui()
+        
+    def setup_ui(self):
+        title = tk.Label(self.root, text="KiloBuddy", 
+                        font=("Helvetica", 24, "bold"), 
+                        fg="white", bg="#1e1e1e")
+        title.pack(pady=20)
+
+        output_frame = tk.Frame(self.root, bg="#2a2a2a", relief=tk.RAISED, bd=1)
+        output_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        tk.Label(output_frame, text="Last Output", font=("Helvetica", 16, "bold"), 
+                fg="white", bg="#2a2a2a").pack(pady=10)
+
+        text_frame = tk.Frame(output_frame, bg="#2a2a2a")
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        self.output_text = tk.Text(text_frame, font=("Helvetica", 10), 
+                                  fg="white", bg="#1e1e1e", 
+                                  wrap=tk.WORD, state=tk.DISABLED,
+                                  relief=tk.FLAT, borderwidth=0)
+        
+        scrollbar = tk.Scrollbar(text_frame, command=self.output_text.yview, 
+                                bg="#1e1e1e", troughcolor="#1e1e1e")
+        self.output_text.config(yscrollcommand=scrollbar.set)
+        
+        self.output_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.update_output_display()
+
+        button_frame = tk.Frame(self.root, bg="#1e1e1e")
+        button_frame.pack(fill=tk.X, padx=20, pady=20)
+
+        refresh_btn = tk.Button(button_frame, text="Refresh Output", 
+                              command=self.update_output_display,
+                              bg="#4CAF50", fg="white", font=("Helvetica", 12),
+                              relief=tk.FLAT, padx=20, pady=10)
+        refresh_btn.pack(side=tk.LEFT, padx=(0, 10))
+
+        quit_btn = tk.Button(button_frame, text="Quit KiloBuddy", 
+                           command=self.quit_kilobuddy,
+                           bg="#f44336", fg="white", font=("Helvetica", 12),
+                           relief=tk.FLAT, padx=20, pady=10)
+        quit_btn.pack(side=tk.RIGHT)
+        
+    def update_output_display(self):
+        self.output_text.config(state=tk.NORMAL)
+        self.output_text.delete(1.0, tk.END)
+        
+        if LAST_GEMINI_OUTPUT:
+            self.output_text.insert(tk.END, LAST_GEMINI_OUTPUT)
+        else:
+            self.output_text.insert(tk.END, "No output yet. Try saying a command to KiloBuddy!")
+            
+        self.output_text.config(state=tk.DISABLED)
+        
+    def quit_kilobuddy(self):
+        result = tk.messagebox.askyesno("Quit KiloBuddy", 
+                                       "Are you sure you want to quit KiloBuddy?\n\nThis will stop the voice assistant.")
+        if result:
+            lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
+            if os.path.exists(lock_file):
+                try:
+                    os.remove(lock_file)
+                except:
+                    pass
+
+            self.root.destroy()
+
+            os._exit(0)
+    
+    def run(self):
+        self.root.mainloop()
+
+# Check if KiloBuddy is already running
+def is_kilobuddy_running():
+    lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
+    return os.path.exists(lock_file)
+
+def create_lock_file():
+    lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
+    with open(lock_file, 'w') as f:
+        f.write(str(os.getpid()))
+
+    atexit.register(cleanup_lock_file)
+
+def cleanup_lock_file():
+    lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
+    if os.path.exists(lock_file):
+        try:
+            os.remove(lock_file)
+        except:
+            pass
+
+def show_dashboard():
+    dashboard = KiloBuddyDashboard()
+    dashboard.run()
+
 # Main Method that controls KiloBuddy
 def main():
     initialize()
@@ -461,5 +573,10 @@ def main():
         print("\nKiloBuddy Shutting Down...")
 
 if __name__ == "__main__":
-    print("KiloBuddy Launching...")
-    main()
+    if is_kilobuddy_running():
+        print("Opening dashboard...")
+        show_dashboard()
+    else:
+        print("Launching KiloBuddy...")
+        create_lock_file()
+        main()
