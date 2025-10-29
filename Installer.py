@@ -140,7 +140,7 @@ def create_linux_shortcuts(install_dir):
     
     # Create .desktop file content
     desktop_content = f"""[Desktop Entry]
-Version=0.1
+Version=0.2
 Type=Application
 Name=KiloBuddy
 Comment=AI Voice Assistant
