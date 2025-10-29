@@ -18,7 +18,7 @@ PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded 
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
-LAST_GEMINI_OUTPUT = "" # Store the last output by Gemini that was designated for the user
+LAST_GEMINI_OUTPUT = "No previous output." # Store the last output by Gemini that was designated for the user
 
 # Initialize Necessary Variables
 def initialize():
@@ -399,7 +399,6 @@ def show_overlay(text):
                              borderwidth=1,
                              highlightthickness=0)
         
-        # Only add scrollbar if content exceeds max height
         needs_scrollbar = ideal_height >= max_height
         
         if needs_scrollbar:
@@ -432,7 +431,7 @@ class KiloBuddyDashboard:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("KiloBuddy")
-        self.root.geometry("900x900")
+        self.root.geometry("1100x1100")
         self.root.configure(bg="#1e1e1e")
 
         if os.path.exists("icon.png"):
@@ -444,16 +443,29 @@ class KiloBuddyDashboard:
         self.setup_ui()
         
     def setup_ui(self):
-        title = tk.Label(self.root, text="KiloBuddy", 
-                        font=("Helvetica", 24, "bold"), 
-                        fg="white", bg="#1e1e1e")
-        title.pack(pady=20)
+        button_frame = tk.Frame(self.root, bg="#1e1e1e")
+        button_frame.pack(fill=tk.X, padx=20, pady=20)
+
+
+        self.status_label = tk.Label(button_frame, text="Status: Waiting...", 
+                                    fg="#8A8A8A", bg="#1e1e1e", font=("Helvetica", 12))
+        self.status_label.pack(side=tk.LEFT)
+
+        quit_btn = tk.Button(button_frame, text="Quit KiloBuddy", 
+                           command=self.quit_kilobuddy,
+                           bg="#f44336", fg="white", font=("Helvetica", 12),
+                           relief=tk.FLAT, padx=20, pady=10)
+        quit_btn.pack(side=tk.RIGHT)
 
         output_frame = tk.Frame(self.root, bg="#2a2a2a", relief=tk.RAISED, bd=1)
         output_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
-        tk.Label(output_frame, text="Last Output", font=("Helvetica", 16, "bold"), 
-                fg="white", bg="#2a2a2a").pack(pady=10)
+
+        header_frame = tk.Frame(output_frame, bg="#2a2a2a")
+        header_frame.pack(fill=tk.X, pady=10)
+        
+        tk.Label(header_frame, text="Response", font=("Helvetica", 16, "bold"), 
+                fg="white", bg="#2a2a2a").pack(side=tk.LEFT, padx=10)
 
         text_frame = tk.Frame(output_frame, bg="#2a2a2a")
         text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -472,20 +484,33 @@ class KiloBuddyDashboard:
 
         self.update_output_display()
 
-        button_frame = tk.Frame(self.root, bg="#1e1e1e")
-        button_frame.pack(fill=tk.X, padx=20, pady=20)
+        input_frame = tk.Frame(self.root, bg="#2a2a2a", relief=tk.RAISED, bd=1)
+        input_frame.pack(fill=tk.X, padx=20, pady=10)
+        
+        input_container = tk.Frame(input_frame, bg="#2a2a2a")
+        input_container.pack(fill=tk.X, padx=10, pady=10)
+        
 
-        refresh_btn = tk.Button(button_frame, text="Refresh Output", 
-                              command=self.update_output_display,
-                              bg="#4CAF50", fg="white", font=("Helvetica", 12),
-                              relief=tk.FLAT, padx=20, pady=10)
-        refresh_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.command_entry = tk.Entry(input_container, font=("Helvetica", 12), 
+                                     fg="white", bg="#1e1e1e", 
+                                     insertbackground="white", relief=tk.FLAT, bd=5)
+        self.command_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        
+        self.placeholder_text = "Enter Command..."
+        self.showing_placeholder = True
+        self.command_entry.insert(0, self.placeholder_text)
+        self.command_entry.config(fg="#888888")
 
-        quit_btn = tk.Button(button_frame, text="Quit KiloBuddy", 
-                           command=self.quit_kilobuddy,
-                           bg="#f44336", fg="white", font=("Helvetica", 12),
-                           relief=tk.FLAT, padx=20, pady=10)
-        quit_btn.pack(side=tk.RIGHT)
+        self.command_entry.bind('<FocusIn>', self.on_entry_focus_in)
+        self.command_entry.bind('<FocusOut>', self.on_entry_focus_out)
+        
+        send_btn = tk.Button(input_container, text="Send", 
+                           command=self.send_command,
+                           bg="#2196F3", fg="white", font=("Helvetica", 12),
+                           relief=tk.FLAT, padx=20, pady=5)
+        send_btn.pack(side=tk.RIGHT)
+        
+        self.command_entry.bind('<Return>', lambda event: self.send_command())
         
     def update_output_display(self):
         self.output_text.config(state=tk.NORMAL)
@@ -494,13 +519,73 @@ class KiloBuddyDashboard:
         if LAST_GEMINI_OUTPUT:
             self.output_text.insert(tk.END, LAST_GEMINI_OUTPUT)
         else:
-            self.output_text.insert(tk.END, "No output yet. Try saying a command to KiloBuddy!")
+            self.output_text.insert(tk.END, "No response yet. Try sending a command...")
             
         self.output_text.config(state=tk.DISABLED)
         
+    def on_entry_focus_in(self, event):
+        if self.showing_placeholder:
+            self.command_entry.delete(0, tk.END)
+            self.command_entry.config(fg="white")
+            self.showing_placeholder = False
+    
+    def on_entry_focus_out(self, event):
+        if not self.command_entry.get():
+            self.command_entry.insert(0, self.placeholder_text)
+            self.command_entry.config(fg="#888888")
+            self.showing_placeholder = True
+    
+    def send_command(self):
+        command = self.command_entry.get()
+        if command and not self.showing_placeholder:
+            self.command_entry.delete(0, tk.END)
+            self.root.focus()
+            
+            self.status_label.config(text="Status: Processing...", fg="#FF9800")
+            self.root.update()
+            
+            import threading
+            thread = threading.Thread(target=self.process_command_async, args=(command,))
+            thread.daemon = True
+            thread.start()
+    
+    def process_command_async(self, command):
+        try:
+            process_command(command)
+            
+            self.root.after(0, lambda: self.status_label.config(text="Status: Complete", fg="#4CAF50"))
+            
+            self.root.after(0, self.update_output_with_latest_response)
+            
+        except Exception as e:
+            error_msg = f"Error processing command: {str(e)}"
+            self.root.after(0, self.update_output_with_response, error_msg)
+            self.root.after(0, lambda: self.status_label.config(text="Status: Error", fg="#F44336"))
+    
+    def update_output_with_response(self, text):
+        global LAST_GEMINI_OUTPUT
+        LAST_GEMINI_OUTPUT = text
+        
+        self.output_text.config(state=tk.NORMAL)
+        self.output_text.delete(1.0, tk.END)
+        self.output_text.insert(1.0, text)
+        self.output_text.config(state=tk.DISABLED)
+        self.output_text.see(1.0)
+    
+    def update_output_with_latest_response(self):
+        global LAST_GEMINI_OUTPUT
+        
+        self.output_text.config(state=tk.NORMAL)
+        self.output_text.delete(1.0, tk.END)
+        if LAST_GEMINI_OUTPUT:
+            self.output_text.insert(1.0, LAST_GEMINI_OUTPUT)
+        else:
+            self.output_text.insert(1.0, "No response available.")
+        self.output_text.config(state=tk.DISABLED)
+        self.output_text.see(1.0)
+        
     def quit_kilobuddy(self):
-        result = tk.messagebox.askyesno("Quit KiloBuddy", 
-                                       "Are you sure you want to quit KiloBuddy?\n\nThis will stop the voice assistant.")
+        result = tk.messagebox.askyesno("Quit KiloBuddy", "Are you sure you want to quit KiloBuddy?\n\nThis will stop the voice assistant.")
         if result:
             lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
             if os.path.exists(lock_file):
@@ -516,7 +601,6 @@ class KiloBuddyDashboard:
     def run(self):
         self.root.mainloop()
 
-# Check if KiloBuddy is already running
 def is_kilobuddy_running():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
     return os.path.exists(lock_file)
@@ -537,6 +621,7 @@ def cleanup_lock_file():
             pass
 
 def show_dashboard():
+    initialize()
     dashboard = KiloBuddyDashboard()
     dashboard.run()
 
