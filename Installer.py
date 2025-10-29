@@ -5,7 +5,7 @@ import os
 import platform
 import shutil
 
-REQUIRED_PACKAGES = ["speechrecognition", "google-generativeai", "pyaudio"]
+REQUIRED_PACKAGES = ["speechrecognition", "google-generativeai", "pyaudio", "tk"]
 
 # Remove old installation if exists
 def remove_old_installation(install_dir):
@@ -32,7 +32,7 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word']
+    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png']
     for file in current_files:
         if os.path.exists(file):
             dest_path = os.path.join(install_dir, file)
@@ -136,6 +136,7 @@ def create_linux_shortcuts(install_dir):
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     python_path = os.path.join(venv_path, "bin", "python")
     kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")
+    icon_path = os.path.join(install_dir, "icon.png")
     
     # Create .desktop file content
     desktop_content = f"""[Desktop Entry]
@@ -144,7 +145,7 @@ Type=Application
 Name=KiloBuddy
 Comment=AI Voice Assistant
 Exec={python_path} {kilobuddy_script}
-Icon=audio-input-microphone
+Icon={icon_path}
 Path={install_dir}
 Terminal=true
 StartupNotify=true
@@ -343,6 +344,13 @@ def run_gui_installer():
     root.title("KiloBuddy Installer")
     root.geometry("800x650")
     root.configure(bg="#190c3a")
+    
+    # Set installer window icon if icon.png exists
+    if os.path.exists("icon.png"):
+        try:
+            root.iconphoto(False, tk.PhotoImage(file="icon.png"))
+        except Exception:
+            pass  # If icon fails to load, continue without it
 
     title = tk.Label(root, text="Install KiloBuddy", font=("Helvetica", 32), fg="white", bg="#190c3a")
     title.pack(pady=20)

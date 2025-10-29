@@ -7,6 +7,7 @@ import google.generativeai as genai
 import threading
 import time
 import subprocess
+import tkinter as tk
 
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -256,6 +257,7 @@ def process_response(response):
         # Store the output in the global variable
         LAST_GEMINI_OUTPUT = user_output
         print(f"\n=== KiloBuddy Output ===\n{user_output}\n========================\n")
+        show_overlay(user_output)
     
     if todo_list:
         print(f"Found {len(todo_list)} todo items")
@@ -330,6 +332,101 @@ def format_todo_list(todo_list):
         lines.append(f"[{step_num}] {command} # {executor} --- {status}")
     lines.append("<<")
     return "\n".join(lines)
+
+# Show overlay for Gemini output designated for user
+def show_overlay(text):
+    def open_overlay():
+        root = tk.Tk()
+        root.title("KiloBuddy")
+        
+        # Set window icon if icon.png exists
+        if os.path.exists("icon.png"):
+            try:
+                root.iconphoto(False, tk.PhotoImage(file="icon.png"))
+            except Exception:
+                pass  # If icon fails to load, continue without it
+        
+        root.attributes("-topmost", True)
+        root.overrideredirect(True)
+        root.configure(bg="#1e1e1e")
+        root.lift()
+        root.attributes("-alpha", 0.8)
+        
+        max_width = 1000
+        max_height = 500
+        min_width = 1
+        min_height = 1
+        
+        lines = text.split('\n')
+        char_width = 8.5
+        line_height = 30
+        padding = 30
+        
+        max_line_chars = max(len(line) for line in lines) if lines else 10
+        ideal_width = min(max_line_chars * char_width + padding, max_width)
+        ideal_width = max(ideal_width, min_width)
+
+        chars_per_line = max(1, int((ideal_width - padding) / char_width))
+        total_lines = 0
+        
+        for line in lines:
+            if len(line) == 0:
+                total_lines += 1
+            else:
+                line_wrapped_count = max(1, (len(line) + chars_per_line - 1) // chars_per_line)
+                total_lines += line_wrapped_count
+
+        ideal_height = min(total_lines * line_height + padding, max_height)
+        ideal_height = max(ideal_height, min_height)  # Minimum reasonable height
+        
+        print(f"DEBUG: Text length: {len(text)}, Lines: {len(lines)}, Max line chars: {max_line_chars}")
+        print(f"DEBUG: Chars per line: {chars_per_line}, Total lines: {total_lines}")
+        print(f"DEBUG: Calculated size: {int(ideal_width)}x{int(ideal_height)}")
+        
+        root.geometry(f"{int(ideal_width)}x{int(ideal_height)}+100+100")
+        
+        frame = tk.Frame(root, bg="#1e1e1e", relief=tk.FLAT, borderwidth=0)
+        frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        text_widget = tk.Text(frame, 
+                             font=("Helvetica", 14), 
+                             fg="white", 
+                             bg="#2a2a2a", 
+                             wrap=tk.WORD,
+                             selectbackground="#4a4a4a",
+                             selectforeground="white",
+                             insertbackground="white",
+                             relief=tk.FLAT,
+                             borderwidth=1,
+                             highlightthickness=0)
+        
+        # Only add scrollbar if content exceeds max height
+        needs_scrollbar = ideal_height >= max_height
+        
+        if needs_scrollbar:
+            scrollbar = tk.Scrollbar(frame, command=text_widget.yview, bg="#1e1e1e", troughcolor="#1e1e1e", 
+                                    relief=tk.FLAT, borderwidth=0, highlightthickness=0)
+            text_widget.config(yscrollcommand=scrollbar.set)
+            
+            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        else:
+            text_widget.pack(fill=tk.BOTH, expand=True)
+        
+        text_widget.insert(tk.END, text)
+        text_widget.config(state=tk.DISABLED)
+        
+        def close_overlay(event=None):
+            root.destroy()
+        
+        # Double-click to close
+        text_widget.bind("<Double-Button-1>", close_overlay)
+        root.bind("<Escape>", close_overlay)
+        
+        root.after(len(text) * 15 + 5000, root.destroy)
+        root.mainloop()
+
+    threading.Thread(target=open_overlay).start()
 
 # Main Method that controls KiloBuddy
 def main():
