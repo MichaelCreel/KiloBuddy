@@ -70,7 +70,7 @@ def load_app_version():
     global VERSION
     try:
         with open(get_source_path("version"), "r") as f:
-            version = f.read().strip().lower()
+            version = f.read().strip()
             if version == "null" or version == "" or version == "none":
                 print(f"Version not found")
             else:
@@ -611,6 +611,20 @@ class KiloBuddyDashboard:
     def run(self):
         self.root.mainloop()
 
+def normalize_version(version):
+    return version.lower().lstrip('v')
+
+def is_newer_version(current, latest):
+    try:
+        current_norm = normalize_version(current)
+        latest_norm = normalize_version(latest)
+
+        if current_norm != latest_norm:
+            return True
+        return False
+    except:
+        return False
+
 def is_kilobuddy_running():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
     return os.path.exists(lock_file)
@@ -638,15 +652,32 @@ def show_dashboard():
 # Check for updates
 def check_for_updates():
     global VERSION
-    url = "https://api.github.com/repos/MichaelCreel/KiloBuddy/releases/latest"
+    url = "https://api.github.com/repos/MichaelCreel/KiloBuddy/releases"
     try:
         response = reqs.get(url, timeout=20)
         if response.status_code == 200:
-            data = response.json()
-            latest_version = data["tag_name"]
-            return latest_version
+            releases = response.json()
+            if releases:
+                latest_release = releases[0]
+                latest_version = latest_release["tag_name"]
+                is_prerelease = latest_release["prerelease"]
+                release_type = "pre-release" if is_prerelease else "stable release"
+                print(f"Latest Version: {latest_version} ({release_type}), Current Version: {VERSION}")
+                
+                if is_newer_version(VERSION, latest_version):
+                    print(f"Update available: {release_type} - {latest_version}")
+                    return latest_version
+                else:
+                    print("Latest version installed.")
+                    return None
+            else:
+                print("No releases found on GitHub repository.")
+                return None
+        elif response.status_code == 404:
+            print("No releases found on GitHub repository.")
+            return None
         else:
-            print("Failed to check for updates.")
+            print(f"Failed to check for updates. Status code: {response.status_code}")
             return None
     except Exception as e:
         print(f"Error checking for updates: {e}")
