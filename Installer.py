@@ -5,7 +5,7 @@ import os
 import platform
 import shutil
 
-REQUIRED_PACKAGES = ["speechrecognition", "google-generativeai", "pyaudio", "tk"]
+REQUIRED_PACKAGES = ["speechrecognition", "google-generativeai", "pyaudio", "tk", "requests"]
 
 # Remove old installation if exists
 def remove_old_installation(install_dir):
@@ -32,7 +32,7 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png']
+    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version']
     for file in current_files:
         if os.path.exists(file):
             dest_path = os.path.join(install_dir, file)
