@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import messagebox
 import tempfile
 import atexit
+import requests as reqs
 
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -19,6 +20,7 @@ WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from w
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
 LAST_GEMINI_OUTPUT = "No previous output..." # Store the last output by Gemini that was designated for the user
+VERSION = "v0.0"
 
 # Initialize Necessary Variables
 def initialize():
@@ -27,6 +29,8 @@ def initialize():
     load_prompt()
     load_wake_word()
     load_os_version()
+    load_app_version()
+    check_for_updates()
     print("KiloBuddy Initialized.")
 
 # Auto-detect operating system
@@ -60,6 +64,22 @@ def detect_os():
             return "windows"
     else:
         return "unknown"
+
+# Load App Version from file
+def load_app_version():
+    global VERSION
+    try:
+        with open(get_source_path("version"), "r") as f:
+            version = f.read().strip().lower()
+            if version == "null" or version == "" or version == "none":
+                print(f"Version not found")
+            else:
+                VERSION = version
+                print(f"Loaded Version: {VERSION}")
+    except FileNotFoundError:
+        print(f"Version file not found")
+    except Exception as e:
+        print(f"Error loading version: {e}")
 
 # Load Operating System Version from file
 def load_os_version():
@@ -614,6 +634,23 @@ def show_dashboard():
     initialize()
     dashboard = KiloBuddyDashboard()
     dashboard.run()
+
+# Check for updates
+def check_for_updates():
+    global VERSION
+    url = "https://api.github.com/repos/MichaelCreel/KiloBuddy/releases/latest"
+    try:
+        response = reqs.get(url, timeout=20)
+        if response.status_code == 200:
+            data = response.json()
+            latest_version = data["tag_name"]
+            return latest_version
+        else:
+            print("Failed to check for updates.")
+            return None
+    except Exception as e:
+        print(f"Error checking for updates: {e}")
+        return None
 
 # Main Method that controls KiloBuddy
 def main():
