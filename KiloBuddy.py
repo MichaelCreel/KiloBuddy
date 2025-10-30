@@ -429,10 +429,14 @@ def show_overlay(text):
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
     def __init__(self):
+        self.background_color = "#0B3147"
+        self.frame_color = "#004D77"
+        self.border_color = "#145172"
+        
         self.root = tk.Tk()
         self.root.title("KiloBuddy")
         self.root.geometry("1100x1100")
-        self.root.configure(bg="#1e1e1e")
+        self.root.configure(bg=self.background_color)
 
         if os.path.exists("icon.png"):
             try:
@@ -443,40 +447,31 @@ class KiloBuddyDashboard:
         self.setup_ui()
         
     def setup_ui(self):
-        button_frame = tk.Frame(self.root, bg="#1e1e1e")
+        button_frame = tk.Frame(self.root, bg=self.background_color)
         button_frame.pack(fill=tk.X, padx=20, pady=20)
 
 
-        self.status_label = tk.Label(button_frame, text="Status: Waiting...", 
-                                    fg="#8A8A8A", bg="#1e1e1e", font=("Helvetica", 12))
+        self.status_label = tk.Label(button_frame, text="Status: Waiting...", fg="#8A8A8A", bg=self.background_color, font=("Helvetica", 12))
         self.status_label.pack(side=tk.LEFT)
 
-        quit_btn = tk.Button(button_frame, text="Quit KiloBuddy", 
-                           command=self.quit_kilobuddy,
-                           bg="#f44336", fg="white", font=("Helvetica", 12),
-                           relief=tk.FLAT, padx=20, pady=10)
+        quit_btn = tk.Button(button_frame, text="Quit KiloBuddy", command=self.quit_kilobuddy, bg="#f44336", fg="white", font=("Helvetica", 12), relief=tk.FLAT, padx=20, pady=10)
         quit_btn.pack(side=tk.RIGHT)
 
-        output_frame = tk.Frame(self.root, bg="#2a2a2a", relief=tk.RAISED, bd=1)
+        output_frame = tk.Frame(self.root, bg=self.frame_color, relief=tk.RAISED, bd=2, highlightbackground=self.border_color, highlightthickness=2)
         output_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
 
-        header_frame = tk.Frame(output_frame, bg="#2a2a2a")
+        header_frame = tk.Frame(output_frame, bg=self.frame_color)
         header_frame.pack(fill=tk.X, pady=10)
         
-        tk.Label(header_frame, text="Response", font=("Helvetica", 16, "bold"), 
-                fg="white", bg="#2a2a2a").pack(side=tk.LEFT, padx=10)
+        tk.Label(header_frame, text="Response", font=("Helvetica", 16, "bold"), fg="white", bg=self.frame_color).pack(side=tk.LEFT, padx=10)
 
-        text_frame = tk.Frame(output_frame, bg="#2a2a2a")
+        text_frame = tk.Frame(output_frame, bg=self.frame_color)
         text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        self.output_text = tk.Text(text_frame, font=("Helvetica", 10), 
-                                  fg="white", bg="#1e1e1e", 
-                                  wrap=tk.WORD, state=tk.DISABLED,
-                                  relief=tk.FLAT, borderwidth=0)
+        self.output_text = tk.Text(text_frame, font=("Helvetica", 10), fg="white", bg=self.background_color, wrap=tk.WORD, state=tk.DISABLED, relief=tk.FLAT, borderwidth=0)
         
-        scrollbar = tk.Scrollbar(text_frame, command=self.output_text.yview, 
-                                bg="#1e1e1e", troughcolor="#1e1e1e")
+        scrollbar = tk.Scrollbar(text_frame, command=self.output_text.yview, bg=self.background_color, troughcolor=self.background_color)
         self.output_text.config(yscrollcommand=scrollbar.set)
         
         self.output_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -484,16 +479,14 @@ class KiloBuddyDashboard:
 
         self.update_output_display()
 
-        input_frame = tk.Frame(self.root, bg="#2a2a2a", relief=tk.RAISED, bd=1)
+        input_frame = tk.Frame(self.root, bg=self.frame_color, relief=tk.RAISED, bd=2, highlightbackground=self.border_color, highlightthickness=2)
         input_frame.pack(fill=tk.X, padx=20, pady=10)
         
-        input_container = tk.Frame(input_frame, bg="#2a2a2a")
+        input_container = tk.Frame(input_frame, bg=self.frame_color)
         input_container.pack(fill=tk.X, padx=10, pady=10)
         
 
-        self.command_entry = tk.Entry(input_container, font=("Helvetica", 12), 
-                                     fg="white", bg="#1e1e1e", 
-                                     insertbackground="white", relief=tk.FLAT, bd=5)
+        self.command_entry = tk.Entry(input_container, font=("Helvetica", 12), fg="white", bg=self.background_color, insertbackground="white", relief=tk.FLAT, bd=5)
         self.command_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         
         self.placeholder_text = "Enter Command..."
@@ -504,10 +497,7 @@ class KiloBuddyDashboard:
         self.command_entry.bind('<FocusIn>', self.on_entry_focus_in)
         self.command_entry.bind('<FocusOut>', self.on_entry_focus_out)
         
-        send_btn = tk.Button(input_container, text="Send", 
-                           command=self.send_command,
-                           bg="#2196F3", fg="white", font=("Helvetica", 12),
-                           relief=tk.FLAT, padx=20, pady=5)
+        send_btn = tk.Button(input_container, text="Send", command=self.send_command, bg="#2196F3", fg="white", font=("Helvetica", 12), relief=tk.FLAT, padx=20, pady=5)
         send_btn.pack(side=tk.RIGHT)
         
         self.command_entry.bind('<Return>', lambda event: self.send_command())
