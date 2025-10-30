@@ -18,7 +18,7 @@ PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded 
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
-LAST_GEMINI_OUTPUT = "No previous output." # Store the last output by Gemini that was designated for the user
+LAST_GEMINI_OUTPUT = "No previous output..." # Store the last output by Gemini that was designated for the user
 
 # Initialize Necessary Variables
 def initialize():
@@ -469,7 +469,7 @@ class KiloBuddyDashboard:
         text_frame = tk.Frame(output_frame, bg=self.frame_color)
         text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        self.output_text = tk.Text(text_frame, font=("Helvetica", 10), fg="white", bg=self.background_color, wrap=tk.WORD, state=tk.DISABLED, relief=tk.FLAT, borderwidth=0)
+        self.output_text = tk.Text(text_frame, font=("Helvetica", 10), fg="white", bg=self.background_color, wrap=tk.WORD, state=tk.DISABLED, relief=tk.FLAT, borderwidth=0, height=15)
         
         scrollbar = tk.Scrollbar(text_frame, command=self.output_text.yview, bg=self.background_color, troughcolor=self.background_color)
         self.output_text.config(yscrollcommand=scrollbar.set)
