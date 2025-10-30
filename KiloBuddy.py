@@ -12,6 +12,7 @@ from tkinter import messagebox
 import tempfile
 import atexit
 import requests as reqs
+import customtkinter as ctk
 
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -449,14 +450,24 @@ def show_overlay(text):
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
     def __init__(self):
-        self.background_color = "#0B3147"
-        self.frame_color = "#004D77"
-        self.border_color = "#145172"
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
         
-        self.root = tk.Tk()
+        self.background_color = "#0B3147"
+        self.frame_color = "#1D4E89"
+        self.border_color = "#2E86C1"
+        
+        # Font size variables
+        self.status_font_size = 24
+        self.button_font_size = 24
+        self.header_font_size = 38
+        self.text_font_size = 24
+        self.input_font_size = 24
+
+        self.root = ctk.CTk()
         self.root.title("KiloBuddy")
-        self.root.geometry("1100x1100")
-        self.root.configure(bg=self.background_color)
+        self.root.geometry("1100x1000")
+        self.root.configure(fg_color=self.background_color)
 
         if os.path.exists("icon.png"):
             try:
@@ -467,91 +478,60 @@ class KiloBuddyDashboard:
         self.setup_ui()
         
     def setup_ui(self):
-        button_frame = tk.Frame(self.root, bg=self.background_color)
-        button_frame.pack(fill=tk.X, padx=20, pady=20)
+        button_frame = ctk.CTkFrame(self.root, fg_color="transparent")
+        button_frame.pack(fill="x", padx=20, pady=20)
 
+        self.status_label = ctk.CTkLabel(button_frame, text="Status: Waiting...", text_color="#8A8A8A", font=ctk.CTkFont(size=self.status_font_size))
+        self.status_label.pack(side="left")
 
-        self.status_label = tk.Label(button_frame, text="Status: Waiting...", fg="#8A8A8A", bg=self.background_color, font=("Helvetica", 12))
-        self.status_label.pack(side=tk.LEFT)
+        quit_btn = ctk.CTkButton(button_frame, text="Quit KiloBuddy", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(size=self.button_font_size), width=140, height=35)
+        quit_btn.pack(side="right")
 
-        quit_btn = tk.Button(button_frame, text="Quit KiloBuddy", command=self.quit_kilobuddy, bg="#f44336", fg="white", font=("Helvetica", 12), relief=tk.FLAT, padx=20, pady=10)
-        quit_btn.pack(side=tk.RIGHT)
+        output_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
+        output_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-        output_frame = tk.Frame(self.root, bg=self.frame_color, relief=tk.RAISED, bd=2, highlightbackground=self.border_color, highlightthickness=2)
-        output_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        header_frame = ctk.CTkFrame(output_frame, fg_color="transparent")
+        header_frame.pack(fill="x", pady=10, padx=15)
         
+        response_label = ctk.CTkLabel(header_frame, text="Response", font=ctk.CTkFont(size=self.header_font_size, weight="bold"), text_color="white")
+        response_label.pack(side="left")
 
-        header_frame = tk.Frame(output_frame, bg=self.frame_color)
-        header_frame.pack(fill=tk.X, pady=10)
+        text_frame = ctk.CTkFrame(output_frame, fg_color="transparent")
+        text_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
         
-        tk.Label(header_frame, text="Response", font=("Helvetica", 16, "bold"), fg="white", bg=self.frame_color).pack(side=tk.LEFT, padx=10)
-
-        text_frame = tk.Frame(output_frame, bg=self.frame_color)
-        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        self.output_text = tk.Text(text_frame, font=("Helvetica", 10), fg="white", bg=self.background_color, wrap=tk.WORD, state=tk.DISABLED, relief=tk.FLAT, borderwidth=0, height=15)
-        
-        scrollbar = tk.Scrollbar(text_frame, command=self.output_text.yview, bg=self.background_color, troughcolor=self.background_color)
-        self.output_text.config(yscrollcommand=scrollbar.set)
-        
-        self.output_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=10, height=300)
+        self.output_text.pack(fill="both", expand=True)
 
         self.update_output_display()
 
-        input_frame = tk.Frame(self.root, bg=self.frame_color, relief=tk.RAISED, bd=2, highlightbackground=self.border_color, highlightthickness=2)
-        input_frame.pack(fill=tk.X, padx=20, pady=10)
+        input_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
+        input_frame.pack(fill="x", padx=20, pady=10)
         
-        input_container = tk.Frame(input_frame, bg=self.frame_color)
-        input_container.pack(fill=tk.X, padx=10, pady=10)
-        
+        input_container = ctk.CTkFrame(input_frame, fg_color="transparent")
+        input_container.pack(fill="x", padx=15, pady=15)
 
-        self.command_entry = tk.Entry(input_container, font=("Helvetica", 12), fg="white", bg=self.background_color, insertbackground="white", relief=tk.FLAT, bd=5)
-        self.command_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
-        
-        self.placeholder_text = "Enter Command..."
-        self.showing_placeholder = True
-        self.command_entry.insert(0, self.placeholder_text)
-        self.command_entry.config(fg="#888888")
+        self.command_entry = ctk.CTkEntry(input_container, font=ctk.CTkFont(size=self.input_font_size), fg_color=self.background_color, text_color="white", placeholder_text="Enter Command...", placeholder_text_color="#888888", corner_radius=10, height=40)
+        self.command_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        self.command_entry.bind('<FocusIn>', self.on_entry_focus_in)
-        self.command_entry.bind('<FocusOut>', self.on_entry_focus_out)
-        
-        send_btn = tk.Button(input_container, text="Send", command=self.send_command, bg="#2196F3", fg="white", font=("Helvetica", 12), relief=tk.FLAT, padx=20, pady=5)
-        send_btn.pack(side=tk.RIGHT)
+        send_btn = ctk.CTkButton(input_container, text="Send", command=self.send_command, fg_color="#2196F3", hover_color="#1976D2", font=ctk.CTkFont(size=self.input_font_size), width=100, height=40, corner_radius=10)
+        send_btn.pack(side="right")
         
         self.command_entry.bind('<Return>', lambda event: self.send_command())
         
     def update_output_display(self):
-        self.output_text.config(state=tk.NORMAL)
-        self.output_text.delete(1.0, tk.END)
-        
         if LAST_GEMINI_OUTPUT:
-            self.output_text.insert(tk.END, LAST_GEMINI_OUTPUT)
+            self.output_text.delete("0.0", "end")
+            self.output_text.insert("0.0", LAST_GEMINI_OUTPUT)
         else:
-            self.output_text.insert(tk.END, "No response yet. Try sending a command...")
-            
-        self.output_text.config(state=tk.DISABLED)
-        
-    def on_entry_focus_in(self, event):
-        if self.showing_placeholder:
-            self.command_entry.delete(0, tk.END)
-            self.command_entry.config(fg="white")
-            self.showing_placeholder = False
-    
-    def on_entry_focus_out(self, event):
-        if not self.command_entry.get():
-            self.command_entry.insert(0, self.placeholder_text)
-            self.command_entry.config(fg="#888888")
-            self.showing_placeholder = True
+            self.output_text.delete("0.0", "end")
+            self.output_text.insert("0.0", "No response yet. Try sending a command...")
     
     def send_command(self):
         command = self.command_entry.get()
-        if command and not self.showing_placeholder:
-            self.command_entry.delete(0, tk.END)
-            self.root.focus()
+        if command and command.strip():
+            self.command_entry.delete(0, "end")
             
-            self.status_label.config(text="Status: Processing...", fg="#FF9800")
+            self.status_label.configure(text="Status: Processing...", text_color="#FF9800")
             self.root.update()
             
             import threading
@@ -563,36 +543,30 @@ class KiloBuddyDashboard:
         try:
             process_command(command)
             
-            self.root.after(0, lambda: self.status_label.config(text="Status: Complete", fg="#4CAF50"))
+            self.root.after(0, lambda: self.status_label.configure(text="Status: Complete", text_color="#4CAF50"))
             
             self.root.after(0, self.update_output_with_latest_response)
             
         except Exception as e:
             error_msg = f"Error processing command: {str(e)}"
             self.root.after(0, self.update_output_with_response, error_msg)
-            self.root.after(0, lambda: self.status_label.config(text="Status: Error", fg="#F44336"))
+            self.root.after(0, lambda: self.status_label.configure(text="Status: Error", text_color="#F44336"))
     
     def update_output_with_response(self, text):
         global LAST_GEMINI_OUTPUT
         LAST_GEMINI_OUTPUT = text
         
-        self.output_text.config(state=tk.NORMAL)
-        self.output_text.delete(1.0, tk.END)
-        self.output_text.insert(1.0, text)
-        self.output_text.config(state=tk.DISABLED)
-        self.output_text.see(1.0)
+        self.output_text.delete("0.0", "end")
+        self.output_text.insert("0.0", text)
     
     def update_output_with_latest_response(self):
         global LAST_GEMINI_OUTPUT
         
-        self.output_text.config(state=tk.NORMAL)
-        self.output_text.delete(1.0, tk.END)
+        self.output_text.delete("0.0", "end")
         if LAST_GEMINI_OUTPUT:
-            self.output_text.insert(1.0, LAST_GEMINI_OUTPUT)
+            self.output_text.insert("0.0", LAST_GEMINI_OUTPUT)
         else:
-            self.output_text.insert(1.0, "No response available.")
-        self.output_text.config(state=tk.DISABLED)
-        self.output_text.see(1.0)
+            self.output_text.insert("0.0", "No response available.")
         
     def quit_kilobuddy(self):
         result = tk.messagebox.askyesno("Quit KiloBuddy", "Are you sure you want to quit KiloBuddy?\n\nThis will stop the voice assistant.")

@@ -5,7 +5,7 @@ import os
 import platform
 import shutil
 
-REQUIRED_PACKAGES = ["speechrecognition", "google-generativeai", "pyaudio", "tk", "requests"]
+REQUIRED_PACKAGES = ["speechrecognition", "google-generativeai", "pyaudio", "tk", "requests", "customtkinter"]
 
 # Remove old installation if exists
 def remove_old_installation(install_dir):
