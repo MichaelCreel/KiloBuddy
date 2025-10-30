@@ -663,18 +663,18 @@ def main():
 
     print(f"KiloBuddy successfully started. Say '{WAKE_WORD}' followed by your command.")
 
-    print("Use debug text version? (y/n): ")
-    debug_input = input().strip().lower()
-    if debug_input == 'y':
-        while True:
-            print("Enter a command: ")
-            user_command = input().strip()
-            process_command(user_command)
-        return
-    elif debug_input == 'n':
-        print("Starting voice mode...")
-    else:
-        print("Invalid input, starting voice mode...")
+#    print("Use debug text version? (y/n): ")
+#    debug_input = input().strip().lower()
+#    if debug_input == 'y':
+#        while True:
+#            print("Enter a command: ")
+#            user_command = input().strip()
+#            process_command(user_command)
+#        return
+#    elif debug_input == 'n':
+#        print("Starting voice mode...")
+#    else:
+#        print("Invalid input, starting voice mode...")
 
     try:
         while True:
