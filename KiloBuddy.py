@@ -15,9 +15,6 @@ import tempfile
 import atexit
 import requests as reqs
 import customtkinter as ctk
-import signal
-import psutil
-import gc
 
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
