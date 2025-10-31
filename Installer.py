@@ -32,7 +32,7 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version']
+    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates']
     for file in current_files:
         if os.path.exists(file):
             dest_path = os.path.join(install_dir, file)
@@ -40,6 +40,112 @@ def setup_install_directory():
             shutil.copy2(file, dest_path)
     
     return install_dir
+
+# Ask user about update preferences
+def ask_update_preferences(install_dir):
+    import tkinter as tk
+    from tkinter import messagebox
+
+    preference = {"value": "release"}
+
+    def show_update_preference_dialog():
+        try:
+            dialog = tk.Toplevel()
+            dialog.title("Update Notifications")
+            dialog.geometry("1000x550")
+            dialog.configure(bg="#1e1e1e")
+            dialog.resizable(False, False)
+            dialog.transient()
+            dialog.grab_set()
+            
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+            y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+            dialog.geometry(f"+{x}+{y}")
+
+            if os.path.exists("icon.png"):
+                try:
+                    dialog.iconphoto(False, tk.PhotoImage(file="icon.png"))
+                except:
+                    pass
+            
+            main_frame = tk.Frame(dialog, bg="#1e1e1e", padx=30, pady=30)
+            main_frame.pack(fill="both", expand=True)
+            
+            title_label = tk.Label(main_frame, text="Update Notifications", 
+                                 font=("Arial", 18, "bold"), 
+                                 fg="#4CAF50", bg="#1e1e1e")
+            title_label.pack(pady=(0, 20))
+            
+            desc_text = ("KiloBuddy can notify you when updates are available.\n"
+                        "Choose which types of updates you'd like to be notified about:")
+            desc_label = tk.Label(main_frame, text=desc_text, 
+                                font=("Arial", 11), 
+                                fg="white", bg="#1e1e1e",
+                                justify="left", wraplength=400)
+            desc_label.pack(pady=(0, 25))
+            
+            radio_frame = tk.Frame(main_frame, bg="#1e1e1e")
+            radio_frame.pack(pady=(0, 30))
+            
+            choice_var = tk.StringVar(value="release")
+            
+            stable_radio = tk.Radiobutton(radio_frame, 
+                                        text="Stable releases only (Recommended)", 
+                                        variable=choice_var, 
+                                        value="release",
+                                        font=("Arial", 11, "bold"),
+                                        fg="#4CAF50", bg="#1e1e1e",
+                                        selectcolor="#2e2e2e",
+                                        activebackground="#1e1e1e",
+                                        activeforeground="#4CAF50")
+            stable_radio.pack(anchor="w", pady=(0, 5))
+            
+            all_radio = tk.Radiobutton(radio_frame, 
+                                     text="All releases", 
+                                     variable=choice_var, 
+                                     value="pre-release",
+                                     font=("Arial", 11, "bold"),
+                                     fg="#FF9800", bg="#1e1e1e",
+                                     selectcolor="#2e2e2e",
+                                     activebackground="#1e1e1e",
+                                     activeforeground="#FF9800")
+            all_radio.pack(anchor="w", pady=(0, 5))
+
+            button_frame = tk.Frame(main_frame, bg="#1e1e1e")
+            button_frame.pack(pady=(20, 0))
+            
+            def save_and_close():
+                preference["value"] = choice_var.get()
+                dialog.destroy()
+            
+            ok_btn = tk.Button(button_frame, text="Continue", 
+                             command=save_and_close,
+                             bg="#4CAF50", fg="white", 
+                             font=("Arial", 11, "bold"),
+                             padx=30, pady=10,
+                             relief="flat",
+                             cursor="hand2")
+            ok_btn.pack()
+
+            dialog.wait_window()
+            
+        except Exception as e:
+            print(f"Error showing update preference dialog: {e}")
+            preference["value"] = "release"
+    
+    show_update_preference_dialog()
+    
+    # Save the preference to updates file
+    try:
+        updates_file = os.path.join(install_dir, "updates")
+        with open(updates_file, "w") as f:
+            f.write(preference["value"])
+        print(f"Update preference saved: {preference['value']}")
+    except Exception as e:
+        print(f"Failed to save update preference: {e}")
+    
+    return preference["value"]
 
 # Create a virtual environment for the app
 def create_virtual_env(install_dir):
@@ -84,6 +190,35 @@ def run_terminal_installer():
     else:
         print("API key is required for KiloBuddy to work")
         return
+    
+    # Ask for update preferences
+    print("\n=== Update Notifications ===")
+    print("KiloBuddy can notify you when updates are available.")
+    print("Choose which types of updates you'd like to be notified about:")
+    print("1. Stable releases only (Recommended)")
+    print("2. All releases")
+    
+    while True:
+        choice = input("\nEnter your choice (1 or 2): ").strip()
+        if choice == "1":
+            update_preference = "release"
+            print("Will notify for stable releases only")
+            break
+        elif choice == "2":
+            update_preference = "pre-release"
+            print("Will notify for all releases including pre-releases")
+            break
+        else:
+            print("Please enter 1 or 2")
+    
+    # Save update preference
+    try:
+        updates_file = os.path.join(install_dir, "updates")
+        with open(updates_file, "w") as f:
+            f.write(update_preference)
+        print(f"Update preference saved: {update_preference}")
+    except Exception as e:
+        print(f"Failed to save update preference: {e}")
     
     try:
         # Create virtual environment if it doesn't exist
@@ -291,6 +426,13 @@ def run_gui_installer():
         # Save API key first
         if not save_api_key():
             return
+        
+        # Ask for update preferences
+        try:
+            ask_update_preferences(install_dir)
+        except Exception as e:
+            print(f"Failed to get update preferences: {e}")
+            # Continue with installation even if preference dialog fails
             
         def install_thread():
             try:

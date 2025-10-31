@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import speech_recognition as sr
 import re
 import os
@@ -24,17 +26,20 @@ WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from w
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
 LAST_GEMINI_OUTPUT = "No previous output..." # Store the last output by Gemini that was designated for the user
-VERSION = "v0.0"
+VERSION = "v0.0" # The version of KiloBuddy that is running
+UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
 
 # Initialize Necessary Variables
 def initialize():
+    print("Checking for updates...")
+    load_update_type()
+    load_app_version()
+    check_for_updates()
     print("Initializing KiloBuddy...")
     load_api_key()
     load_prompt()
     load_wake_word()
     load_os_version()
-    load_app_version()
-    check_for_updates()
     print("KiloBuddy Initialized.")
 
 # Auto-detect operating system
@@ -68,6 +73,22 @@ def detect_os():
             return "windows"
     else:
         return "unknown"
+
+# Load Update type from file
+def load_update_type():
+    global UPDATES
+    try:
+        with open(get_source_path("updates"), "r") as f:
+            update_type = f.read().strip().lower()
+            if update_type in ["release", "pre-release"]:
+                UPDATES = update_type
+                print(f"Loaded Update Type: {UPDATES}")
+            else:
+                print(f"Invalid update type in file, using default 'release'")
+    except FileNotFoundError:
+        print(f"Updates file not found, using default 'release'")
+    except Exception as e:
+        print(f"Error loading update type: {e}, using default 'release'")
 
 # Load App Version from file
 def load_app_version():
@@ -734,8 +755,12 @@ def check_for_updates():
                 print(f"Latest Version: {latest_version} ({release_type}), Current Version: {VERSION}")
                 
                 if is_newer_version(VERSION, latest_version):
-                    print(f"Update available: {release_type} - {latest_version}")
-                    show_update_notification(latest_version, release_type, download_url)
+                    if UPDATES == "release" and is_prerelease:
+                        print("Skipping pre-release update.")
+                        return None
+                    else:
+                        print(f"Update available: {release_type} - {latest_version}")
+                        show_update_notification(latest_version, release_type, download_url)
                     
                     return latest_version
                 else:
