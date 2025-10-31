@@ -13,6 +13,9 @@ import tempfile
 import atexit
 import requests as reqs
 import customtkinter as ctk
+import signal
+import psutil
+import gc
 
 API_TIMEOUT = 10 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -623,6 +626,96 @@ def show_dashboard():
     dashboard = KiloBuddyDashboard()
     dashboard.run()
 
+# Show update notification popup
+def show_update_notification(latest_version, release_type, download_url):
+    def show_popup():
+        try:
+            popup = tk.Tk()
+            popup.title("KiloBuddy Update Available")
+            popup.geometry("600x300")
+            popup.configure(bg="#1e1e1e")
+            popup.attributes("-topmost", True)
+            popup.resizable(False, False)
+
+            popup.lift()
+            popup.focus_force()
+
+            if os.path.exists("icon.png"):
+                try:
+                    popup.iconphoto(False, tk.PhotoImage(file="icon.png"))
+                except:
+                    pass
+
+            main_frame = tk.Frame(popup, bg="#1e1e1e", padx=20, pady=20)
+            main_frame.pack(fill="both", expand=True)
+
+            title_label = tk.Label(main_frame, text="Update Available", 
+                                 font=("Arial", 16, "bold"), 
+                                 fg="#4CAF50", bg="#1e1e1e")
+            title_label.pack(pady=(0, 10))
+
+            current_label = tk.Label(main_frame, text=f"Current Version: {VERSION}", 
+                                   font=("Arial", 11), 
+                                   fg="white", bg="#1e1e1e")
+            current_label.pack(pady=(0, 5))
+
+            latest_label = tk.Label(main_frame, text=f"Latest Version: {latest_version} ({release_type})", 
+                                  font=("Arial", 11, "bold"), 
+                                  fg="#2196F3", bg="#1e1e1e")
+            latest_label.pack(pady=(0, 15))
+
+            desc_text = f"A new {release_type} is available for download"
+            desc_label = tk.Label(main_frame, text=desc_text, 
+                                font=("Arial", 10), 
+                                fg="#cccccc", bg="#1e1e1e",
+                                justify="center")
+            desc_label.pack(pady=(0, 20))
+
+            button_frame = tk.Frame(main_frame, bg="#1e1e1e")
+            button_frame.pack(pady=(10, 0))
+            
+            def open_download():
+                import webbrowser
+                webbrowser.open(download_url)
+                popup.destroy()
+            
+            def remind_later():
+                popup.destroy()
+
+            download_btn = tk.Button(button_frame, text="Download Update", 
+                                   command=open_download,
+                                   bg="#4CAF50", fg="white", 
+                                   font=("Arial", 10, "bold"),
+                                   padx=20, pady=8,
+                                   relief="flat",
+                                   cursor="hand2")
+            download_btn.pack(side="left", padx=(0, 10))
+
+            later_btn = tk.Button(button_frame, text="Remind Later", 
+                                command=remind_later,
+                                bg="#666666", fg="white", 
+                                font=("Arial", 10),
+                                padx=20, pady=8,
+                                relief="flat",
+                                cursor="hand2")
+            later_btn.pack(side="left")
+            
+            popup.after(30000, popup.destroy)
+            
+            popup.update_idletasks()
+            x = (popup.winfo_screenwidth() // 2) - (popup.winfo_width() // 2)
+            y = (popup.winfo_screenheight() // 2) - (popup.winfo_height() // 2)
+            popup.geometry(f"+{x}+{y}")
+            
+            popup.mainloop()
+            
+        except Exception as e:
+            print(f"Error showing update notification: {e}")
+
+    popup_thread = threading.Thread(target=show_popup)
+    popup_thread.daemon = True
+    popup_thread.start()
+
 # Check for updates
 def check_for_updates():
     global VERSION
@@ -636,10 +729,14 @@ def check_for_updates():
                 latest_version = latest_release["tag_name"]
                 is_prerelease = latest_release["prerelease"]
                 release_type = "pre-release" if is_prerelease else "stable release"
+                download_url = latest_release["html_url"]
+                
                 print(f"Latest Version: {latest_version} ({release_type}), Current Version: {VERSION}")
                 
                 if is_newer_version(VERSION, latest_version):
                     print(f"Update available: {release_type} - {latest_version}")
+                    show_update_notification(latest_version, release_type, download_url)
+                    
                     return latest_version
                 else:
                     print("Latest version installed.")
