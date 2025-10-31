@@ -36,6 +36,15 @@ KiloBuddy is a powerful computer assistant to assist users execute commands with
     Run `mac-install.command`
   -Linux:
     Run `linux-install.sh`
+    If nothing happens, tkinter is probably missing
+    Install tkinter:
+    ```bash
+    sudo apt install python3-tk
+    ```
+    Or run installer from the terminal:
+    ```bash
+    python3 Installer.py
+    ```
 4. If it takes a bit to launch, have some patience
 5. Paste your API Key in the input field
 6. Click "Install"
