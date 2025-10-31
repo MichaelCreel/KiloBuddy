@@ -287,7 +287,7 @@ nohup "{python_path}" "{kilobuddy_script}" > /dev/null 2>&1 &
     
     # Create .desktop file content (background mode)
     desktop_content = f"""[Desktop Entry]
-Version=0.2
+Version=1.0
 Type=Application
 Name=KiloBuddy
 Comment=AI Voice Assistant (Background Mode)
