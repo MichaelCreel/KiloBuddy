@@ -1,6 +1,6 @@
 # KiloBuddy
 
-KiloBuddy is a powerful computer assitant to assist users in executing commands within their system through voice commands. It uses Google Gemini to generate commands and text blocks that help users with computer issues, summaries, or information. It is designed to run on Windows, Mac, and Linux, and comes with a simple installer to automatically install all dependencies.
+KiloBuddy is a powerful computer assistant to assist users execute commands within their system through voice commands. It uses Google Gemini to generate commands and text blocks that help users with computer issues, summaries, or information. It is designed to run on Windows, Mac, and Linux, and comes with a simple installer to automatically install all dependencies.
 
 ## Dependencies
 - Python, Google Gemini API, PyAudio
@@ -29,7 +29,13 @@ KiloBuddy is a powerful computer assitant to assist users in executing commands 
   - Click "Create API key"
   - Copy the API key when it generates
 2. Download the KiloBuddy zip file from [Releases](https://github.com/MichaelCreel/KiloBuddy/releases)
-3. Run `Installer.py`
+3. Run the install script
+  - Windows:
+    Run `windows-install.bat`
+  - Mac:
+    Run `mac-install.command`
+  -Linux:
+    Run `linux-install.sh`
 4. If it takes a bit to launch, have some patience
 5. Paste your API Key in the input field
 6. Click "Install"
@@ -40,6 +46,8 @@ KiloBuddy is a powerful computer assitant to assist users in executing commands 
 - Gemini has limited tokens on free API keys, so AI generation is limited
 - There are no included fallbacks if Gemini fails to respond
 - The app is unsuccessful sometimes because of AI inaccuracy
+- Users can chose to be notified of new pre-releases
+- A dashboard is included for text-based interaction
 
 ## License
 

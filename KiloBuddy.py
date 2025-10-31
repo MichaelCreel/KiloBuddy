@@ -16,7 +16,7 @@ import atexit
 import requests as reqs
 import customtkinter as ctk
 
-API_TIMEOUT = 10 # Duration for API Response in seconds
+API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded from prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
