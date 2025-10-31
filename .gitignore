@@ -1,2 +1,6 @@
 # .gitignore
 gemini_api_key
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
