@@ -4,8 +4,6 @@ KiloBuddy is a powerful computer assistant that helps users execute commands wit
 
 ## No Privacy Guarantee
 
-KiloBuddy uses Google speech recognition and Google Gemini. This means that data is sent to Google's servers for processing. There is no garuntee that your data will not be processed by Google.
-
 KiloBuddy uses Google Speech Recognition and Google Gemini while running. While KiloBuddy does not share any data outside of these services, Google may process your data. Privacy of your data is not guaranteed.
 
 ## AI Accuracy
