@@ -39,7 +39,7 @@ def init_vosk():
     try:
         model_path = "vosk-model"
         if not os.path.exists(model_path):
-            print("Vosk model not found. Download from https://alphacephei.com/vosk/models")
+            print("ERROR: Vosk model not found in model path.")
             return False
         vosk_model = Model(model_path)
         vosk_rec = KaldiRecognizer(vosk_model, 16000)
@@ -47,28 +47,30 @@ def init_vosk():
         audio_stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8192)
         return True
     except Exception as e:
-        print(f"Failed to initialize Vosk: {e}")
+        print(f"ERROR: Failed to initialize Vosk: {e}")
         return False
 
 # Initialize Necessary Variables
 def initialize():
     print("Checking for updates...")
     if not load_update_type():
-        print("Failed to properly retrieve update type preference.")
+        print("WARNING: Failed to properly retrieve update type preference.\n    -Falling back to 'release'.")
     if not load_app_version():
-        print("Failed to properly retrieve current app version.")
+        print("WARNING: Failed to properly retrieve current app version.\n    -Falling back to 'v0.0'.")
     check_for_updates()
     print("Initializing KiloBuddy...")
     if not load_api_key():
-        print("Failed to properly initialize API key.")
-    if not load_prompt():   
-        print("Failed to properly initialize prompt.")
+        print("FATAL: Failed to properly initialize API key.\n    -The app will not function and will now stop.")
+        return False
+    if not load_prompt():
+        print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.")
+        return False
     if not load_wake_word():
-        print("Failed to properly initialize wake word.")
+        print("WARNING: Failed to properly initialize wake word.\n    -Falling back to 'computer'.")
     if not load_os_version():
-        print("Failed to properly initialize OS version.")
+        print("WARNING: Failed to properly initialize OS version.\n    -Commands may not be correct for this system.")
     if not init_vosk():
-        print("Failed to initialize Vosk speech recognition")
+        print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.")
         return False
     print("KiloBuddy Initialized.")
     return True
@@ -116,13 +118,13 @@ def load_update_type():
                 print(f"Loaded Update Type: {UPDATES}")
                 return True
             else:
-                print(f"Invalid update type in file, using default 'release'")
+                print(f"ERROR: Invalid update type in file, using default 'release'.")
                 return False
     except FileNotFoundError:
-        print(f"Updates file not found, using default 'release'")
+        print(f"ERROR: Updates file not found, using default 'release'.")
         return False
     except Exception as e:
-        print(f"Error loading update type: {e}, using default 'release'")
+        print(f"ERROR: Failed to load update type: {e}, using default 'release'.")
         return False
 
 # Load App Version from file
@@ -132,17 +134,17 @@ def load_app_version():
         with open(get_source_path("version"), "r") as f:
             version = f.read().strip()
             if version == "null" or version == "" or version == "none":
-                print(f"Version not found")
+                print(f"ERROR: Version not found")
                 return False
             else:
                 VERSION = version
                 print(f"Loaded Version: {VERSION}")
                 return True
     except FileNotFoundError:
-        print(f"Version file not found")
+        print(f"ERROR: Version file not found")
         return False
     except Exception as e:
-        print(f"Error loading version: {e}")
+        print(f"ERROR: Failed to load version: {e}")
         return False
 
 # Load Operating System Version from file
@@ -161,11 +163,11 @@ def load_os_version():
                 return True
     except FileNotFoundError:
         OS_VERSION = detect_os()
-        print(f"OS version file not found, auto-detected: {OS_VERSION}")
+        print(f"ERROR: OS version file not found, auto-detected: {OS_VERSION}")
         return False
     except Exception as e:
         OS_VERSION = detect_os()
-        print(f"Error loading OS version: {e}, auto-detected: {OS_VERSION}")
+        print(f"ERROR: Failed to load OS version: {e}, auto-detected: {OS_VERSION}")
         return False
 
 # Load Wake Word from file
@@ -175,17 +177,17 @@ def load_wake_word():
         with open(get_source_path("wake_word"), "r") as f:
             word = f.read().strip().lower()
             if word == "null" or word == "" or word == "none":
-                print("No wake word provided, using default 'computer'")
+                print("ERROR: No wake word provided, using default 'computer'.")
                 return False
             else:
                 WAKE_WORD = word
                 print(f"Loaded Wake Word: {WAKE_WORD}")
                 return True
     except FileNotFoundError:
-        print("Wake word file not found, using fallback 'computer'")
+        print("ERROR: Wake word file not found, using fallback 'computer'.")
         return False
     except Exception as e:
-        print(f"Error loading wake word: {e}, using default 'computer'")
+        print(f"ERROR: Failed to load wake word: {e}, using default 'computer'.")
         return False
 
 # Load API Key for Gemini from file
@@ -195,7 +197,7 @@ def load_api_key():
         with open(get_source_path("gemini_api_key"), "r") as f:
             key = f.read().strip()
             if key == "null" or key == "" or key == "none":
-                print("No API key provided. App will not function.")
+                print("ERROR: No API key provided. App will not function.")
                 return False
             else:
                 genai.configure(api_key=key)
@@ -203,10 +205,10 @@ def load_api_key():
                 print("Loaded API Key")
                 return True
     except FileNotFoundError:
-        print("API key file not found, using fallback text only")
+        print("ERROR: API key file not found, using fallback text only.")
         return False
     except Exception as e:
-        print(f"Error loading API key: {e}, using fallback text only")
+        print(f"ERROR: Failed to load API key: {e}, using fallback text only.")
         return False
 
 # Load Prompt for Gemini from file
@@ -219,12 +221,12 @@ def load_prompt():
             
             # Validate prompt content
             if len(prompt_content) == 0:
-                print("Warning: prompt file is empty, using default")
+                print("ERROR: prompt file is empty.")
             else:
                 PROMPT = prompt_content
         return True
     except Exception as e:
-        print(f"Error loading prompt: {e}")
+        print(f"ERROR: Failed to load prompt: {e}")
         return False
 
 # File Path Finder
@@ -249,7 +251,7 @@ def generate_text(input_prompt):
             if not timeout_triggered.is_set():
                 result["text"] = response.text.strip()
         except Exception as e:
-            print(f"Error during Gemini API call: {e}")
+            print(f"ERROR: Failed to generate text: {e}")
     
     def fallback():
         timeout_triggered.set()
@@ -294,7 +296,7 @@ def listen_for_wake_word():
                     print(f"Wake word detected...")
                     return True
         except Exception as e:
-            print(f"Error during listening: {e}")
+            print(f"ERROR: Failed to listen for wake word: {e}")
             time.sleep(0.25)
 
 # Listen for Command after Wake Word
@@ -327,7 +329,7 @@ def listen_for_command():
             return None
             
     except Exception as e:
-        print(f"Speech Recognition error: {e}")
+        print(f"ERROR: Failed to listen for command: {e}")
         return None
 
 # Process Command using Gemini
@@ -345,11 +347,11 @@ def process_command(command):
     if response:
         process_response(response)
     else:
-        print("No response generated.")
+        print("ERROR: No response generated.")
 
 def process_response(response):
     if not response:
-        print("ERROR: No response from Gemini")
+        print("ERROR: No response from Gemini.")
         return
     
     global LAST_GEMINI_OUTPUT
