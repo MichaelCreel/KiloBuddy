@@ -29,14 +29,20 @@ UPDATES = "release" # The type of updates to check for, "release" or "pre-releas
 # Initialize Necessary Variables
 def initialize():
     print("Checking for updates...")
-    load_update_type()
-    load_app_version()
+    if not load_update_type():
+        print("Failed to properly retrieve update type preference.")
+    if not load_app_version():
+        print("Failed to properly retrieve current app version.")
     check_for_updates()
     print("Initializing KiloBuddy...")
-    load_api_key()
-    load_prompt()
-    load_wake_word()
-    load_os_version()
+    if not load_api_key():
+        print("Failed to properly initialize API key.")
+    if not load_prompt():   
+        print("Failed to properly initialize prompt.")
+    if not load_wake_word():
+        print("Failed to properly initialize wake word.")
+    if not load_os_version():
+        print("Failed to properly initialize OS version.")
     print("KiloBuddy Initialized.")
 
 # Auto-detect operating system
@@ -80,12 +86,16 @@ def load_update_type():
             if update_type in ["release", "pre-release"]:
                 UPDATES = update_type
                 print(f"Loaded Update Type: {UPDATES}")
+                return True
             else:
                 print(f"Invalid update type in file, using default 'release'")
+                return False
     except FileNotFoundError:
         print(f"Updates file not found, using default 'release'")
+        return False
     except Exception as e:
         print(f"Error loading update type: {e}, using default 'release'")
+        return False
 
 # Load App Version from file
 def load_app_version():
@@ -95,13 +105,17 @@ def load_app_version():
             version = f.read().strip()
             if version == "null" or version == "" or version == "none":
                 print(f"Version not found")
+                return False
             else:
                 VERSION = version
                 print(f"Loaded Version: {VERSION}")
+                return True
     except FileNotFoundError:
         print(f"Version file not found")
+        return False
     except Exception as e:
         print(f"Error loading version: {e}")
+        return False
 
 # Load Operating System Version from file
 def load_os_version():
@@ -112,15 +126,19 @@ def load_os_version():
             if version == "null" or version == "" or version == "none" or version == "auto-detect":
                 OS_VERSION = detect_os()
                 print(f"Auto-detected OS: {OS_VERSION}")
+                return True
             else:
                 OS_VERSION = version
                 print(f"Loaded OS Version: {OS_VERSION}")
+                return True
     except FileNotFoundError:
         OS_VERSION = detect_os()
         print(f"OS version file not found, auto-detected: {OS_VERSION}")
+        return False
     except Exception as e:
         OS_VERSION = detect_os()
         print(f"Error loading OS version: {e}, auto-detected: {OS_VERSION}")
+        return False
 
 # Load Wake Word from file
 def load_wake_word():
@@ -130,13 +148,17 @@ def load_wake_word():
             word = f.read().strip().lower()
             if word == "null" or word == "" or word == "none":
                 print("No wake word provided, using default 'computer'")
+                return False
             else:
                 WAKE_WORD = word
                 print(f"Loaded Wake Word: {WAKE_WORD}")
+                return True
     except FileNotFoundError:
         print("Wake word file not found, using fallback 'computer'")
+        return False
     except Exception as e:
         print(f"Error loading wake word: {e}, using default 'computer'")
+        return False
 
 # Load API Key for Gemini from file
 def load_api_key():
@@ -145,15 +167,19 @@ def load_api_key():
         with open(get_source_path("gemini_api_key"), "r") as f:
             key = f.read().strip()
             if key == "null" or key == "" or key == "none":
-                print("No API key provided, using fallback text only")
+                print("No API key provided. App will not function.")
+                return False
             else:
                 genai.configure(api_key=key)
                 GEMINI_API_KEY = key
                 print("Loaded API Key")
+                return True
     except FileNotFoundError:
         print("API key file not found, using fallback text only")
+        return False
     except Exception as e:
         print(f"Error loading API key: {e}, using fallback text only")
+        return False
 
 # Load Prompt for Gemini from file
 def load_prompt():
@@ -168,8 +194,10 @@ def load_prompt():
                 print("Warning: prompt file is empty, using default")
             else:
                 PROMPT = prompt_content
+        return True
     except Exception as e:
         print(f"Error loading prompt: {e}")
+        return False
 
 # File Path Finder
 def get_source_path(filename):
