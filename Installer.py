@@ -8,7 +8,7 @@ import shutil
 import zipfile
 import urllib.request
 
-REQUIRED_PACKAGES = ["google-generativeai", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
+REQUIRED_PACKAGES = ["google-generativeai", "openai", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
 
 # Remove old installation if exists
 def remove_old_installation(install_dir):

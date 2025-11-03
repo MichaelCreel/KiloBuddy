@@ -20,6 +20,8 @@ import customtkinter as ctk
 
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
+CHATGPT_API_KEY = "" # API Key for calling ChatGPT API, loaded from chatgpt_api_key file
+CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded from prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
