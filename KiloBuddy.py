@@ -24,6 +24,7 @@ API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 CHATGPT_API_KEY = "" # API Key for calling ChatGPT API, loaded from chatgpt_api_key file
 CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key file
+AI_PREFERENCE = "gemini, chatgpt, claude" # Preferred order of AI models to call, loaded from ai_preference file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded from prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
@@ -69,6 +70,8 @@ def initialize():
         print("WARNING: Failed to properly initialize ChatGPT API key.\n    -ChatGPT will not generate responses.")
     if not load_claude_api_key():
         print("WARNING: Failed to properly initialize Claude API key.\n    -Claude will not generate responses.")
+    if not load_ai_preference():
+        print("WARNING: Failed to properly initialize AI preference.\n    -Falling back to 'gemini, chatgpt, claude'.")
     if not load_prompt():
         print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.")
         return False
@@ -195,6 +198,26 @@ def load_wake_word():
         return False
     except Exception as e:
         print(f"ERROR: Failed to load wake word: {e}, using default 'computer'.")
+        return False
+
+# Load AI Preference
+def load_ai_preference():
+    global AI_PREFERENCE
+    try:
+        with open(get_source_path("ai_preference"), "r") as f:
+            preference = f.read().strip().lower()
+            if preference == "null" or preference == "" or preference == "none":
+                print("ERROR: No AI preference provided, using default 'gemini'.")
+                return False
+            else:
+                AI_PREFERENCE = preference
+                print(f"Loaded AI Preference: {AI_PREFERENCE}")
+                return True
+    except FileNotFoundError:
+        print("ERROR: AI preference file not found, using default 'gemini, chatgpt, claude'.")
+        return False
+    except Exception as e:
+        print(f"ERROR: Failed to load AI preference: {e}, using default 'gemini, chatgpt, claude'.")
         return False
 
 # Load API Key for Gemini from file
