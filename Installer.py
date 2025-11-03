@@ -8,7 +8,7 @@ import shutil
 import zipfile
 import urllib.request
 
-REQUIRED_PACKAGES = ["google-generativeai", "openai", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
+REQUIRED_PACKAGES = ["google-generativeai", "openai", "anthropic", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
 
 # Remove old installation if exists
 def remove_old_installation(install_dir):
@@ -207,21 +207,57 @@ def run_terminal_installer():
     # Set up installation directory
     install_dir = setup_install_directory()
     
-    # Get API key from user
+    # Get API keys from user
+    print("\n=== AI API Keys Setup ===")
+    print("KiloBuddy supports multiple AI providers. You can enter keys for any or all of them.")
+    print("Enter at least one API Key (Gemini is free).\n")
+    
+    # Gemini API Key
+    print("Gemini API (Google):")
     print("Get your API key from: https://aistudio.google.com/api-keys")
-    api_key = input("Enter your Gemini API Key: ").strip()
-    if api_key:
+    gemini_key = input("Enter your Gemini API Key (or press Enter to skip): ").strip()
+    if gemini_key and gemini_key not in ["null", "", "none"]:
         try:
             api_key_path = os.path.join(install_dir, "gemini_api_key")
             with open(api_key_path, "w") as f:
-                f.write(api_key)
-            print("API key saved!")
+                f.write(gemini_key)
+            print("Gemini API key saved!")
         except Exception as e:
-            print(f"Failed to save API key: {e}")
+            print(f"Failed to save Gemini API key: {e}")
+    
+    # ChatGPT API Key
+    print("\nChatGPT API (OpenAI):")
+    print("Get your API key from: https://platform.openai.com/api-keys")
+    chatgpt_key = input("Enter your ChatGPT API Key (or press Enter to skip): ").strip()
+    if chatgpt_key and chatgpt_key not in ["null", "", "none"]:
+        try:
+            api_key_path = os.path.join(install_dir, "chatgpt_api_key")
+            with open(api_key_path, "w") as f:
+                f.write(chatgpt_key)
+            print("ChatGPT API key saved!")
+        except Exception as e:
+            print(f"Failed to save ChatGPT API key: {e}")
+    
+    # Claude API Key
+    print("\nClaude API (Anthropic):")
+    print("Get your API key from: https://console.anthropic.com/")
+    claude_key = input("Enter your Claude API Key (or press Enter to skip): ").strip()
+    if claude_key and claude_key not in ["null", "", "none"]:
+        try:
+            api_key_path = os.path.join(install_dir, "claude_api_key")
+            with open(api_key_path, "w") as f:
+                f.write(claude_key)
+            print("Claude API key saved!")
+        except Exception as e:
+            print(f"Failed to save Claude API key: {e}")
+    
+    # Check if at least one key was provided
+    keys_provided = [gemini_key, chatgpt_key, claude_key]
+    if not any(key and key not in ["null", "", "none"] for key in keys_provided):
+        print("\WARNING: No API keys provided. KiloBuddy will not function properly without at least one AI provider. API keys will need to be manually saved.")
+        continue_choice = input("Continue installation anyway? (y/n): ").lower()
+        if continue_choice not in ['y', 'yes']:
             return
-    else:
-        print("API key is required for KiloBuddy to work")
-        return
     
     # Ask for update preferences
     print("\n=== Update Notifications ===")
@@ -509,24 +545,53 @@ def run_gui_installer():
     # Set up installation directory at start
     install_dir = setup_install_directory()
 
-    def save_api_key():
-        api_key = api_entry.get().strip()
-        if api_key:
+    def save_api_keys():
+        # Save Gemini API key
+        gemini_key = gemini_entry.get().strip()
+        if gemini_key and gemini_key not in ["null", "", "none"]:
             try:
                 api_key_path = os.path.join(install_dir, "gemini_api_key")
                 with open(api_key_path, "w") as f:
-                    f.write(api_key)
-                return True
+                    f.write(gemini_key)
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to save API key: {e}")
+                messagebox.showerror("Error", f"Failed to save Gemini API key: {e}")
                 return False
-        else:
-            messagebox.showwarning("Warning", "Please enter your API key first")
-            return False
+        
+        # Save ChatGPT API key
+        chatgpt_key = chatgpt_entry.get().strip()
+        if chatgpt_key and chatgpt_key not in ["null", "", "none"]:
+            try:
+                api_key_path = os.path.join(install_dir, "chatgpt_api_key")
+                with open(api_key_path, "w") as f:
+                    f.write(chatgpt_key)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save ChatGPT API key: {e}")
+                return False
+        
+        # Save Claude API key
+        claude_key = claude_entry.get().strip()
+        if claude_key and claude_key not in ["null", "", "none"]:
+            try:
+                api_key_path = os.path.join(install_dir, "claude_api_key")
+                with open(api_key_path, "w") as f:
+                    f.write(claude_key)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save Claude API key: {e}")
+                return False
+        
+        # Check if at least one key was provided
+        keys_provided = [gemini_key, chatgpt_key, claude_key]
+        if not any(key and key not in ["null", "", "none"] for key in keys_provided):
+            response = messagebox.askyesno("Warning", 
+                "No API keys provided. KiloBuddy will not function properly without at least one AI provider. API keys will need to be manually saved.\n\nContinue installation anyway?")
+            if not response:
+                return False
+        
+        return True
 
     def start_install():
-        # Save API key first
-        if not save_api_key():
+        # Save API keys first
+        if not save_api_keys():
             return
         
         # Ask for update preferences
@@ -593,7 +658,7 @@ def run_gui_installer():
 
     root = tk.Tk()
     root.title("KiloBuddy Installer")
-    root.geometry("800x650")
+    root.geometry("900x750")
     root.configure(bg="#190c3a")
     
     # Set installer window icon if icon.png exists
@@ -611,25 +676,52 @@ def run_gui_installer():
                            font=("Helvetica", 10), fg="#cccccc", bg="#190c3a")
     install_info.pack(pady=5)
 
-    # API Key input section
-    api_label = tk.Label(root, text="Enter your Gemini API Key:", font=("Helvetica", 14), fg="white", bg="#190c3a")
-    api_label.pack(pady=(20, 5))
+    # API Keys input section
+    api_section_label = tk.Label(root, text="Enter at least one API Key (Gemini is free)", 
+                                font=("Helvetica", 16), fg="white", bg="#190c3a")
+    api_section_label.pack(pady=(20, 10))
 
-    api_entry = tk.Entry(root, width=60, font=("Helvetica", 10), show="*")
-    api_entry.pack(pady=5)
+    # Gemini API Key
+    gemini_label = tk.Label(root, text="Gemini API Key (Google):", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    gemini_label.pack(pady=(10, 2))
 
-    api_help = tk.Label(root, text="Get your API key from: https://aistudio.google.com/api-keys", 
-                       font=("Helvetica", 10), fg="#cccccc", bg="#190c3a")
-    api_help.pack(pady=5)
+    gemini_entry = tk.Entry(root, width=60, font=("Helvetica", 10), show="*")
+    gemini_entry.pack(pady=2)
+
+    gemini_help = tk.Label(root, text="Get your API key from: https://aistudio.google.com/api-keys", 
+                          font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+    gemini_help.pack(pady=(0, 5))
+
+    # ChatGPT API Key
+    chatgpt_label = tk.Label(root, text="ChatGPT API Key (OpenAI):", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    chatgpt_label.pack(pady=(10, 2))
+
+    chatgpt_entry = tk.Entry(root, width=60, font=("Helvetica", 10), show="*")
+    chatgpt_entry.pack(pady=2)
+
+    chatgpt_help = tk.Label(root, text="Get your API key from: https://platform.openai.com/api-keys", 
+                           font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+    chatgpt_help.pack(pady=(0, 5))
+
+    # Claude API Key
+    claude_label = tk.Label(root, text="Claude API Key (Anthropic):", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    claude_label.pack(pady=(10, 2))
+
+    claude_entry = tk.Entry(root, width=60, font=("Helvetica", 10), show="*")
+    claude_entry.pack(pady=2)
+
+    claude_help = tk.Label(root, text="Get your API key from: https://console.anthropic.com/", 
+                          font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+    claude_help.pack(pady=(0, 10))
 
     progress = ttk.Progressbar(root, orient="horizontal", length=750, mode="determinate")
-    progress.pack(pady=20)
+    progress.pack(pady=15)
 
     note = tk.Label(root, text="Just click the button (with internet)", font=("Helvetica", 12), fg="white", bg="#190c3a")
-    note.pack(pady=20)
+    note.pack(pady=10)
 
     install_button = tk.Button(root, text="Install", command=start_install, width=35, height=2)
-    install_button.pack(pady=20)
+    install_button.pack(pady=15)
 
     root.mainloop()
 
