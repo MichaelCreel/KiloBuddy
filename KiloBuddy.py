@@ -208,13 +208,13 @@ def load_gemini_api_key():
             else:
                 genai.configure(api_key=key)
                 GEMINI_API_KEY = key
-                print("Loaded API Key")
+                print("Loaded Gemini API Key")
                 return True
     except FileNotFoundError:
-        print("ERROR: API key file not found.")
+        print("ERROR: Gemini API key file not found.")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load API key: {e}")
+        print(f"ERROR: Failed to load Gemini API key: {e}")
         return False
 
 # Load API Key for ChatGPT from file
@@ -229,13 +229,13 @@ def load_chatgpt_api_key():
             else:
                 openai.api_key = key
                 CHATGPT_API_KEY = key
-                print("Loaded API Key")
+                print("Loaded ChatGPT API Key")
                 return True
     except FileNotFoundError:
-        print("ERROR: API key file not found.")
+        print("ERROR: ChatGPT API key file not found.")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load API key: {e}")
+        print(f"ERROR: Failed to load ChatGPT API key: {e}")
         return False
 
 # Load API Key for Claude from file
@@ -288,6 +288,45 @@ def get_source_path(filename):
 # Generate Text using Gemini
 def generate_text(input_prompt):
     return None
+
+def chatgpt_generate(input_prompt):
+    result = {"text": None}
+    timeout_triggered = threading.Event()
+
+    def chatgpt_call():
+        if timeout_triggered.is_set():
+            return
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "user", "content": input_prompt}
+                ]
+            )
+            reply = response.choices[0].message.content
+            if not timeout_triggered.is_set():
+                result["text"] = reply.strip()
+        except Exception as e:
+            print(f"ERROR: Failed to generate text with ChatGPT: {e}")
+    
+    def fallback():
+        timeout_triggered.set()
+        print("ChatGPT API Timeout.")
+
+    # Start ChatGPT call
+    thread = threading.Thread(target=chatgpt_call)
+    thread.start()
+
+    # Start timer
+    timer = threading.Timer(API_TIMEOUT, fallback)
+    timer.start()
+
+    # Check for result or timeout
+    while result["text"] is None and not timeout_triggered.is_set():
+        thread.join(timeout=0.1)
+
+    timer.cancel()
+    return result["text"]
 
 # Generate Text With Gemini
 def gemini_generate(input_prompt):
