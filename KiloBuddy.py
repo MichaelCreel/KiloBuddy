@@ -17,6 +17,7 @@ import tempfile
 import atexit
 import requests as reqs
 import customtkinter as ctk
+import openai
 
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -226,8 +227,8 @@ def load_chatgpt_api_key():
                 print("ERROR: No API key provided.")
                 return False
             else:
-                genai.configure(api_key=key)
-                GEMINI_API_KEY = key
+                openai.api_key = key
+                CHATGPT_API_KEY = key
                 print("Loaded API Key")
                 return True
     except FileNotFoundError:
@@ -248,7 +249,7 @@ def load_claude_api_key():
                 return False
             else:
                 genai.configure(api_key=key)
-                GEMINI_API_KEY = key
+                CLAUDE_API_KEY = key
                 print("Loaded API Key")
                 return True
     except FileNotFoundError:
@@ -286,6 +287,10 @@ def get_source_path(filename):
 
 # Generate Text using Gemini
 def generate_text(input_prompt):
+    return None
+
+# Generate Text With Gemini
+def gemini_generate(input_prompt):
     result = {"text": None}
     timeout_triggered = threading.Event()
 
