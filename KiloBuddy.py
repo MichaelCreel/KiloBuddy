@@ -310,6 +310,17 @@ def get_source_path(filename):
 
 # Generate Text using Gemini
 def generate_text(input_prompt):
+    ai_models = [model.strip() for model in AI_PREFERENCE.split(",")]
+    for model in ai_models:
+        if model == "gemini":
+            return gemini_generate(input_prompt)
+        elif model == "chatgpt":
+            return chatgpt_generate(input_prompt)
+        elif model == "claude":
+            return claude_generate(input_prompt)
+        else:
+            print("ERROR: Unrecognized AI model preference. Generation aborted.")
+            return "ERROR: Unrecognized AI model preference. Generation aborted."
     return None
 
 def chatgpt_generate(input_prompt):
