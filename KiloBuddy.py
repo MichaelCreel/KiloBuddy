@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-import speech_recognition as sr
+from vosk import Model, KaldiRecognizer
+import json
+import pyaudio
 import re
 import os
 import sys
@@ -26,6 +28,28 @@ LAST_GEMINI_OUTPUT = "No previous output..." # Store the last output by Gemini t
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
 
+# Vosk Speech Recognition Variables
+vosk_model = None
+vosk_rec = None
+audio_stream = None
+
+# Initialize Vosk Speech Recognition
+def init_vosk():
+    global vosk_model, vosk_rec, audio_stream
+    try:
+        model_path = "vosk-model"
+        if not os.path.exists(model_path):
+            print("Vosk model not found. Download from https://alphacephei.com/vosk/models")
+            return False
+        vosk_model = Model(model_path)
+        vosk_rec = KaldiRecognizer(vosk_model, 16000)
+        p = pyaudio.PyAudio()
+        audio_stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8192)
+        return True
+    except Exception as e:
+        print(f"Failed to initialize Vosk: {e}")
+        return False
+
 # Initialize Necessary Variables
 def initialize():
     print("Checking for updates...")
@@ -43,7 +67,11 @@ def initialize():
         print("Failed to properly initialize wake word.")
     if not load_os_version():
         print("Failed to properly initialize OS version.")
+    if not init_vosk():
+        print("Failed to initialize Vosk speech recognition")
+        return False
     print("KiloBuddy Initialized.")
+    return True
 
 # Auto-detect operating system
 def detect_os():
@@ -244,58 +272,62 @@ def generate_text(input_prompt):
 
 # Listen for Wake Word
 def listen_for_wake_word():
-    recognizer = sr.Recognizer()
-    microphone = sr.Microphone()
-
+    global vosk_rec, audio_stream
+    
     print(f"Listening for wake word ('{WAKE_WORD}')...")
 
     while True:
         try:
-            with microphone as source:
-                audio = recognizer.listen(source, timeout=1, phrase_time_limit=3)
-            try:
-                text = recognizer.recognize_google(audio, show_all=False).lower()
+            data = audio_stream.read(4096, exception_on_overflow=False)
+            if vosk_rec.AcceptWaveform(data):
+                result = json.loads(vosk_rec.Result())
+                text = result.get('text', '').lower()
                 if text:
                     print(f"Heard: {text}")
-
                     if WAKE_WORD in text:
                         print(f"Wake word detected...")
                         return True
-            except sr.UnknownValueError:
-                # Didn't understand speech. It happens.
-                pass
-            except sr.RequestError as e:
-                print(f"Speech Recognition error: {e}")
-                time.sleep(0.25)
-        except sr.WaitTimeoutError:
-            # No speech detected before timeout. It happens.
-            pass
+            else:
+                partial = json.loads(vosk_rec.PartialResult())
+                text = partial.get('partial', '').lower()
+                if text and WAKE_WORD in text:
+                    print(f"Wake word detected...")
+                    return True
         except Exception as e:
             print(f"Error during listening: {e}")
             time.sleep(0.25)
 
 # Listen for Command after Wake Word
 def listen_for_command():
-    recognizer = sr.Recognizer()
-
+    global vosk_rec, audio_stream
+    
     print(f"Listening for command...")
-
+    
     try:
-        with sr.Microphone() as source:
-            # 10 seconds to say command, no command limit
-            audio = recognizer.listen(source, timeout=10)
-        print ("Processing command...")
-        command = recognizer.recognize_google(audio)
-        print(f"Command received: {command}")
-        return command
-    except sr.UnknownValueError:
-        print(f"Failed to understand command.")
-        return None
-    except sr.RequestError as e:
+        vosk_rec.Reset()
+        timeout_start = time.time()
+        timeout_duration = 10
+        
+        while time.time() - timeout_start < timeout_duration:
+            data = audio_stream.read(4096, exception_on_overflow=False)
+            if vosk_rec.AcceptWaveform(data):
+                result = json.loads(vosk_rec.Result())
+                command = result.get('text', '')
+                if command.strip():
+                    print(f"Command received: {command}")
+                    return command
+        
+        final_result = json.loads(vosk_rec.FinalResult())
+        command = final_result.get('text', '')
+        if command.strip():
+            print(f"Command received: {command}")
+            return command
+        else:
+            print("No command detected within timeout.")
+            return None
+            
+    except Exception as e:
         print(f"Speech Recognition error: {e}")
-        return None
-    except sr.WaitTimeoutError:
-        print(f"No command detected within timeout.")
         return None
 
 # Process Command using Gemini
@@ -668,7 +700,9 @@ def cleanup_lock_file():
             pass
 
 def show_dashboard():
-    initialize()
+    if not initialize():
+        print("Failed to initialize KiloBuddy.")
+        return
     dashboard = KiloBuddyDashboard()
     dashboard.run()
 
@@ -806,7 +840,9 @@ def check_for_updates():
 
 # Main Method that controls KiloBuddy
 def main():
-    initialize()
+    if not initialize():
+        print("Failed to initialize KiloBuddy. Exiting.")
+        return
 
     print(f"KiloBuddy successfully started. Say '{WAKE_WORD}' followed by your command.")
 
@@ -822,6 +858,10 @@ def main():
                 print("Returning to wake word listening...")
     except KeyboardInterrupt:
         print("\nKiloBuddy Shutting Down...")
+    finally:
+        if audio_stream:
+            audio_stream.stop_stream()
+            audio_stream.close()
 
 if __name__ == "__main__":
     if is_kilobuddy_running():
