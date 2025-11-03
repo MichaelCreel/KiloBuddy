@@ -6,8 +6,10 @@ import venv
 import os
 import platform
 import shutil
+import zipfile
+import urllib.request
 
-REQUIRED_PACKAGES = ["speechrecognition", "google-generativeai", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
+REQUIRED_PACKAGES = ["google-generativeai", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
 
 # Remove old installation if exists
 def remove_old_installation(install_dir):
@@ -167,6 +169,35 @@ def install_packages(install_dir):
         subprocess.check_call([python_path, "-m", "pip", "install", package])
     print("KiloBuddy installed successfully. The original download folder can now be deleted.")
 
+# Download and install Vosk model
+def install_vosk_model(install_dir):
+    model_dir = os.path.join(install_dir, "vosk-model")
+    if os.path.exists(model_dir):
+        print("Vosk model already exists, skipping download...")
+        return True
+    
+    print("Downloading Vosk speech recognition model...")
+    model_url = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+    model_zip = os.path.join(install_dir, "vosk-model.zip")
+    
+    try:
+        urllib.request.urlretrieve(model_url, model_zip)
+        print("Extracting Vosk model...")
+        
+        with zipfile.ZipFile(model_zip, 'r') as zip_ref:
+            zip_ref.extractall(install_dir)
+        
+        extracted_dir = os.path.join(install_dir, "vosk-model-small-en-us-0.15")
+        if os.path.exists(extracted_dir):
+            os.rename(extracted_dir, model_dir)
+        
+        os.remove(model_zip)
+        print("Vosk model installed successfully")
+        return True
+    except Exception as e:
+        print(f"Failed to download Vosk model: {e}")
+        return False
+
 def run_terminal_installer():
     print("=== KiloBuddy Installer Terminal Mode ===")
     
@@ -229,6 +260,10 @@ def run_terminal_installer():
             create_virtual_env(install_dir)
         
         install_packages(install_dir)
+        
+        # Download and install Vosk model
+        if not install_vosk_model(install_dir):
+            print("Warning: Failed to install Vosk model. Speech recognition may not work.")
         
         print(f"\nKiloBuddy installed successfully!")
         print(f"Installation location: {install_dir}")
@@ -528,6 +563,13 @@ def run_gui_installer():
                     root.update_idletasks()
                 
                 print("KiloBuddy installed successfully.")
+                
+                # Download and install Vosk model
+                progress['value'] = 85
+                root.update_idletasks()
+                if not install_vosk_model(install_dir):
+                    print("Warning: Failed to install Vosk model. Speech recognition may not work.")
+                
                 progress['value'] = 100
                 
                 # Create system shortcuts
