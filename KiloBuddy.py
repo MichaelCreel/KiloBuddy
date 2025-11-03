@@ -59,9 +59,12 @@ def initialize():
         print("WARNING: Failed to properly retrieve current app version.\n    -Falling back to 'v0.0'.")
     check_for_updates()
     print("Initializing KiloBuddy...")
-    if not load_api_key():
-        print("FATAL: Failed to properly initialize API key.\n    -The app will not function and will now stop.")
-        return False
+    if not load_gemini_api_key():
+        print("WARNING: Failed to properly initialize API key.\n    -Gemini will not generate responses.")
+    if not load_chatgpt_api_key():
+        print("WARNING: Failed to properly initialize ChatGPT API key.\n    -ChatGPT will not generate responses.")
+    if not load_claude_api_key():
+        print("WARNING: Failed to properly initialize Claude API key.\n    -Claude will not generate responses.")
     if not load_prompt():
         print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.")
         return False
@@ -191,13 +194,13 @@ def load_wake_word():
         return False
 
 # Load API Key for Gemini from file
-def load_api_key():
+def load_gemini_api_key():
     global GEMINI_API_KEY
     try:
         with open(get_source_path("gemini_api_key"), "r") as f:
             key = f.read().strip()
             if key == "null" or key == "" or key == "none":
-                print("ERROR: No API key provided. App will not function.")
+                print("ERROR: No API key provided.")
                 return False
             else:
                 genai.configure(api_key=key)
@@ -205,10 +208,52 @@ def load_api_key():
                 print("Loaded API Key")
                 return True
     except FileNotFoundError:
-        print("ERROR: API key file not found, using fallback text only.")
+        print("ERROR: API key file not found.")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load API key: {e}, using fallback text only.")
+        print(f"ERROR: Failed to load API key: {e}")
+        return False
+
+# Load API Key for ChatGPT from file
+def load_chatgpt_api_key():
+    global CHATGPT_API_KEY
+    try:
+        with open(get_source_path("chatgpt_api_key"), "r") as f:
+            key = f.read().strip()
+            if key == "null" or key == "" or key == "none":
+                print("ERROR: No API key provided.")
+                return False
+            else:
+                genai.configure(api_key=key)
+                GEMINI_API_KEY = key
+                print("Loaded API Key")
+                return True
+    except FileNotFoundError:
+        print("ERROR: API key file not found.")
+        return False
+    except Exception as e:
+        print(f"ERROR: Failed to load API key: {e}")
+        return False
+
+# Load API Key for Claude from file
+def load_claude_api_key():
+    global CLAUDE_API_KEY
+    try:
+        with open(get_source_path("claude_api_key"), "r") as f:
+            key = f.read().strip()
+            if key == "null" or key == "" or key == "none":
+                print("ERROR: No API key provided.")
+                return False
+            else:
+                genai.configure(api_key=key)
+                GEMINI_API_KEY = key
+                print("Loaded API Key")
+                return True
+    except FileNotFoundError:
+        print("ERROR: API key file not found.")
+        return False
+    except Exception as e:
+        print(f"ERROR: Failed to load API key: {e}")
         return False
 
 # Load Prompt for Gemini from file
