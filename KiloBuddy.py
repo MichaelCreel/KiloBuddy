@@ -18,6 +18,7 @@ import atexit
 import requests as reqs
 import customtkinter as ctk
 import openai
+import anthropic
 
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -245,18 +246,17 @@ def load_claude_api_key():
         with open(get_source_path("claude_api_key"), "r") as f:
             key = f.read().strip()
             if key == "null" or key == "" or key == "none":
-                print("ERROR: No API key provided.")
+                print("ERROR: No Claude API key provided.")
                 return False
             else:
-                genai.configure(api_key=key)
                 CLAUDE_API_KEY = key
-                print("Loaded API Key")
+                print("Loaded Claude API Key")
                 return True
     except FileNotFoundError:
-        print("ERROR: API key file not found.")
+        print("ERROR: Claude API key file not found.")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load API key: {e}")
+        print(f"ERROR: Failed to load Claude API key: {e}")
         return False
 
 # Load Prompt for Gemini from file
@@ -315,6 +315,47 @@ def chatgpt_generate(input_prompt):
 
     # Start ChatGPT call
     thread = threading.Thread(target=chatgpt_call)
+    thread.start()
+
+    # Start timer
+    timer = threading.Timer(API_TIMEOUT, fallback)
+    timer.start()
+
+    # Check for result or timeout
+    while result["text"] is None and not timeout_triggered.is_set():
+        thread.join(timeout=0.1)
+
+    timer.cancel()
+    return result["text"]
+
+def claude_generate(input_prompt):
+    result = {"text": None}
+    timeout_triggered = threading.Event()
+
+    def claude_call():
+        if timeout_triggered.is_set():
+            return
+        try:
+            client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+            response = client.messages.create(
+                model="claude-3-haiku-20240922",
+                max_tokens=4096,
+                messages=[
+                    {"role": "user", "content": input_prompt}
+                ]
+            )
+            reply = response.content[0].text
+            if not timeout_triggered.is_set():
+                result["text"] = reply.strip()
+        except Exception as e:
+            print(f"ERROR: Failed to generate text with Claude: {e}")
+    
+    def fallback():
+        timeout_triggered.set()
+        print("Claude API Timeout.")
+
+    # Start Claude call
+    thread = threading.Thread(target=claude_call)
     thread.start()
 
     # Start timer
