@@ -1,3 +1,6 @@
 # .gitignore
 gemini_api_key
+chatgpt_api_key
+claude_api_key
+ai_preference
 package.sh

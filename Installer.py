@@ -200,12 +200,8 @@ def install_vosk_model(install_dir):
 def run_terminal_installer():
     print("=== KiloBuddy Installer Terminal Mode ===")
     
-    # Remove any old installation first
+    # Get installation directory but don't set it up yet
     install_dir = get_install_directory()
-    remove_old_installation(install_dir)
-    
-    # Set up installation directory
-    install_dir = setup_install_directory()
     
     # Get API keys from user
     print("\n=== AI API Keys Setup ===")
@@ -289,6 +285,11 @@ def run_terminal_installer():
         print(f"Failed to save update preference: {e}")
     
     try:
+        # Remove any old installation and set up directory
+        print("\nSetting up installation directory...")
+        remove_old_installation(install_dir)
+        install_dir = setup_install_directory()
+        
         # Create virtual environment if it doesn't exist
         venv_path = os.path.join(install_dir, "kilobuddy_env")
         if not os.path.exists(venv_path):
@@ -538,12 +539,8 @@ def run_gui_installer():
     from tkinter import ttk
     import threading
 
-    # Remove any old installation first
+    # Get installation directory but don't set it up yet
     install_dir = get_install_directory()
-    remove_old_installation(install_dir)
-
-    # Set up installation directory at start
-    install_dir = setup_install_directory()
 
     def save_api_keys():
         # Save Gemini API key
@@ -606,6 +603,12 @@ def run_gui_installer():
                 # Reset progress bar
                 progress['value'] = 0
                 install_button.config(state='disabled', text='Installing...')
+                
+                # Remove any old installation and set up directory
+                remove_old_installation(install_dir)
+                setup_install_directory()
+                progress['value'] = 5
+                root.update_idletasks()
                 
                 # Create virtual environment if it doesn't exist
                 venv_path = os.path.join(install_dir, "kilobuddy_env")
