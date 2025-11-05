@@ -65,6 +65,31 @@ KiloBuddy uses Google Gemini to process user commands. Commands are not verified
 - The app is unsuccessful sometimes because of AI inaccuracy
 - Users can choose to be notified of new pre-releases
 - A dashboard is included for text-based interaction
+- **NEW:** Command history is saved and viewable in the dashboard
+- **NEW:** Enhanced logging system for debugging (logs stored in `logs/` directory)
+- **NEW:** Dangerous commands (like `rm -rf`) are blocked for safety
+
+## New Features (v1.3)
+
+### Command History
+- All commands and responses are now saved to `command_history.json`
+- View your command history through the dashboard by clicking the "History" button
+- Clear history when needed through the history viewer
+- Stores up to 100 most recent commands
+
+### Enhanced Logging
+- Comprehensive logging system for debugging and troubleshooting
+- Logs are stored in the `logs/` directory
+- Daily log rotation with timestamps
+- Includes command execution details, errors, and system events
+
+### Safety Features
+- Automatic detection of potentially dangerous commands
+- Commands like `rm -rf`, `format`, `dd`, and similar destructive operations are blocked
+- Safety warnings displayed when dangerous commands are detected
+- Prevents accidental data loss or system damage
+
+For a complete list of planned features and recommendations, see [FEATURES.md](FEATURES.md)
 
 ## License
 

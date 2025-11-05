@@ -6,3 +6,5 @@ ai_preference
 package.sh
 logs/
 command_history.json
+__pycache__/
+*.pyc
