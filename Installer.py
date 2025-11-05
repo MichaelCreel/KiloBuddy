@@ -35,7 +35,7 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates']
+    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates', 'ai_preference']
     for file in current_files:
         if os.path.exists(file):
             dest_path = os.path.join(install_dir, file)
@@ -250,10 +250,54 @@ def run_terminal_installer():
     # Check if at least one key was provided
     keys_provided = [gemini_key, chatgpt_key, claude_key]
     if not any(key and key not in ["null", "", "none"] for key in keys_provided):
-        print("\WARNING: No API keys provided. KiloBuddy will not function properly without at least one AI provider. API keys will need to be manually saved.")
+        print("WARNING: No API keys provided. KiloBuddy will not function properly without at least one AI provider. API keys will need to be manually saved.")
         continue_choice = input("Continue installation anyway? (y/n): ").lower()
         if continue_choice not in ['y', 'yes']:
             return
+    
+    # Ask for AI preference
+    print("\n=== AI Provider Preference ===")
+    print("KiloBuddy can try multiple AI providers in order of preference.")
+    print("Enter up to 3 AI providers in order of preference (capitalization doesn't matter):")
+    print("Available providers: gemini, chatgpt, claude")
+    print("Example: gemini, chatgpt, claude")
+    
+    ai_preferences = []
+    valid_providers = ["gemini", "chatgpt", "claude"]
+    
+    for i in range(3):
+        while True:
+            if i == 0:
+                prompt = f"Enter 1st preference AI provider: "
+            elif i == 1:
+                prompt = f"Enter 2nd preference AI provider (or press Enter to skip): "
+            else:
+                prompt = f"Enter 3rd preference AI provider (or press Enter to skip): "
+            
+            preference = input(prompt).strip().lower()
+            
+            if preference == "" and i > 0:
+                break  # Skip optional preferences
+            elif preference in valid_providers and preference not in ai_preferences:
+                ai_preferences.append(preference)
+                break
+            elif preference in ai_preferences:
+                print(f"'{preference}' already selected. Choose a different provider.")
+            elif preference not in valid_providers and preference != "":
+                print(f"Invalid provider '{preference}'. Choose from: {', '.join(valid_providers)}")
+            elif preference == "" and i == 0:
+                print("First preference is required.")
+    
+    # Format and save AI preference
+    if ai_preferences:
+        ai_preference_str = ", ".join(ai_preferences)
+        try:
+            ai_preference_file = os.path.join(install_dir, "ai_preference")
+            with open(ai_preference_file, "w") as f:
+                f.write(ai_preference_str)
+            print(f"AI preference saved: {ai_preference_str}")
+        except Exception as e:
+            print(f"Failed to save AI preference: {e}")
     
     # Ask for update preferences
     print("\n=== Update Notifications ===")
@@ -576,6 +620,25 @@ def run_gui_installer():
                 messagebox.showerror("Error", f"Failed to save Claude API key: {e}")
                 return False
         
+        # Save AI preference
+        ai_preferences = []
+        if ai_pref1_var.get() != "None":
+            ai_preferences.append(ai_pref1_var.get().lower())
+        if ai_pref2_var.get() != "None" and ai_pref2_var.get().lower() not in ai_preferences:
+            ai_preferences.append(ai_pref2_var.get().lower())
+        if ai_pref3_var.get() != "None" and ai_pref3_var.get().lower() not in ai_preferences:
+            ai_preferences.append(ai_pref3_var.get().lower())
+        
+        if ai_preferences:
+            ai_preference_str = ", ".join(ai_preferences)
+            try:
+                ai_preference_file = os.path.join(install_dir, "ai_preference")
+                with open(ai_preference_file, "w") as f:
+                    f.write(ai_preference_str)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save AI preference: {e}")
+                return False
+        
         # Check if at least one key was provided
         keys_provided = [gemini_key, chatgpt_key, claude_key]
         if not any(key and key not in ["null", "", "none"] for key in keys_provided):
@@ -661,7 +724,7 @@ def run_gui_installer():
 
     root = tk.Tk()
     root.title("KiloBuddy Installer")
-    root.geometry("900x750")
+    root.geometry("900x850")
     root.configure(bg="#190c3a")
     
     # Set installer window icon if icon.png exists
@@ -716,6 +779,40 @@ def run_gui_installer():
     claude_help = tk.Label(root, text="Get your API key from: https://console.anthropic.com/", 
                           font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
     claude_help.pack(pady=(0, 10))
+
+    # AI Preference section
+    ai_pref_section_label = tk.Label(root, text="AI Provider Preference", 
+                                    font=("Helvetica", 16), fg="white", bg="#190c3a")
+    ai_pref_section_label.pack(pady=(20, 10))
+
+    ai_pref_desc = tk.Label(root, text="Choose up to 3 AI providers in order of preference:", 
+                           font=("Helvetica", 10), fg="#cccccc", bg="#190c3a")
+    ai_pref_desc.pack(pady=(0, 10))
+
+    # AI preference dropdowns frame
+    ai_pref_frame = tk.Frame(root, bg="#190c3a")
+    ai_pref_frame.pack(pady=5)
+
+    # 1st preference
+    tk.Label(ai_pref_frame, text="1st:", font=("Helvetica", 10), fg="white", bg="#190c3a").grid(row=0, column=0, padx=(0, 5), sticky="e")
+    ai_pref1_var = tk.StringVar(value="Gemini")
+    ai_pref1_dropdown = ttk.Combobox(ai_pref_frame, textvariable=ai_pref1_var, values=["Gemini", "ChatGPT", "Claude"], 
+                                    width=12, state="readonly")
+    ai_pref1_dropdown.grid(row=0, column=1, padx=5)
+
+    # 2nd preference
+    tk.Label(ai_pref_frame, text="2nd:", font=("Helvetica", 10), fg="white", bg="#190c3a").grid(row=0, column=2, padx=(15, 5), sticky="e")
+    ai_pref2_var = tk.StringVar(value="ChatGPT")
+    ai_pref2_dropdown = ttk.Combobox(ai_pref_frame, textvariable=ai_pref2_var, values=["None", "Gemini", "ChatGPT", "Claude"], 
+                                    width=12, state="readonly")
+    ai_pref2_dropdown.grid(row=0, column=3, padx=5)
+
+    # 3rd preference
+    tk.Label(ai_pref_frame, text="3rd:", font=("Helvetica", 10), fg="white", bg="#190c3a").grid(row=0, column=4, padx=(15, 5), sticky="e")
+    ai_pref3_var = tk.StringVar(value="Claude")
+    ai_pref3_dropdown = ttk.Combobox(ai_pref_frame, textvariable=ai_pref3_var, values=["None", "Gemini", "ChatGPT", "Claude"], 
+                                    width=12, state="readonly")
+    ai_pref3_dropdown.grid(row=0, column=5, padx=5)
 
     progress = ttk.Progressbar(root, orient="horizontal", length=750, mode="determinate")
     progress.pack(pady=15)
