@@ -1,14 +1,14 @@
 # KiloBuddy
 
-KiloBuddy is a powerful computer assistant that helps users execute commands within their system through voice commands. It uses Google Gemini to generate commands and text blocks that help users with computer issues, summaries, or information. It is designed to run on Windows, Mac, and Linux, and comes with a simple installer to automatically install all dependencies.
+KiloBuddy is a powerful computer assistant that helps users execute commands within their system through voice commands. It uses Google Gemini, OpenAI ChatGPT, or Anthropic Claude to generate commands and text blocks that help users with computer issues, summaries, or information. It is designed to run on Windows, Mac, and Linux, and comes with a simple installer to automatically install all dependencies.
 
 ## No Privacy Guarantee
 
-KiloBuddy uses Google Gemini while running. While KiloBuddy does not share any data outside of this service, Google may process your data. Privacy of your data is not guaranteed.
+KiloBuddy uses Google Gemini, OpenAI ChatGPT, or Anthropic Claude while running. While KiloBuddy does not share any data outside of these services, your data may be processed by these services. Data privacy is not garunteed.
 
 ## AI Accuracy
 
-KiloBuddy uses Google Gemini to process user commands. Commands are not verified before being run. Command accuracy and safety are not garunteed.
+KiloBuddy uses Google Gemini, OpenAI ChatGPT, or Anthropic Claude to process user commands. Commands are not verified before being run. Command accuracy and safety are not garunteed.
 
 ## Dependencies
 - Python, Google Gemini API, PyAudio
