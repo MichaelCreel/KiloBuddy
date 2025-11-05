@@ -36,6 +36,7 @@ VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
 COMMAND_HISTORY = [] # Store command history for recall
 MAX_HISTORY_SIZE = 100 # Maximum number of commands to store in history
+HISTORY_DISPLAY_LIMIT = 50 # Maximum number of history entries to display in dashboard
 
 # Vosk Speech Recognition Variables
 vosk_model = None
@@ -316,6 +317,11 @@ def get_source_path(filename):
 
 # Setup logging system
 def setup_logging():
+    # Only configure logging if not already configured
+    if logging.getLogger().handlers:
+        logging.info("Logging already configured, skipping setup")
+        return
+    
     log_dir = get_source_path("logs")
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -382,8 +388,9 @@ def add_to_history(command, response, success=True):
 # Check if command is potentially dangerous
 def is_dangerous_command(command):
     dangerous_patterns = [
-        r'\brm\b.*-rf',  # rm -rf
-        r'\bdel\b.*\/s',  # Windows del /s
+        r'\brm\b.*-[rf]*r[rf]*',  # rm with -r (may include -f)
+        r'\brm\b.*--recursive',  # rm with --recursive
+        r'\bdel\b.*[/\\]s',  # Windows del /s or \s
         r'\bformat\b',  # format command
         r'\bmkfs\b',  # filesystem creation
         r'\bdd\b.*if=.*of=',  # dd command
@@ -986,7 +993,7 @@ class KiloBuddyDashboard:
         
         if COMMAND_HISTORY:
             history_content = ""
-            for i, entry in enumerate(COMMAND_HISTORY[:50], 1):  # Show last 50
+            for i, entry in enumerate(COMMAND_HISTORY[:HISTORY_DISPLAY_LIMIT], 1):
                 timestamp = entry.get("timestamp", "Unknown")
                 command = entry.get("command", "")
                 response = entry.get("response", "")
