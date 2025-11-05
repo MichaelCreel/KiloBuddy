@@ -4,3 +4,5 @@ chatgpt_api_key
 claude_api_key
 ai_preference
 package.sh
+logs/
+command_history.json

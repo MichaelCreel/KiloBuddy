@@ -19,6 +19,8 @@ import requests as reqs
 import customtkinter as ctk
 import openai
 import anthropic
+import logging
+from datetime import datetime
 
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -32,6 +34,8 @@ PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for 
 LAST_GEMINI_OUTPUT = "No previous output..." # Store the last output by Gemini that was designated for the user
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
+COMMAND_HISTORY = [] # Store command history for recall
+MAX_HISTORY_SIZE = 100 # Maximum number of commands to store in history
 
 # Vosk Speech Recognition Variables
 vosk_model = None
@@ -64,6 +68,7 @@ def initialize():
         print("WARNING: Failed to properly retrieve current app version.\n    -Falling back to 'v0.0'.")
     check_for_updates()
     print("Initializing KiloBuddy...")
+    setup_logging()
     if not load_gemini_api_key():
         print("WARNING: Failed to properly initialize API key.\n    -Gemini will not generate responses.")
     if not load_chatgpt_api_key():
@@ -79,6 +84,7 @@ def initialize():
         print("WARNING: Failed to properly initialize wake word.\n    -Falling back to 'computer'.")
     if not load_os_version():
         print("WARNING: Failed to properly initialize OS version.\n    -Commands may not be correct for this system.")
+    load_command_history()
     if not init_vosk():
         print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.")
         return False
@@ -308,6 +314,90 @@ def get_source_path(filename):
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, filename)
 
+# Setup logging system
+def setup_logging():
+    log_dir = get_source_path("logs")
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    log_file = os.path.join(log_dir, f"kilobuddy_{datetime.now().strftime('%Y%m%d')}.log")
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )
+    logging.info("KiloBuddy logging initialized")
+
+# Load command history from file
+def load_command_history():
+    global COMMAND_HISTORY
+    try:
+        history_file = get_source_path("command_history.json")
+        if os.path.exists(history_file):
+            with open(history_file, "r") as f:
+                COMMAND_HISTORY = json.load(f)
+            logging.info(f"Loaded {len(COMMAND_HISTORY)} commands from history")
+        else:
+            COMMAND_HISTORY = []
+            logging.info("No command history file found, starting fresh")
+    except Exception as e:
+        logging.error(f"Failed to load command history: {e}")
+        COMMAND_HISTORY = []
+
+# Save command history to file
+def save_command_history():
+    global COMMAND_HISTORY
+    try:
+        history_file = get_source_path("command_history.json")
+        with open(history_file, "w") as f:
+            json.dump(COMMAND_HISTORY, f, indent=2)
+        logging.info("Command history saved")
+    except Exception as e:
+        logging.error(f"Failed to save command history: {e}")
+
+# Add command to history
+def add_to_history(command, response, success=True):
+    global COMMAND_HISTORY, MAX_HISTORY_SIZE
+    
+    history_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "command": command,
+        "response": response[:500] if response else "",  # Limit response length
+        "success": success
+    }
+    
+    COMMAND_HISTORY.insert(0, history_entry)
+    
+    # Keep history size under limit
+    if len(COMMAND_HISTORY) > MAX_HISTORY_SIZE:
+        COMMAND_HISTORY = COMMAND_HISTORY[:MAX_HISTORY_SIZE]
+    
+    save_command_history()
+    logging.info(f"Added command to history: {command[:50]}...")
+
+# Check if command is potentially dangerous
+def is_dangerous_command(command):
+    dangerous_patterns = [
+        r'\brm\b.*-rf',  # rm -rf
+        r'\bdel\b.*\/s',  # Windows del /s
+        r'\bformat\b',  # format command
+        r'\bmkfs\b',  # filesystem creation
+        r'\bdd\b.*if=.*of=',  # dd command
+        r'\bshred\b',  # shred command
+        r'\bfdisk\b',  # fdisk
+        r'\bparted\b',  # parted
+    ]
+    
+    command_lower = command.lower()
+    for pattern in dangerous_patterns:
+        if re.search(pattern, command_lower):
+            return True
+    return False
+
 # Generate Text using Gemini
 def generate_text(input_prompt):
     ai_models = [model.strip() for model in AI_PREFERENCE.split(",")]
@@ -504,6 +594,8 @@ def process_command(command):
         print("No command to process.")
         return
     
+    logging.info(f"Processing command: {command}")
+    
     global PROMPT
     global OS_VERSION
     combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nUser Command: {command}"
@@ -511,8 +603,11 @@ def process_command(command):
     print("Generating response...")
     response = generate_text(combined_prompt)
     if response:
+        add_to_history(command, response, success=True)
         process_response(response)
     else:
+        logging.error("No response generated from AI")
+        add_to_history(command, "ERROR: No response generated", success=False)
         print("ERROR: No response generated.")
 
 def process_response(response):
@@ -586,9 +681,28 @@ def user_call(command):
         command = command.replace("$LAST_OUTPUT", LAST_GEMINI_OUTPUT)
         print(f"Substituted $LAST_OUTPUT in command")
     
+    # Check if command is dangerous
+    if is_dangerous_command(command):
+        logging.warning(f"Dangerous command detected: {command}")
+        print(f"WARNING: Potentially dangerous command detected: {command}")
+        print("This command could delete files or modify system settings.")
+        print("Execution skipped for safety. Edit the code to allow if needed.")
+        PREVIOUS_COMMAND_OUTPUT = "Command skipped for safety reasons"
+        return
+    
+    logging.info(f"Running USER command: {command}")
     print(f"Running USER command: {command}")
-    result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
-    PREVIOUS_COMMAND_OUTPUT = result.stdout
+    try:
+        result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
+        PREVIOUS_COMMAND_OUTPUT = result.stdout
+        if result.returncode != 0 and result.stderr:
+            logging.error(f"Command failed with error: {result.stderr}")
+    except subprocess.TimeoutExpired:
+        logging.error(f"Command timed out: {command}")
+        PREVIOUS_COMMAND_OUTPUT = "Command timed out"
+    except Exception as e:
+        logging.error(f"Command execution failed: {e}")
+        PREVIOUS_COMMAND_OUTPUT = f"Error: {str(e)}"
 
 # GEMINI Call Method
 def gemini_call(task_list):
@@ -733,6 +847,9 @@ class KiloBuddyDashboard:
         self.status_label = ctk.CTkLabel(button_frame, text="Status: Waiting...", text_color="#8A8A8A", font=ctk.CTkFont(size=self.status_font_size))
         self.status_label.pack(side="left")
 
+        history_btn = ctk.CTkButton(button_frame, text="History", command=self.show_history, fg_color="#2196F3", hover_color="#1976D2", font=ctk.CTkFont(size=self.button_font_size), width=120, height=35)
+        history_btn.pack(side="right", padx=(0, 10))
+
         quit_btn = ctk.CTkButton(button_frame, text="Quit KiloBuddy", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(size=self.button_font_size), width=140, height=35)
         quit_btn.pack(side="right")
 
@@ -830,6 +947,72 @@ class KiloBuddyDashboard:
             self.root.destroy()
 
             os._exit(0)
+    
+    def show_history(self):
+        global COMMAND_HISTORY
+        
+        history_window = ctk.CTkToplevel(self.root)
+        history_window.title("Command History")
+        history_window.geometry("900x700")
+        history_window.configure(fg_color=self.background_color)
+        
+        if os.path.exists("icon.png"):
+            try:
+                history_window.iconphoto(False, tk.PhotoImage(file="icon.png"))
+            except Exception:
+                pass
+        
+        header_frame = ctk.CTkFrame(history_window, fg_color="transparent")
+        header_frame.pack(fill="x", padx=20, pady=20)
+        
+        title_label = ctk.CTkLabel(header_frame, text="Command History", 
+                                   font=ctk.CTkFont(size=self.header_font_size, weight="bold"), 
+                                   text_color="white")
+        title_label.pack(side="left")
+        
+        clear_btn = ctk.CTkButton(header_frame, text="Clear History", 
+                                 command=lambda: self.clear_history(history_window),
+                                 fg_color="#f44336", hover_color="#d32f2f", 
+                                 font=ctk.CTkFont(size=self.button_font_size))
+        clear_btn.pack(side="right")
+        
+        text_frame = ctk.CTkFrame(history_window, fg_color=self.frame_color, corner_radius=15)
+        text_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        
+        history_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(size=18), 
+                                      fg_color=self.background_color, text_color="white", 
+                                      corner_radius=10)
+        history_text.pack(fill="both", expand=True, padx=15, pady=15)
+        
+        if COMMAND_HISTORY:
+            history_content = ""
+            for i, entry in enumerate(COMMAND_HISTORY[:50], 1):  # Show last 50
+                timestamp = entry.get("timestamp", "Unknown")
+                command = entry.get("command", "")
+                response = entry.get("response", "")
+                success = entry.get("success", True)
+                status = "✓" if success else "✗"
+                
+                history_content += f"{status} [{timestamp}]\n"
+                history_content += f"Command: {command}\n"
+                history_content += f"Response: {response[:200]}{'...' if len(response) > 200 else ''}\n"
+                history_content += "-" * 80 + "\n\n"
+            
+            history_text.insert("0.0", history_content)
+        else:
+            history_text.insert("0.0", "No command history available.")
+        
+        history_text.configure(state="disabled")
+    
+    def clear_history(self, history_window):
+        global COMMAND_HISTORY
+        result = tk.messagebox.askyesno("Clear History", 
+                                       "Are you sure you want to clear all command history?")
+        if result:
+            COMMAND_HISTORY = []
+            save_command_history()
+            history_window.destroy()
+            tk.messagebox.showinfo("Success", "Command history cleared.")
     
     def run(self):
         self.root.mainloop()
