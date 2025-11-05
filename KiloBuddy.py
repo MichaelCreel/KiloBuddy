@@ -57,13 +57,13 @@ def init_vosk():
 
 # Initialize Necessary Variables
 def initialize():
-    print("Checking for updates...")
+    print("INFO: Checking for updates...")
     if not load_update_type():
         print("WARNING: Failed to properly retrieve update type preference.\n    -Falling back to 'release'.")
     if not load_app_version():
         print("WARNING: Failed to properly retrieve current app version.\n    -Falling back to 'v0.0'.")
     check_for_updates()
-    print("Initializing KiloBuddy...")
+    print("INFO: Initializing KiloBuddy...")
     if not load_gemini_api_key():
         print("WARNING: Failed to properly initialize API key.\n    -Gemini will not generate responses.")
     if not load_chatgpt_api_key():
@@ -82,7 +82,7 @@ def initialize():
     if not init_vosk():
         print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.")
         return False
-    print("KiloBuddy Initialized.")
+    print("INFO: KiloBuddy Initialized.")
     return True
 
 # Auto-detect operating system
@@ -125,7 +125,7 @@ def load_update_type():
             update_type = f.read().strip().lower()
             if update_type in ["release", "pre-release"]:
                 UPDATES = update_type
-                print(f"Loaded Update Type: {UPDATES}")
+                print(f"INFO: Loaded Update Type: {UPDATES}")
                 return True
             else:
                 print(f"ERROR: Invalid update type in file, using default 'release'.")
@@ -148,7 +148,7 @@ def load_app_version():
                 return False
             else:
                 VERSION = version
-                print(f"Loaded Version: {VERSION}")
+                print(f"INFO: Loaded Version: {VERSION}")
                 return True
     except FileNotFoundError:
         print(f"ERROR: Version file not found")
@@ -165,11 +165,11 @@ def load_os_version():
             version = f.read().strip().lower()
             if version == "null" or version == "" or version == "none" or version == "auto-detect":
                 OS_VERSION = detect_os()
-                print(f"Auto-detected OS: {OS_VERSION}")
+                print(f"INFO: Auto-detected OS: {OS_VERSION}")
                 return True
             else:
                 OS_VERSION = version
-                print(f"Loaded OS Version: {OS_VERSION}")
+                print(f"INFO: Loaded OS Version: {OS_VERSION}")
                 return True
     except FileNotFoundError:
         OS_VERSION = detect_os()
@@ -191,7 +191,7 @@ def load_wake_word():
                 return False
             else:
                 WAKE_WORD = word
-                print(f"Loaded Wake Word: {WAKE_WORD}")
+                print(f"INFO: Loaded Wake Word: {WAKE_WORD}")
                 return True
     except FileNotFoundError:
         print("ERROR: Wake word file not found, using fallback 'computer'.")
@@ -211,7 +211,7 @@ def load_ai_preference():
                 return False
             else:
                 AI_PREFERENCE = preference
-                print(f"Loaded AI Preference: {AI_PREFERENCE}")
+                print(f"INFO: Loaded AI Preference: {AI_PREFERENCE}")
                 return True
     except FileNotFoundError:
         print("ERROR: AI preference file not found, using default 'gemini, chatgpt, claude'.")
@@ -232,7 +232,7 @@ def load_gemini_api_key():
             else:
                 genai.configure(api_key=key)
                 GEMINI_API_KEY = key
-                print("Loaded Gemini API Key")
+                print("INFO: Loaded Gemini API Key")
                 return True
     except FileNotFoundError:
         print("ERROR: Gemini API key file not found.")
@@ -253,7 +253,7 @@ def load_chatgpt_api_key():
             else:
                 openai.api_key = key
                 CHATGPT_API_KEY = key
-                print("Loaded ChatGPT API Key")
+                print("INFO: Loaded ChatGPT API Key")
                 return True
     except FileNotFoundError:
         print("ERROR: ChatGPT API key file not found.")
@@ -273,7 +273,7 @@ def load_claude_api_key():
                 return False
             else:
                 CLAUDE_API_KEY = key
-                print("Loaded Claude API Key")
+                print("INFO: Loaded Claude API Key")
                 return True
     except FileNotFoundError:
         print("ERROR: Claude API key file not found.")
@@ -345,7 +345,7 @@ def chatgpt_generate(input_prompt):
     
     def fallback():
         timeout_triggered.set()
-        print("ChatGPT API Timeout.")
+        print("ERROR: ChatGPT API Timeout.")
 
     # Start ChatGPT call
     thread = threading.Thread(target=chatgpt_call)
@@ -386,7 +386,7 @@ def claude_generate(input_prompt):
     
     def fallback():
         timeout_triggered.set()
-        print("Claude API Timeout.")
+        print("ERROR: Claude API Timeout.")
 
     # Start Claude call
     thread = threading.Thread(target=claude_call)
@@ -421,7 +421,7 @@ def gemini_generate(input_prompt):
     
     def fallback():
         timeout_triggered.set()
-        print("Gemini API Timeout.")
+        print("ERROR: Gemini API Timeout.")
 
     # Start Gemini call
     thread = threading.Thread(target=gemini_call)
@@ -442,7 +442,7 @@ def gemini_generate(input_prompt):
 def listen_for_wake_word():
     global vosk_rec, audio_stream
     
-    print(f"Listening for wake word ('{WAKE_WORD}')...")
+    print(f"INFO: Listening for wake word ('{WAKE_WORD}')...")
 
     while True:
         try:
@@ -451,15 +451,15 @@ def listen_for_wake_word():
                 result = json.loads(vosk_rec.Result())
                 text = result.get('text', '').lower()
                 if text:
-                    print(f"Heard: {text}")
+                    print(f"INFO: Heard: {text}")
                     if WAKE_WORD in text:
-                        print(f"Wake word detected...")
+                        print(f"INFO: Wake word detected...")
                         return True
             else:
                 partial = json.loads(vosk_rec.PartialResult())
                 text = partial.get('partial', '').lower()
                 if text and WAKE_WORD in text:
-                    print(f"Wake word detected...")
+                    print(f"INFO: Wake word detected...")
                     return True
         except Exception as e:
             print(f"ERROR: Failed to listen for wake word: {e}")
@@ -469,7 +469,7 @@ def listen_for_wake_word():
 def listen_for_command():
     global vosk_rec, audio_stream
     
-    print(f"Listening for command...")
+    print(f"INFO: Listening for command...")
     
     try:
         vosk_rec.Reset()
@@ -482,16 +482,16 @@ def listen_for_command():
                 result = json.loads(vosk_rec.Result())
                 command = result.get('text', '')
                 if command.strip():
-                    print(f"Command received: {command}")
+                    print(f"INFO: Command received: {command}")
                     return command
         
         final_result = json.loads(vosk_rec.FinalResult())
         command = final_result.get('text', '')
         if command.strip():
-            print(f"Command received: {command}")
+            print(f"INFO: Command received: {command}")
             return command
         else:
-            print("No command detected within timeout.")
+            print("INFO: No command detected within timeout.")
             return None
             
     except Exception as e:
@@ -501,14 +501,14 @@ def listen_for_command():
 # Process Command using Gemini
 def process_command(command):
     if not command:
-        print("No command to process.")
+        print("INFO: No command to process.")
         return
     
     global PROMPT
     global OS_VERSION
     combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nUser Command: {command}"
 
-    print("Generating response...")
+    print("INFO: Generating response...")
     response = generate_text(combined_prompt)
     if response:
         process_response(response)
@@ -533,10 +533,10 @@ def process_response(response):
         show_overlay(user_output)
     
     if todo_list:
-        print(f"Found {len(todo_list)} todo items")
+        print(f"INFO: Found {len(todo_list)} todo items")
         process_todo_list(todo_list)
     else:
-        print("No todo list found in response.")
+        print("INFO: No todo list found in response.")
     return
 
 # Extract the todo list from Gemini response
@@ -563,7 +563,7 @@ def process_todo_list(todo_list):
                 update_status(todo_list, i)
                 continue
             elif executor == "GEMINI":
-                print(f"Requesting GEMINI command: {command}")
+                print(f"INFO: Requesting GEMINI command: {command}")
                 gemini_call(todo_list)
                 break
 
@@ -584,9 +584,9 @@ def user_call(command):
     # Replace $LAST_OUTPUT with the actual Gemini output
     if "$LAST_OUTPUT" in command:
         command = command.replace("$LAST_OUTPUT", LAST_GEMINI_OUTPUT)
-        print(f"Substituted $LAST_OUTPUT in command")
+        print(f"INFO: Substituted $LAST_OUTPUT in command")
     
-    print(f"Running USER command: {command}")
+    print(f"INFO: Running USER command: {command}")
     result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
     PREVIOUS_COMMAND_OUTPUT = result.stdout
 
@@ -594,7 +594,7 @@ def user_call(command):
 def gemini_call(task_list):
     global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT
     combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nTodo List:\n{format_todo_list(task_list)}\n\nThis is a continuation of a previous task. Continue the task list by fulfilling the task marked 'DO NEXT'."
-    print("Generating response...")
+    print("INFO: Generating response...")
     response_text = generate_text(combined_prompt)
     process_response(response_text)
 
@@ -869,7 +869,7 @@ def cleanup_lock_file():
 
 def show_dashboard():
     if not initialize():
-        print("Failed to initialize KiloBuddy.")
+        print("ERROR: Failed to initialize KiloBuddy.")
         return
     dashboard = KiloBuddyDashboard()
     dashboard.run()
@@ -958,7 +958,7 @@ def show_update_notification(latest_version, release_type, download_url):
             popup.mainloop()
             
         except Exception as e:
-            print(f"Error showing update notification: {e}")
+            print(f"ERROR: Couldn't show update notification: {e}")
 
     popup_thread = threading.Thread(target=show_popup)
     popup_thread.daemon = True
@@ -979,40 +979,40 @@ def check_for_updates():
                 release_type = "pre-release" if is_prerelease else "stable release"
                 download_url = latest_release["html_url"]
                 
-                print(f"Latest Version: {latest_version} ({release_type}), Current Version: {VERSION}")
+                print(f"INFO: Latest Version: {latest_version} ({release_type}), Current Version: {VERSION}")
                 
                 if is_newer_version(VERSION, latest_version):
                     if UPDATES == "release" and is_prerelease:
-                        print("Skipping pre-release update.")
+                        print("INFO: Skipping pre-release update.")
                         return None
                     else:
-                        print(f"Update available: {release_type} - {latest_version}")
+                        print(f"INFO: Update available: {release_type} - {latest_version}")
                         show_update_notification(latest_version, release_type, download_url)
                     
                     return latest_version
                 else:
-                    print("Latest version installed.")
+                    print("INFO: Latest version installed.")
                     return None
             else:
-                print("No releases found on GitHub repository.")
+                print("WARNING: No releases found on GitHub repository.")
                 return None
         elif response.status_code == 404:
-            print("No releases found on GitHub repository.")
+            print("WARNING: No releases found on GitHub repository.")
             return None
         else:
-            print(f"Failed to check for updates. Status code: {response.status_code}")
+            print(f"ERROR: Failed to check for updates. Status code: {response.status_code}")
             return None
     except Exception as e:
-        print(f"Error checking for updates: {e}")
+        print(f"ERROR: Error checking for updates: {e}")
         return None
 
 # Main Method that controls KiloBuddy
 def main():
     if not initialize():
-        print("Failed to initialize KiloBuddy. Exiting.")
+        print("FATAL: Failed to initialize KiloBuddy. Exiting.")
         return
 
-    print(f"KiloBuddy successfully started. Say '{WAKE_WORD}' followed by your command.")
+    print(f"INFO: KiloBuddy successfully started. Say '{WAKE_WORD}' followed by your command.")
 
     try:
         while True:
@@ -1023,9 +1023,9 @@ def main():
                 if command:
                     process_command(command)
 
-                print("Returning to wake word listening...")
+                print("INFO: Returning to wake word listening...")
     except KeyboardInterrupt:
-        print("\nKiloBuddy Shutting Down...")
+        print("\nINFO: KiloBuddy Shutting Down...")
     finally:
         if audio_stream:
             audio_stream.stop_stream()
@@ -1033,9 +1033,9 @@ def main():
 
 if __name__ == "__main__":
     if is_kilobuddy_running():
-        print("Opening dashboard...")
+        print("INFO: Opening dashboard...")
         show_dashboard()
     else:
-        print("Launching KiloBuddy...")
+        print("INFO: Launching KiloBuddy...")
         create_lock_file()
         main()
