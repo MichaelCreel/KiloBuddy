@@ -29,7 +29,7 @@ PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded 
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
-LAST_GEMINI_OUTPUT = "No previous output..." # Store the last output by Gemini that was designated for the user
+LAST_OUTPUT = "No previous output..." # Store the last output by Gemini that was designated for the user
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
 
@@ -320,6 +320,7 @@ def generate_text(input_prompt):
             return claude_generate(input_prompt)
         else:
             print("ERROR: Unrecognized AI model preference. Generation aborted.")
+            show_failure_notification("ERROR: Unrecognized AI model preference. Generation aborted.\n\nYour AI preference was unable to be processed and may need to be fixed.")
             return "ERROR: Unrecognized AI model preference. Generation aborted."
     return None
 
@@ -342,10 +343,12 @@ def chatgpt_generate(input_prompt):
                 result["text"] = reply.strip()
         except Exception as e:
             print(f"ERROR: Failed to generate text with ChatGPT: {e}")
+            show_failure_notification(f"ERROR: ChatGPT API Error: {e}")
     
     def fallback():
         timeout_triggered.set()
         print("ERROR: ChatGPT API Timeout.")
+        show_failure_notification("ERROR: ChatGPT API Timed Out.")
 
     # Start ChatGPT call
     thread = threading.Thread(target=chatgpt_call)
@@ -383,10 +386,12 @@ def claude_generate(input_prompt):
                 result["text"] = reply.strip()
         except Exception as e:
             print(f"ERROR: Failed to generate text with Claude: {e}")
-    
+            show_failure_notification(f"ERROR: Claude API Error: {e}")
+
     def fallback():
         timeout_triggered.set()
         print("ERROR: Claude API Timeout.")
+        show_failure_notification("ERROR: Claude API Timed Out.")
 
     # Start Claude call
     thread = threading.Thread(target=claude_call)
@@ -418,10 +423,12 @@ def gemini_generate(input_prompt):
                 result["text"] = response.text.strip()
         except Exception as e:
             print(f"ERROR: Failed to generate text: {e}")
+            show_failure_notification(f"ERROR: Gemini API Error: {e}")
     
     def fallback():
         timeout_triggered.set()
         print("ERROR: Gemini API Timeout.")
+        show_failure_notification("ERROR: Gemini API Timed Out.")
 
     # Start Gemini call
     thread = threading.Thread(target=gemini_call)
@@ -520,7 +527,7 @@ def process_response(response):
         print("ERROR: No response from Gemini.")
         return
     
-    global LAST_GEMINI_OUTPUT
+    global LAST_OUTPUT
     
     todo_list = extract_todo_list(response)
     
@@ -528,7 +535,7 @@ def process_response(response):
     user_output = extract_user_output(response)
     if user_output:
         # Store the output in the global variable
-        LAST_GEMINI_OUTPUT = user_output
+        LAST_OUTPUT = user_output
         print(f"\n=== KiloBuddy Output ===\n{user_output}\n========================\n")
         show_overlay(user_output)
     
@@ -579,11 +586,11 @@ def update_status(todo_list, current_step):
 
 # USER Call Subprocess
 def user_call(command):
-    global PREVIOUS_COMMAND_OUTPUT, LAST_GEMINI_OUTPUT
+    global PREVIOUS_COMMAND_OUTPUT, LAST_OUTPUT
     
     # Replace $LAST_OUTPUT with the actual Gemini output
     if "$LAST_OUTPUT" in command:
-        command = command.replace("$LAST_OUTPUT", LAST_GEMINI_OUTPUT)
+        command = command.replace("$LAST_OUTPUT", LAST_OUTPUT)
         print(f"INFO: Substituted $LAST_OUTPUT in command")
     
     print(f"INFO: Running USER command: {command}")
@@ -768,9 +775,9 @@ class KiloBuddyDashboard:
         self.command_entry.bind('<Return>', lambda event: self.send_command())
         
     def update_output_display(self):
-        if LAST_GEMINI_OUTPUT:
+        if LAST_OUTPUT:
             self.output_text.delete("0.0", "end")
-            self.output_text.insert("0.0", LAST_GEMINI_OUTPUT)
+            self.output_text.insert("0.0", LAST_OUTPUT)
         else:
             self.output_text.delete("0.0", "end")
             self.output_text.insert("0.0", "No response yet. Try sending a command...")
@@ -802,18 +809,18 @@ class KiloBuddyDashboard:
             self.root.after(0, lambda: self.status_label.configure(text="Status: Error", text_color="#F44336"))
     
     def update_output_with_response(self, text):
-        global LAST_GEMINI_OUTPUT
-        LAST_GEMINI_OUTPUT = text
+        global LAST_OUTPUT
+        LAST_OUTPUT = text
         
         self.output_text.delete("0.0", "end")
         self.output_text.insert("0.0", text)
     
     def update_output_with_latest_response(self):
-        global LAST_GEMINI_OUTPUT
+        global LAST_OUTPUT
         
         self.output_text.delete("0.0", "end")
-        if LAST_GEMINI_OUTPUT:
-            self.output_text.insert("0.0", LAST_GEMINI_OUTPUT)
+        if LAST_OUTPUT:
+            self.output_text.insert("0.0", LAST_OUTPUT)
         else:
             self.output_text.insert("0.0", "No response available.")
         
@@ -873,6 +880,65 @@ def show_dashboard():
         return
     dashboard = KiloBuddyDashboard()
     dashboard.run()
+
+# Show failure notification popup
+def show_failure_notification(message):
+    def show_popup():
+        try:
+            popup = tk.Tk()
+            popup.title("KiloBuddy Error")
+            popup.geometry("500x200")
+            popup.configure(bg="#1e1e1e")
+            popup.attributes("-topmost", True)
+            popup.resizable(False, False)
+
+            popup.lift()
+            popup.focus_force()
+
+            if os.path.exists("icon.png"):
+                try:
+                    popup.iconphoto(False, tk.PhotoImage(file="icon.png"))
+                except:
+                    pass
+
+            main_frame = tk.Frame(popup, bg="#1e1e1e", padx=20, pady=20)
+            main_frame.pack(fill="both", expand=True)
+
+            title_label = tk.Label(main_frame, text="KiloBuddy Error", 
+                                 font=("Arial", 16, "bold"), 
+                                 fg="#F44336", bg="#1e1e1e")
+            title_label.pack(pady=(0, 10))
+
+            message_label = tk.Label(main_frame, text=message, 
+                                  font=("Arial", 11), 
+                                  fg="white", bg="#1e1e1e",
+                                  justify="center")
+            message_label.pack(pady=(0, 20))
+
+            ok_btn = tk.Button(main_frame, text="OK", 
+                             command=popup.destroy,
+                             bg="#F44336", fg="white", 
+                             font=("Arial", 10, "bold"),
+                             padx=20, pady=8,
+                             relief="flat",
+                             cursor="hand2")
+            ok_btn.pack(pady=(10, 0))
+            
+            popup.after(30000, popup.destroy)
+            
+            popup.update_idletasks()
+            x = (popup.winfo_screenwidth() // 2) - (popup.winfo_width() // 2)
+            y = (popup.winfo_screenheight() // 2) - (popup.winfo_height() // 2)
+            popup.geometry(f"+{x}+{y}")
+            
+            popup.mainloop()
+            
+        except Exception as e:
+            print(f"ERROR: Couldn't show failure notification: {e}")
+
+    popup_thread = threading.Thread(target=show_popup)
+    popup_thread.daemon = True
+    popup_thread.start()
 
 # Show update notification popup
 def show_update_notification(latest_version, release_type, download_url):
