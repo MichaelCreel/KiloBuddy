@@ -59,28 +59,28 @@ def init_vosk():
 def initialize():
     print("INFO: Checking for updates...")
     if not load_update_type():
-        print("WARNING: Failed to properly retrieve update type preference.\n    -Falling back to 'release'.")
+        print("WARNING: Failed to properly retrieve update type preference.\n    -Falling back to 'release'.\nWARN 301")
     if not load_app_version():
-        print("WARNING: Failed to properly retrieve current app version.\n    -Falling back to 'v0.0'.")
+        print("WARNING: Failed to properly retrieve current app version.\n    -Falling back to 'v0.0'.\nWARN 302")
     check_for_updates()
     print("INFO: Initializing KiloBuddy...")
     if not load_gemini_api_key():
-        print("WARNING: Failed to properly initialize API key.\n    -Gemini will not generate responses.")
+        print("WARNING: Failed to properly initialize Gemini API key.\n    -Gemini will not generate responses.\nWARN 303")
     if not load_chatgpt_api_key():
-        print("WARNING: Failed to properly initialize ChatGPT API key.\n    -ChatGPT will not generate responses.")
+        print("WARNING: Failed to properly initialize ChatGPT API key.\n    -ChatGPT will not generate responses.\nWARN 304")
     if not load_claude_api_key():
-        print("WARNING: Failed to properly initialize Claude API key.\n    -Claude will not generate responses.")
+        print("WARNING: Failed to properly initialize Claude API key.\n    -Claude will not generate responses.\nWARN 305")
     if not load_ai_preference():
-        print("WARNING: Failed to properly initialize AI preference.\n    -Falling back to 'gemini, chatgpt, claude'.")
+        print("WARNING: Failed to properly initialize AI preference.\n    -Falling back to 'gemini, chatgpt, claude'.\nWARN 306")
     if not load_prompt():
-        print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.")
+        print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.\nFATAL 0")
         return False
     if not load_wake_word():
-        print("WARNING: Failed to properly initialize wake word.\n    -Falling back to 'computer'.")
+        print("WARNING: Failed to properly initialize wake word.\n    -Falling back to 'computer'.\nWARN 307")
     if not load_os_version():
-        print("WARNING: Failed to properly initialize OS version.\n    -Commands may not be correct for this system.")
+        print("WARNING: Failed to properly initialize OS version.\n    -Falling back to auto-detected operating system.\n    -Commands generated may not be correct.\nWARN 308")
     if not init_vosk():
-        print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.")
+        print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.\nFATAL 1")
         return False
     print("INFO: KiloBuddy Initialized.")
     return True
@@ -128,13 +128,13 @@ def load_update_type():
                 print(f"INFO: Loaded Update Type: {UPDATES}")
                 return True
             else:
-                print(f"ERROR: Invalid update type in file, using default 'release'.")
+                print(f"ERROR: Invalid update type in file, using default 'release'.\nERROR 101")
                 return False
     except FileNotFoundError:
-        print(f"ERROR: Updates file not found, using default 'release'.")
+        print(f"ERROR: Updates file not found, using default 'release'.\nERROR 102")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load update type: {e}, using default 'release'.")
+        print(f"ERROR: Failed to load update type: {e}, using default 'release'.\nERROR 103")
         return False
 
 # Load App Version from file
@@ -144,17 +144,17 @@ def load_app_version():
         with open(get_source_path("version"), "r") as f:
             version = f.read().strip()
             if version == "null" or version == "" or version == "none":
-                print(f"ERROR: Version not found")
+                print(f"ERROR: Version not found.\nERROR 104")
                 return False
             else:
                 VERSION = version
                 print(f"INFO: Loaded Version: {VERSION}")
                 return True
     except FileNotFoundError:
-        print(f"ERROR: Version file not found")
+        print(f"ERROR: Version file not found.\nERROR 105")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load version: {e}")
+        print(f"ERROR: Failed to load version: {e}\nERROR 106")
         return False
 
 # Load Operating System Version from file
@@ -173,11 +173,11 @@ def load_os_version():
                 return True
     except FileNotFoundError:
         OS_VERSION = detect_os()
-        print(f"ERROR: OS version file not found, auto-detected: {OS_VERSION}")
+        print(f"ERROR: OS version file not found, auto-detected: {OS_VERSION}\nERROR 107")
         return False
     except Exception as e:
         OS_VERSION = detect_os()
-        print(f"ERROR: Failed to load OS version: {e}, auto-detected: {OS_VERSION}")
+        print(f"ERROR: Failed to load OS version: {e}, auto-detected: {OS_VERSION}\nERROR 108")
         return False
 
 # Load Wake Word from file
@@ -187,17 +187,17 @@ def load_wake_word():
         with open(get_source_path("wake_word"), "r") as f:
             word = f.read().strip().lower()
             if word == "null" or word == "" or word == "none":
-                print("ERROR: No wake word provided, using default 'computer'.")
+                print("ERROR: No wake word provided, using default 'computer'.\ERROR 109")
                 return False
             else:
                 WAKE_WORD = word
                 print(f"INFO: Loaded Wake Word: {WAKE_WORD}")
                 return True
     except FileNotFoundError:
-        print("ERROR: Wake word file not found, using fallback 'computer'.")
+        print("ERROR: Wake word file not found, using fallback 'computer'.\ERROR 110")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load wake word: {e}, using default 'computer'.")
+        print(f"ERROR: Failed to load wake word: {e}, using default 'computer'.\nERROR 111")
         return False
 
 # Load AI Preference
@@ -207,17 +207,17 @@ def load_ai_preference():
         with open(get_source_path("ai_preference"), "r") as f:
             preference = f.read().strip().lower()
             if preference == "null" or preference == "" or preference == "none":
-                print("ERROR: No AI preference provided, using default 'gemini'.")
+                print("ERROR: No AI preference provided, using default 'gemini'.\nERROR 112")
                 return False
             else:
                 AI_PREFERENCE = preference
                 print(f"INFO: Loaded AI Preference: {AI_PREFERENCE}")
                 return True
     except FileNotFoundError:
-        print("ERROR: AI preference file not found, using default 'gemini, chatgpt, claude'.")
+        print("ERROR: AI preference file not found, using default 'gemini, chatgpt, claude'.\nERROR 113")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load AI preference: {e}, using default 'gemini, chatgpt, claude'.")
+        print(f"ERROR: Failed to load AI preference: {e}, using default 'gemini, chatgpt, claude'.\nERROR 114")
         return False
 
 # Load API Key for Gemini from file
@@ -227,7 +227,7 @@ def load_gemini_api_key():
         with open(get_source_path("gemini_api_key"), "r") as f:
             key = f.read().strip()
             if key == "null" or key == "" or key == "none":
-                print("ERROR: No API key provided.")
+                print("ERROR: No Gemini API key provided.\nERROR 115")
                 return False
             else:
                 genai.configure(api_key=key)
@@ -235,10 +235,10 @@ def load_gemini_api_key():
                 print("INFO: Loaded Gemini API Key")
                 return True
     except FileNotFoundError:
-        print("ERROR: Gemini API key file not found.")
+        print("ERROR: Gemini API key file not found.\nERROR 116")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load Gemini API key: {e}")
+        print(f"ERROR: Failed to load Gemini API key: {e}\nERROR 117")
         return False
 
 # Load API Key for ChatGPT from file
@@ -248,7 +248,7 @@ def load_chatgpt_api_key():
         with open(get_source_path("chatgpt_api_key"), "r") as f:
             key = f.read().strip()
             if key == "null" or key == "" or key == "none":
-                print("ERROR: No API key provided.")
+                print("ERROR: No ChatGPT API key provided.\nERROR 118")
                 return False
             else:
                 openai.api_key = key
@@ -256,10 +256,10 @@ def load_chatgpt_api_key():
                 print("INFO: Loaded ChatGPT API Key")
                 return True
     except FileNotFoundError:
-        print("ERROR: ChatGPT API key file not found.")
+        print("ERROR: ChatGPT API key file not found.\nERROR 119")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load ChatGPT API key: {e}")
+        print(f"ERROR: Failed to load ChatGPT API key: {e}\nERROR 120")
         return False
 
 # Load API Key for Claude from file
@@ -269,17 +269,17 @@ def load_claude_api_key():
         with open(get_source_path("claude_api_key"), "r") as f:
             key = f.read().strip()
             if key == "null" or key == "" or key == "none":
-                print("ERROR: No Claude API key provided.")
+                print("ERROR: No Claude API key provided.\nERROR 121")
                 return False
             else:
                 CLAUDE_API_KEY = key
                 print("INFO: Loaded Claude API Key")
                 return True
     except FileNotFoundError:
-        print("ERROR: Claude API key file not found.")
+        print("ERROR: Claude API key file not found.\nERROR 122")
         return False
     except Exception as e:
-        print(f"ERROR: Failed to load Claude API key: {e}")
+        print(f"ERROR: Failed to load Claude API key: {e}\nERROR 123")
         return False
 
 # Load Prompt for Gemini from file
@@ -292,12 +292,15 @@ def load_prompt():
             
             # Validate prompt content
             if len(prompt_content) == 0:
-                print("ERROR: prompt file is empty.")
+                print("ERROR: Prompt file is empty.\nERROR 124")
             else:
                 PROMPT = prompt_content
         return True
+    except FileNotFoundError:
+        print("ERROR: Prompt file not found.\nERROR 125")
+        return False
     except Exception as e:
-        print(f"ERROR: Failed to load prompt: {e}")
+        print(f"ERROR: Failed to load prompt: {e}\nERROR 126")
         return False
 
 # File Path Finder
@@ -319,7 +322,7 @@ def generate_text(input_prompt):
         elif model == "claude":
             return claude_generate(input_prompt)
         else:
-            print("ERROR: Unrecognized AI model preference. Generation aborted.")
+            print("ERROR: Unrecognized AI model preference. Generation aborted.\nERROR 127")
             show_failure_notification("ERROR: Unrecognized AI model preference. Generation aborted.\n\nYour AI preference was unable to be processed and may need to be fixed.")
             return "ERROR: Unrecognized AI model preference. Generation aborted."
     return None
@@ -342,12 +345,12 @@ def chatgpt_generate(input_prompt):
             if not timeout_triggered.is_set():
                 result["text"] = reply.strip()
         except Exception as e:
-            print(f"ERROR: Failed to generate text with ChatGPT: {e}")
+            print(f"ERROR: Failed to generate text with ChatGPT: {e}\nERROR 128")
             show_failure_notification(f"ERROR: ChatGPT API Error: {e}")
     
     def fallback():
         timeout_triggered.set()
-        print("ERROR: ChatGPT API Timeout.")
+        print("ERROR: ChatGPT API Timeout.\nERROR 129")
         show_failure_notification("ERROR: ChatGPT API Timed Out.")
 
     # Start ChatGPT call
@@ -385,12 +388,12 @@ def claude_generate(input_prompt):
             if not timeout_triggered.is_set():
                 result["text"] = reply.strip()
         except Exception as e:
-            print(f"ERROR: Failed to generate text with Claude: {e}")
+            print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
             show_failure_notification(f"ERROR: Claude API Error: {e}")
 
     def fallback():
         timeout_triggered.set()
-        print("ERROR: Claude API Timeout.")
+        print("ERROR: Claude API Timeout.\nERROR 131")
         show_failure_notification("ERROR: Claude API Timed Out.")
 
     # Start Claude call
@@ -422,12 +425,12 @@ def gemini_generate(input_prompt):
             if not timeout_triggered.is_set():
                 result["text"] = response.text.strip()
         except Exception as e:
-            print(f"ERROR: Failed to generate text: {e}")
+            print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
             show_failure_notification(f"ERROR: Gemini API Error: {e}")
     
     def fallback():
         timeout_triggered.set()
-        print("ERROR: Gemini API Timeout.")
+        print("ERROR: Gemini API Timeout.\nERROR 133")
         show_failure_notification("ERROR: Gemini API Timed Out.")
 
     # Start Gemini call
@@ -469,7 +472,7 @@ def listen_for_wake_word():
                     print(f"INFO: Wake word detected...")
                     return True
         except Exception as e:
-            print(f"ERROR: Failed to listen for wake word: {e}")
+            print(f"ERROR: Failed to listen for wake word: {e}\nERROR 134")
             time.sleep(0.25)
 
 # Listen for Command after Wake Word
@@ -502,10 +505,10 @@ def listen_for_command():
             return None
             
     except Exception as e:
-        print(f"ERROR: Failed to listen for command: {e}")
+        print(f"ERROR: Failed to listen for command: {e}\nERROR 135")
         return None
 
-# Process Command using Gemini
+# Process Command
 def process_command(command):
     if not command:
         print("INFO: No command to process.")
@@ -520,11 +523,11 @@ def process_command(command):
     if response:
         process_response(response)
     else:
-        print("ERROR: No response generated.")
+        print("ERROR: No response generated.\nERROR 136")
 
 def process_response(response):
     if not response:
-        print("ERROR: No response from Gemini.")
+        print("ERROR: No response generated.\nERROR 136")
         return
     
     global LAST_OUTPUT
@@ -876,7 +879,7 @@ def cleanup_lock_file():
 
 def show_dashboard():
     if not initialize():
-        print("ERROR: Failed to initialize KiloBuddy.")
+        print("ERROR: Failed to initialize KiloBuddy.\nERROR 137")
         return
     dashboard = KiloBuddyDashboard()
     dashboard.run()
@@ -934,7 +937,7 @@ def show_failure_notification(message):
             popup.mainloop()
             
         except Exception as e:
-            print(f"ERROR: Couldn't show failure notification: {e}")
+            print(f"ERROR: Couldn't show failure notification: {e}\nERROR 138")
 
     popup_thread = threading.Thread(target=show_popup)
     popup_thread.daemon = True
@@ -1024,7 +1027,7 @@ def show_update_notification(latest_version, release_type, download_url):
             popup.mainloop()
             
         except Exception as e:
-            print(f"ERROR: Couldn't show update notification: {e}")
+            print(f"ERROR: Couldn't show update notification: {e}\nERROR 139")
 
     popup_thread = threading.Thread(target=show_popup)
     popup_thread.daemon = True
@@ -1060,22 +1063,22 @@ def check_for_updates():
                     print("INFO: Latest version installed.")
                     return None
             else:
-                print("WARNING: No releases found on GitHub repository.")
+                print("WARNING: No releases found on GitHub repository.\nWARN 309")
                 return None
         elif response.status_code == 404:
-            print("WARNING: No releases found on GitHub repository.")
+            print("WARNING: No releases found on GitHub repository.\nWARN 309")
             return None
         else:
-            print(f"ERROR: Failed to check for updates. Status code: {response.status_code}")
+            print(f"WARNING: Failed to check for updates. Status code: {response.status_code}\nWARN 310")
             return None
     except Exception as e:
-        print(f"ERROR: Error checking for updates: {e}")
+        print(f"ERROR: Failed to check for updates: {e}\nERROR 140")
         return None
 
 # Main Method that controls KiloBuddy
 def main():
     if not initialize():
-        print("FATAL: Failed to initialize KiloBuddy. Exiting.")
+        print("FATAL: Failed to initialize KiloBuddy. Exiting.\nFATAL 2")
         return
 
     print(f"INFO: KiloBuddy successfully started. Say '{WAKE_WORD}' followed by your command.")
