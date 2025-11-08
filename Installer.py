@@ -200,8 +200,12 @@ def install_vosk_model(install_dir):
 def run_terminal_installer():
     print("=== KiloBuddy Installer Terminal Mode ===")
     
-    # Get installation directory but don't set it up yet
+    # Get installation directory and create it
     install_dir = get_install_directory()
+    
+    if not os.path.exists(install_dir):
+        print(f"Creating installation directory: {install_dir}")
+        os.makedirs(install_dir, exist_ok=True)
     
     # Get API keys from user
     print("\n=== AI API Keys Setup ===")
@@ -329,9 +333,8 @@ def run_terminal_installer():
         print(f"Failed to save update preference: {e}")
     
     try:
-        # Remove any old installation and set up directory
+        # Set up installation directory
         print("\nSetting up installation directory...")
-        remove_old_installation(install_dir)
         install_dir = setup_install_directory()
         
         # Create virtual environment if it doesn't exist
@@ -583,8 +586,13 @@ def run_gui_installer():
     from tkinter import ttk
     import threading
 
-    # Get installation directory but don't set it up yet
+    # Get installation directory and create it
     install_dir = get_install_directory()
+    
+    # Create the installation directory first
+    if not os.path.exists(install_dir):
+        print(f"Creating installation directory: {install_dir}")
+        os.makedirs(install_dir, exist_ok=True)
 
     def save_api_keys():
         # Save Gemini API key
@@ -667,8 +675,7 @@ def run_gui_installer():
                 progress['value'] = 0
                 install_button.config(state='disabled', text='Installing...')
                 
-                # Remove any old installation and set up directory
-                remove_old_installation(install_dir)
+                # Set up directory
                 setup_install_directory()
                 progress['value'] = 5
                 root.update_idletasks()
