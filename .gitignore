@@ -4,3 +4,13 @@ chatgpt_api_key
 claude_api_key
 ai_preference
 package.sh
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/

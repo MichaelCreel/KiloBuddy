@@ -169,4 +169,7 @@
 310 - Failed to check for updates.
     This means that the script had an unknown error while accessing the releases page for the app. The app will not be able to find updates, but will not fail.
 
+311 - Unrecognized AI model preference.
+    This means that the AI preference file contains an invalid AI model name that is not 'gemini', 'chatgpt', or 'claude'. The app will skip this model and try the next one in the preference list.
+
 
