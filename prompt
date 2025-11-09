@@ -30,6 +30,7 @@ TASK LIST FORMAT - MUST FOLLOW EXACTLY:
 - Example Windows: [1] dir # USER --- DO NEXT
 - If your message contains a task list, your response must contain the same task list with only the status of tasks modified.
 - If your message contains a task list, perform the task that has status "DO NEXT".
+- All messages that require commands must have a to-do list, even if they are only one item.
 
 Example Task List (Unix/Linux/macOS):
 >>
