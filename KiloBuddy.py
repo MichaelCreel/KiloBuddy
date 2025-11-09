@@ -75,6 +75,7 @@ def initialize():
         print("WARNING: Failed to properly initialize AI preference.\n    -Falling back to 'gemini, chatgpt, claude'.\nWARN 306")
     if not load_prompt():
         print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.\nFATAL 0")
+        show_failure_notification("FATAL 0: Failed to properly initialize prompt.\n\nThe app will not function and will now stop.")
         return False
     if not load_wake_word():
         print("WARNING: Failed to properly initialize wake word.\n    -Falling back to 'computer'.\nWARN 307")
@@ -82,6 +83,7 @@ def initialize():
         print("WARNING: Failed to properly initialize OS version.\n    -Falling back to auto-detected operating system.\n    -Commands generated may not be correct.\nWARN 308")
     if not init_vosk():
         print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.\nFATAL 1")
+        show_failure_notification("FATAL 1: Failed to initialize Vosk speech recognition.\n\nThe app will not function and will now stop.")
         return False
     print("INFO: KiloBuddy Initialized.")
     return True
@@ -324,7 +326,7 @@ def generate_text(input_prompt):
             return claude_generate(input_prompt)
         else:
             print("ERROR: Unrecognized AI model preference. Generation aborted.\nERROR 127")
-            show_failure_notification("ERROR: Unrecognized AI model preference. Generation aborted.\n\nYour AI preference was unable to be processed and may need to be fixed.")
+            show_failure_notification("ERROR 127: Unrecognized AI model preference. Generation aborted.")
             return "ERROR: Unrecognized AI model preference. Generation aborted."
     return None
 
@@ -347,12 +349,10 @@ def chatgpt_generate(input_prompt):
                 result["text"] = reply.strip()
         except Exception as e:
             print(f"ERROR: Failed to generate text with ChatGPT: {e}\nERROR 128")
-            show_failure_notification(f"ERROR: ChatGPT API Error: {e}")
     
     def fallback():
         timeout_triggered.set()
         print("ERROR: ChatGPT API Timeout.\nERROR 129")
-        show_failure_notification("ERROR: ChatGPT API Timed Out.")
 
     # Start ChatGPT call
     thread = threading.Thread(target=chatgpt_call)
@@ -390,12 +390,10 @@ def claude_generate(input_prompt):
                 result["text"] = reply.strip()
         except Exception as e:
             print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
-            show_failure_notification(f"ERROR: Claude API Error: {e}")
 
     def fallback():
         timeout_triggered.set()
         print("ERROR: Claude API Timeout.\nERROR 131")
-        show_failure_notification("ERROR: Claude API Timed Out.")
 
     # Start Claude call
     thread = threading.Thread(target=claude_call)
@@ -427,12 +425,10 @@ def gemini_generate(input_prompt):
                 result["text"] = response.text.strip()
         except Exception as e:
             print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
-            show_failure_notification(f"ERROR: Gemini API Error: {e}")
     
     def fallback():
         timeout_triggered.set()
         print("ERROR: Gemini API Timeout.\nERROR 133")
-        show_failure_notification("ERROR: Gemini API Timed Out.")
 
     # Start Gemini call
     thread = threading.Thread(target=gemini_call)
