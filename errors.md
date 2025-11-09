@@ -131,6 +131,12 @@
 140 - Failed to check for updates.
     This means that the script had an unknown error while accessing the releases page for the app. The app will not be able to find updates, but will not fail.
 
+141 - Failed to prompt for administrator confirmation.
+    This means that the script couldn't prompt the user to enter the password for the administrator account and couldn't run the command because of it.
+
+142 - Dangerous command failed or was canceled.
+    This means that the command run was declined by the user or that the command failed when it was run.
+
 # WARN (301+)
 
 301 - Failed to properly retrieve update type preference.

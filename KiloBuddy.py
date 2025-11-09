@@ -617,7 +617,7 @@ def user_call(command):
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
                 else:
-                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}")
+                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
                 return
             except subprocess.TimeoutExpired:
@@ -637,7 +637,6 @@ def user_call(command):
                 if actual_user and actual_user != 'root':
                     user_home = f"/Users/{actual_user}"
                     expanded_command = command.replace("~/", f"{user_home}/")
-                    print(f"DEBUG: Expanded command: {expanded_command}")
                 else:
                     expanded_command = command
                 
@@ -646,7 +645,7 @@ def user_call(command):
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
                 else:
-                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}")
+                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
                 return
             except subprocess.TimeoutExpired:
@@ -666,7 +665,6 @@ def user_call(command):
                 if actual_user:
                     user_profile = f"C:\\Users\\{actual_user}"
                     expanded_command = command.replace("%USERPROFILE%", user_profile)
-                    print(f"DEBUG: Expanded command: {expanded_command}")
                 else:
                     expanded_command = command
                 
@@ -676,7 +674,7 @@ def user_call(command):
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
                 else:
-                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}")
+                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
                 return
             except subprocess.TimeoutExpired:
