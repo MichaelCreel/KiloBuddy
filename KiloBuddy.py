@@ -78,7 +78,7 @@ def initialize():
         show_failure_notification("FATAL 0: Failed to properly initialize prompt.\n\nThe app will not function and will now stop.")
         return False
     if not load_wake_word():
-        print("WARNING: Failed to properly initialize wake word.\n    -Falling back to 'computer'.\nWARN 307")
+        print("WARNING: Failed to .roperly initialize wake word.\n    -Falling back to 'computer'.\nWARN 307")
     if not load_os_version():
         print("WARNING: Failed to properly initialize OS version.\n    -Falling back to auto-detected operating system.\n    -Commands generated may not be correct.\nWARN 308")
     if not init_vosk():
@@ -317,18 +317,40 @@ def get_source_path(filename):
 # Generate Text using Gemini
 def generate_text(input_prompt):
     ai_models = [model.strip().lower() for model in AI_PREFERENCE.split(",")]
-    for model in ai_models:
+    
+    for i, model in enumerate(ai_models):
+        print(f"INFO: Attempting to generate text using {model.upper()}...")
+        
         if model == "gemini":
-            return gemini_generate(input_prompt)
+            if not GEMINI_API_KEY:
+                print(f"WARNING: Gemini API key not available, trying next AI model...")
+                continue
+            result = gemini_generate(input_prompt)
         elif model == "chatgpt":
-            return chatgpt_generate(input_prompt)
+            if not CHATGPT_API_KEY:
+                print(f"WARNING: ChatGPT API key not available, trying next AI model...")
+                continue
+            result = chatgpt_generate(input_prompt)
         elif model == "claude":
-            return claude_generate(input_prompt)
+            if not CLAUDE_API_KEY:
+                print(f"WARNING: Claude API key not available, trying next AI model...")
+                continue
+            result = claude_generate(input_prompt)
         else:
-            print("ERROR: Unrecognized AI model preference. Generation aborted.\nERROR 127")
-            show_failure_notification("ERROR 127: Unrecognized AI model preference. Generation aborted.")
-            return "ERROR: Unrecognized AI model preference. Generation aborted."
-    return None
+            print(f"WARNING: Unrecognized AI model '{model}', trying next AI model...\nWARN 311")
+            continue
+        
+        # If we got a successful result, return it
+        if result is not None and result.strip():
+            print(f"INFO: Successfully generated text using {model.upper()}")
+            return result
+        else:
+            print(f"WARNING: {model.upper()} failed to generate text, trying next AI model...")
+    
+    # If we've exhausted all AI models without success
+    print("ERROR: All AI models failed to generate text.\nERROR 127")
+    show_failure_notification("ERROR 127: All AI models failed to generate text.")
+    return "ERROR: All AI models failed to generate text."
 
 def chatgpt_generate(input_prompt):
     result = {"text": None}
@@ -345,10 +367,11 @@ def chatgpt_generate(input_prompt):
                 ]
             )
             reply = response.choices[0].message.content
-            if not timeout_triggered.is_set():
+            if not timeout_triggered.is_set() and reply:
                 result["text"] = reply.strip()
         except Exception as e:
-            print(f"ERROR: Failed to generate text with ChatGPT: {e}\nERROR 128")
+            if not timeout_triggered.is_set():
+                print(f"ERROR: Failed to generate text with ChatGPT: {e}\nERROR 128")
     
     def fallback():
         timeout_triggered.set()
@@ -367,6 +390,11 @@ def chatgpt_generate(input_prompt):
         thread.join(timeout=0.1)
 
     timer.cancel()
+    
+    # Wait for thread to complete if it's still running
+    if thread.is_alive():
+        thread.join(timeout=1)
+    
     return result["text"]
 
 def claude_generate(input_prompt):
@@ -386,10 +414,11 @@ def claude_generate(input_prompt):
                 ]
             )
             reply = response.content[0].text
-            if not timeout_triggered.is_set():
+            if not timeout_triggered.is_set() and reply:
                 result["text"] = reply.strip()
         except Exception as e:
-            print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
+            if not timeout_triggered.is_set():
+                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
 
     def fallback():
         timeout_triggered.set()
@@ -408,6 +437,11 @@ def claude_generate(input_prompt):
         thread.join(timeout=0.1)
 
     timer.cancel()
+    
+    # Wait for thread to complete if it's still running
+    if thread.is_alive():
+        thread.join(timeout=1)
+    
     return result["text"]
 
 # Generate Text With Gemini
@@ -421,10 +455,11 @@ def gemini_generate(input_prompt):
         try:
             model = genai.GenerativeModel("gemini-2.5-flash")
             response = model.generate_content(input_prompt)
-            if not timeout_triggered.is_set():
+            if not timeout_triggered.is_set() and response.text:
                 result["text"] = response.text.strip()
         except Exception as e:
-            print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
+            if not timeout_triggered.is_set():
+                print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
     
     def fallback():
         timeout_triggered.set()
@@ -443,6 +478,11 @@ def gemini_generate(input_prompt):
         thread.join(timeout=0.1)
 
     timer.cancel()
+    
+    # Wait for thread to complete if it's still running
+    if thread.is_alive():
+        thread.join(timeout=1)
+    
     return result["text"]
 
 # Listen for Wake Word
