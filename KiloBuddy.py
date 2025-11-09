@@ -20,7 +20,8 @@ import customtkinter as ctk
 import openai
 import anthropic
 
-API_TIMEOUT = 15 # Duration for API Response in seconds
+# Configuration Constants
+API_TIMEOUT = 15 # Duration for API Response in seconds (can be adjusted for slower connections)
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 CHATGPT_API_KEY = "" # API Key for calling ChatGPT API, loaded from chatgpt_api_key file
 CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key file
@@ -28,11 +29,28 @@ AI_PREFERENCE = "gemini, chatgpt, claude" # Preferred order of AI models to call
 PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded from prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
-PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
-LAST_OUTPUT = "No previous output..." # Store the last output by Gemini that was designated for the user
+PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
+LAST_OUTPUT = "No previous output..." # Store the last output by AI that was designated for the user
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
-DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
+# List of potentially dangerous commands that require administrator confirmation
+# This list helps prevent accidental system damage from AI-generated commands
+DANGEROUS_COMMANDS = [
+    # File deletion
+    "sudo", "rm", "del", "erase", "dd", "diskpart", "format", "mkfs",
+    # System modification
+    "shutdown", "reboot", "poweroff", "halt", "init",
+    # Registry/System config
+    "reg delete", "sysctl -w", "launchctl",
+    # Network/Firewall
+    "iptables -F", "ufw disable", "netsh", "firewall-cmd",
+    # Package management (can modify system)
+    "apt-get remove", "yum remove", "dnf remove",
+    # Partition management
+    "fdisk", "parted", "gdisk",
+    # Process killing
+    "killall", "pkill -9"
+]
 
 # Vosk Speech Recognition Variables
 vosk_model = None
@@ -190,14 +208,14 @@ def load_wake_word():
         with open(get_source_path("wake_word"), "r") as f:
             word = f.read().strip().lower()
             if word == "null" or word == "" or word == "none":
-                print("ERROR: No wake word provided, using default 'computer'.\ERROR 109")
+                print("ERROR: No wake word provided, using default 'computer'.\\nERROR 109")
                 return False
             else:
                 WAKE_WORD = word
                 print(f"INFO: Loaded Wake Word: {WAKE_WORD}")
                 return True
     except FileNotFoundError:
-        print("ERROR: Wake word file not found, using fallback 'computer'.\ERROR 110")
+        print("ERROR: Wake word file not found, using fallback 'computer'.\\nERROR 110")
         return False
     except Exception as e:
         print(f"ERROR: Failed to load wake word: {e}, using default 'computer'.\nERROR 111")
@@ -213,6 +231,15 @@ def load_ai_preference():
                 print("ERROR: No AI preference provided, using default 'gemini'.\nERROR 112")
                 return False
             else:
+                # Validate that all preferences are valid AI models
+                valid_models = {"gemini", "chatgpt", "claude"}
+                models = [m.strip() for m in preference.split(",")]
+                invalid_models = [m for m in models if m not in valid_models]
+                
+                if invalid_models:
+                    print(f"WARNING: Invalid AI models in preference: {', '.join(invalid_models)}. Using default.")
+                    return False
+                
                 AI_PREFERENCE = preference
                 print(f"INFO: Loaded AI Preference: {AI_PREFERENCE}")
                 return True
@@ -586,22 +613,28 @@ def process_response(response):
         print("INFO: No todo list found in response.")
     return
 
-# Extract the todo list from Gemini response
+# Extract the todo list from AI response
+# Task format: [n] command # TYPE --- STATUS
+# where TYPE is USER or GEMINI, STATUS is DONE/DO NEXT/PENDING/SKIPPED
 def extract_todo_list(response):
-    # More flexible regex pattern - allows variable spacing
+    # Regex pattern matches the task list format defined in the prompt
+    # Group 1: task number, Group 2: command, Group 3: executor type, Group 4: status
     task_pattern = re.compile(r"\[(\d+)\]\s+(.+?)\s+#\s+(USER|GEMINI)\s+---\s+(DONE|DO NEXT|PENDING|SKIPPED)")
     matches = task_pattern.findall(response)
     
     return matches
 
-# Extract output for the user from Gemini response
+# Extract output for the user from AI response
+# User output is wrapped in triple quotes: """output here"""
 def extract_user_output(response):
     output_pattern = re.search(r'"""(.*?)"""', response, re.DOTALL)
     if output_pattern:
         return output_pattern.group(1).strip()
     return None
 
-# Interprets the todo list and decides on user or Gemini call
+# Interprets the todo list and executes tasks marked "DO NEXT"
+# This function processes tasks sequentially, executing USER commands
+# and delegating back to AI for GEMINI tasks
 def process_todo_list(todo_list):
     for i, (step_num, command, executor, status) in enumerate(todo_list):
         if status == "DO NEXT":
@@ -726,8 +759,21 @@ def user_call(command):
             print("WARNING: Unknown operating system. Running dangerous command without elevation.")
     
     print(f"INFO: Running USER command: {command}")
-    result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
-    PREVIOUS_COMMAND_OUTPUT = result.stdout
+    try:
+        result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
+        # Store both stdout and stderr for better context
+        if result.returncode == 0:
+            PREVIOUS_COMMAND_OUTPUT = result.stdout
+        else:
+            # Include error information for AI to use in next iteration
+            PREVIOUS_COMMAND_OUTPUT = f"Command failed with code {result.returncode}:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            print(f"WARNING: Command exited with code {result.returncode}")
+    except subprocess.TimeoutExpired:
+        PREVIOUS_COMMAND_OUTPUT = "Command timed out after 45 seconds"
+        print("ERROR: Command execution timed out")
+    except Exception as e:
+        PREVIOUS_COMMAND_OUTPUT = f"Command execution failed: {str(e)}"
+        print(f"ERROR: Command execution failed: {e}")
 
 # GEMINI Call Method
 def gemini_call(task_list):
