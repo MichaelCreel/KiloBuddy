@@ -32,6 +32,7 @@ PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for 
 LAST_OUTPUT = "No previous output..." # Store the last output by Gemini that was designated for the user
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
+DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
 
 # Vosk Speech Recognition Variables
 vosk_model = None
@@ -589,12 +590,106 @@ def update_status(todo_list, current_step):
 
 # USER Call Subprocess
 def user_call(command):
-    global PREVIOUS_COMMAND_OUTPUT, LAST_OUTPUT
+    global PREVIOUS_COMMAND_OUTPUT, LAST_OUTPUT, OS_VERSION
     
     # Replace $LAST_OUTPUT with the actual Gemini output
     if "$LAST_OUTPUT" in command:
         command = command.replace("$LAST_OUTPUT", LAST_OUTPUT)
         print(f"INFO: Substituted $LAST_OUTPUT in command")
+    
+    # Check for dangerous commands
+    if any(dangerous in command.lower() for dangerous in DANGEROUS_COMMANDS):
+        print("WARNING: Dangerous command detected. Prompting for administrator confirmation.")
+        
+        if OS_VERSION.startswith("linux"):
+            try:
+                print("INFO: Using pkexec for administrator authentication...")
+                
+                actual_user = os.environ.get('USER') or os.environ.get('USERNAME')
+                if actual_user and actual_user != 'root':
+                    user_home = f"/home/{actual_user}"
+                    expanded_command = command.replace("~/", f"{user_home}/")
+                else:
+                    expanded_command = command
+                
+                result = subprocess.run(["pkexec", "bash", "-c", expanded_command], capture_output=True, text=True, timeout=45)
+                if result.returncode == 0:
+                    print("INFO: Dangerous command executed successfully with administrator privileges.")
+                    PREVIOUS_COMMAND_OUTPUT = result.stdout
+                else:
+                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}")
+                    PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
+                return
+            except subprocess.TimeoutExpired:
+                print("ERROR: Administrator authentication timed out.")
+                PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
+                return
+            except Exception as e:
+                print(f"ERROR: Failed to prompt for administrator confirmation: {e}\nERROR 141")
+                PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
+                return
+        
+        elif OS_VERSION.startswith("darwin"):
+            try:
+                print("INFO: Using sudo for administrator authentication...")
+                
+                actual_user = os.environ.get('USER') or os.environ.get('USERNAME')
+                if actual_user and actual_user != 'root':
+                    user_home = f"/Users/{actual_user}"
+                    expanded_command = command.replace("~/", f"{user_home}/")
+                    print(f"DEBUG: Expanded command: {expanded_command}")
+                else:
+                    expanded_command = command
+                
+                result = subprocess.run(["sudo", "bash", "-c", expanded_command], capture_output=True, text=True, timeout=45)
+                if result.returncode == 0:
+                    print("INFO: Dangerous command executed successfully with administrator privileges.")
+                    PREVIOUS_COMMAND_OUTPUT = result.stdout
+                else:
+                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}")
+                    PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
+                return
+            except subprocess.TimeoutExpired:
+                print("ERROR: Administrator authentication timed out.")
+                PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
+                return
+            except Exception as e:
+                print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
+                PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
+                return
+        
+        elif OS_VERSION.startswith("windows"):
+            try:
+                print("INFO: Using PowerShell with -Verb RunAs for administrator authentication...")
+                
+                actual_user = os.environ.get('USERNAME')
+                if actual_user:
+                    user_profile = f"C:\\Users\\{actual_user}"
+                    expanded_command = command.replace("%USERPROFILE%", user_profile)
+                    print(f"DEBUG: Expanded command: {expanded_command}")
+                else:
+                    expanded_command = command
+                
+                ps_command = f'Start-Process -FilePath "cmd" -ArgumentList "/c {expanded_command}" -Verb RunAs -Wait -PassThru'
+                result = subprocess.run(["powershell", "-Command", ps_command], capture_output=True, text=True, timeout=45)
+                if result.returncode == 0:
+                    print("INFO: Dangerous command executed successfully with administrator privileges.")
+                    PREVIOUS_COMMAND_OUTPUT = result.stdout
+                else:
+                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}")
+                    PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
+                return
+            except subprocess.TimeoutExpired:
+                print("ERROR: Administrator authentication timed out.")
+                PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
+                return
+            except Exception as e:
+                print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
+                PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
+                return
+        
+        else:
+            print("WARNING: Unknown operating system. Running dangerous command without elevation.")
     
     print(f"INFO: Running USER command: {command}")
     result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
