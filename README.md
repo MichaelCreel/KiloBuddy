@@ -64,7 +64,7 @@ KiloBuddy uses Google Gemini, OpenAI ChatGPT, or Anthropic Claude to process use
 - There are no included fallbacks if Gemini fails to respond
 - The app is unsuccessful sometimes because of AI inaccuracy
 - Users can choose to be notified of new pre-releases
-- A dashboard is included for text-based interaction
+- A dashboard is included for text-based interaction that can be opened by launching KiloBuddy a second time
 
 ## License
 
