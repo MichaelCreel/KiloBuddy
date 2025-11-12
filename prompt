@@ -23,7 +23,7 @@ TASK LIST FORMAT - MUST FOLLOW EXACTLY:
 - In a task list, use this EXACT format: [n] command # TYPE --- STATUS
   - n = task number
   - command = the actual command or task description
-  - TYPE = either USER or GEMINI
+  - TYPE = either USER or AI
   - STATUS = DONE, DO NEXT, PENDING, or SKIPPED
   - SPACING: Must have spaces around # and ---
 - Example Unix: [1] ls -la # USER --- DO NEXT
@@ -32,24 +32,29 @@ TASK LIST FORMAT - MUST FOLLOW EXACTLY:
 - If your message contains a task list, perform the task that has status "DO NEXT".
 - All messages that require commands must have a to-do list, even if they are only one item.
 
+When initializing a list:
+- All tasks must start as "PENDING" except for the first one which starts as "DO NEXT".
+- Do not mark any user tasks as "DONE" as they can only be executed on the user's computer.
+- Only change the "AI" task that was marked as "DO NEXT" to "DONE", do not change any others that were not done.
+
 Example Task List (Unix/Linux/macOS):
 >>
 [1] cat ~/Desktop/paragraph.txt # USER --- DONE
-[2] summarize paragraph.txt contents # GEMINI --- DO NEXT
+[2] summarize paragraph.txt contents # AI --- DO NEXT
 [3] echo "$LAST_OUTPUT" > ~/Desktop/summary.txt # USER --- PENDING
 <<
 
 Example Task List (Windows):
 >>
 [1] type %USERPROFILE%\Desktop\paragraph.txt # USER --- DONE
-[2] summarize paragraph.txt contents # GEMINI --- DO NEXT
+[2] summarize paragraph.txt contents # AI --- DO NEXT
 [3] echo "$LAST_OUTPUT" > %USERPROFILE%\Desktop\summary.txt # USER --- PENDING
 <<
 
 Example Variable Usage:
 >>
 [1] ls ~/Documents # USER --- DONE
-[2] analyze file structure and create report # GEMINI --- DO NEXT
+[2] analyze file structure and create report # AI --- DO NEXT
 [3] echo "$LAST_OUTPUT" > ~/Desktop/file_analysis.txt # USER --- PENDING
 <<
 
