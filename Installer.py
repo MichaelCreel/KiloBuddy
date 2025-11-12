@@ -39,8 +39,12 @@ def setup_install_directory():
     for file in current_files:
         if os.path.exists(file):
             dest_path = os.path.join(install_dir, file)
-            print(f"Copying {file} to installation directory...")
-            shutil.copy2(file, dest_path)
+            # Only copy if destination doesn't exist (don't overwrite installer-created files)
+            if not os.path.exists(dest_path):
+                print(f"Copying {file} to installation directory...")
+                shutil.copy2(file, dest_path)
+            else:
+                print(f"Skipping {file} (already exists in installation directory)")
     
     return install_dir
 
@@ -302,6 +306,29 @@ def run_terminal_installer():
             print(f"AI preference saved: {ai_preference_str}")
         except Exception as e:
             print(f"Failed to save AI preference: {e}")
+    
+    # Ask for wake word
+    print("\n=== Wake Word Configuration ===")
+    print("Choose a short wake word or phrase to activate KiloBuddy listening.")
+    
+    while True:
+        wake_word = input("Enter your wake word (default: computer): ").strip().lower()
+        if wake_word == "":
+            wake_word = "computer"
+            break
+        elif len(wake_word.split()) <= 3 and len(wake_word) >= 2:
+            break
+        else:
+            print("Wake word should be 1-3 words and at least 2 characters long.")
+    
+    # Save wake word
+    try:
+        wake_word_file = os.path.join(install_dir, "wake_word")
+        with open(wake_word_file, "w") as f:
+            f.write(wake_word)
+        print(f"Wake word saved: {wake_word}")
+    except Exception as e:
+        print(f"Failed to save wake word: {e}")
     
     # Ask for update preferences
     print("\n=== Update Notifications ===")
@@ -647,6 +674,19 @@ def run_gui_installer():
                 messagebox.showerror("Error", f"Failed to save AI preference: {e}")
                 return False
         
+        # Save wake word
+        wake_word = wake_word_entry.get().strip().lower()
+        if wake_word == "":
+            wake_word = "computer"
+        
+        try:
+            wake_word_file = os.path.join(install_dir, "wake_word")
+            with open(wake_word_file, "w") as f:
+                f.write(wake_word)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save wake word: {e}")
+            return False
+        
         # Check if at least one key was provided
         keys_provided = [gemini_key, chatgpt_key, claude_key]
         if not any(key and key not in ["null", "", "none"] for key in keys_provided):
@@ -731,7 +771,7 @@ def run_gui_installer():
 
     root = tk.Tk()
     root.title("KiloBuddy Installer")
-    root.geometry("900x850")
+    root.geometry("900x950")
     root.configure(bg="#190c3a")
     
     # Set installer window icon if icon.png exists
@@ -820,6 +860,15 @@ def run_gui_installer():
     ai_pref3_dropdown = ttk.Combobox(ai_pref_frame, textvariable=ai_pref3_var, values=["None", "Gemini", "ChatGPT", "Claude"], 
                                     width=12, state="readonly")
     ai_pref3_dropdown.grid(row=0, column=5, padx=5)
+
+    # Wake Word section
+
+    wake_word_label = tk.Label(root, text="Wake Word:", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    wake_word_label.pack(pady=(10, 2))
+
+    wake_word_entry = tk.Entry(root, width=30, font=("Helvetica", 10))
+    wake_word_entry.pack(pady=2)
+    wake_word_entry.insert(0, "computer")
 
     progress = ttk.Progressbar(root, orient="horizontal", length=750, mode="determinate")
     progress.pack(pady=15)
