@@ -190,14 +190,14 @@ def load_wake_word():
         with open(get_source_path("wake_word"), "r") as f:
             word = f.read().strip().lower()
             if word == "null" or word == "" or word == "none":
-                print("ERROR: No wake word provided, using default 'computer'.\ERROR 109")
+                print("ERROR: No wake word provided, using default 'computer'.\nERROR 109")
                 return False
             else:
                 WAKE_WORD = word
                 print(f"INFO: Loaded Wake Word: {WAKE_WORD}")
                 return True
     except FileNotFoundError:
-        print("ERROR: Wake word file not found, using fallback 'computer'.\ERROR 110")
+        print("ERROR: Wake word file not found, using fallback 'computer'.\nERROR 110")
         return False
     except Exception as e:
         print(f"ERROR: Failed to load wake word: {e}, using default 'computer'.\nERROR 111")
