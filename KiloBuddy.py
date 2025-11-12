@@ -25,11 +25,11 @@ GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key
 CHATGPT_API_KEY = "" # API Key for calling ChatGPT API, loaded from chatgpt_api_key file
 CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key file
 AI_PREFERENCE = "gemini, chatgpt, claude" # Preferred order of AI models to call, loaded from ai_preference file
-PROMPT = "Return 'Prompt not loaded'." # Prompt for Gemini API Key call, loaded from prompt file
+PROMPT = "Return 'Prompt not loaded'." # Prompt for AI API calls, loaded from prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
-PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for Gemini use
-LAST_OUTPUT = "No previous output..." # Store the last output by Gemini that was designated for the user
+PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
+LAST_OUTPUT = "No previous output..." # Store the last output by the AI that was designated for the user
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
 DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
@@ -586,32 +586,41 @@ def process_response(response):
         print("INFO: No todo list found in response.")
     return
 
-# Extract the todo list from Gemini response
+# Extract the todo list from AI response
 def extract_todo_list(response):
     # More flexible regex pattern - allows variable spacing
-    task_pattern = re.compile(r"\[(\d+)\]\s+(.+?)\s+#\s+(USER|GEMINI)\s+---\s+(DONE|DO NEXT|PENDING|SKIPPED)")
+    task_pattern = re.compile(r"\[(\d+)\]\s+(.+?)\s+#\s+(USER|AI)\s+---\s+(DONE|DO NEXT|PENDING|SKIPPED)")
     matches = task_pattern.findall(response)
     
     return matches
 
-# Extract output for the user from Gemini response
+# Extract output for the user from AI response
 def extract_user_output(response):
     output_pattern = re.search(r'"""(.*?)"""', response, re.DOTALL)
     if output_pattern:
         return output_pattern.group(1).strip()
     return None
 
-# Interprets the todo list and decides on user or Gemini call
+# Interprets the todo list and decides on user or AI call
 def process_todo_list(todo_list):
+    # Check if there's a DO NEXT task, if not, promote the first PENDING task
+    has_do_next = any(status == "DO NEXT" for _, _, _, status in todo_list)
+    if not has_do_next:
+        for i, (step_num, command, executor, status) in enumerate(todo_list):
+            if status == "PENDING":
+                todo_list[i] = (step_num, command, executor, "DO NEXT")
+                print(f"INFO: Auto-promoted task {step_num} to DO NEXT")
+                break
+    
     for i, (step_num, command, executor, status) in enumerate(todo_list):
         if status == "DO NEXT":
             if executor == "USER":
                 user_call(command)
                 update_status(todo_list, i)
                 continue
-            elif executor == "GEMINI":
-                print(f"INFO: Requesting GEMINI command: {command}")
-                gemini_call(todo_list)
+            elif executor == "AI":
+                print(f"INFO: Requesting AI command: {command}")
+                ai_call(todo_list)
                 break
 
 # Update the status of a task in the todo list
@@ -729,8 +738,8 @@ def user_call(command):
     result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
     PREVIOUS_COMMAND_OUTPUT = result.stdout
 
-# GEMINI Call Method
-def gemini_call(task_list):
+# AI Call Method
+def ai_call(task_list):
     global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT
     combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nTodo List:\n{format_todo_list(task_list)}\n\nThis is a continuation of a previous task. Continue the task list by fulfilling the task marked 'DO NEXT'."
     print("INFO: Generating response...")
@@ -745,7 +754,7 @@ def format_todo_list(todo_list):
     lines.append("<<")
     return "\n".join(lines)
 
-# Show overlay for Gemini output designated for user
+# Show overlay for AI output designated for user
 def show_overlay(text):
     def open_overlay():
         root = tk.Tk()
