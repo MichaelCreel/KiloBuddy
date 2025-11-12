@@ -9,6 +9,7 @@ import zipfile
 import urllib.request
 
 REQUIRED_PACKAGES = ["google-generativeai", "openai", "anthropic", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
+GPTOSS_PACKAGES = ["torch", "transformers", "accelerate", "transformers[serving]"]
 
 # Remove old installation if exists
 def remove_old_installation(install_dir):
@@ -158,15 +159,40 @@ def create_virtual_env(install_dir):
     return venv_path
 
 # Install packages into the virtual environment
-def install_packages(install_dir):
+def install_packages(install_dir, include_gptoss=False):
     # Use the virtual environment python instead of system python
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     python_path = os.path.join(venv_path, "bin", "python") if platform.system() != "Windows" else os.path.join(venv_path, "Scripts", "python.exe")
     
-    for package in REQUIRED_PACKAGES:
+    packages_to_install = REQUIRED_PACKAGES.copy()
+    if include_gptoss:
+        packages_to_install.extend(GPTOSS_PACKAGES)
+        print("Installing packages including GPT-OSS support...")
+    else:
+        print("Installing standard packages...")
+    
+    for package in packages_to_install:
         print(f"Installing {package}...")
         subprocess.check_call([python_path, "-m", "pip", "install", package])
     print("KiloBuddy installed successfully. The original download folder can now be deleted.")
+
+# Install GPT-OSS specific components
+def install_gptoss_support(install_dir):
+    print("Setting up GPT-OSS support...")
+    venv_path = os.path.join(install_dir, "kilobuddy_env")
+    python_path = os.path.join(venv_path, "bin", "python") if platform.system() != "Windows" else os.path.join(venv_path, "Scripts", "python.exe")
+    
+    try:
+        # Create GPT-OSS configuration file
+        gptoss_config_file = os.path.join(install_dir, "gptoss_enabled")
+        with open(gptoss_config_file, "w") as f:
+            f.write("true")
+        
+        print("GPT-OSS support enabled successfully!")
+        return True
+    except Exception as e:
+        print(f"Failed to set up GPT-OSS support: {e}")
+        return False
 
 # Download and install Vosk model
 def install_vosk_model(install_dir):
@@ -332,6 +358,24 @@ def run_terminal_installer():
     except Exception as e:
         print(f"Failed to save update preference: {e}")
     
+    # Ask for GPT-OSS support
+    print("\n=== GPT-OSS (Open Source GPT) Support ===")
+    print("GPT-OSS allows you to run open-source language models locally on your machine.")
+    print("This provides:")
+    print("- Complete privacy (no data sent to external servers)")
+    print("- No API costs after initial setup")
+    print("- Offline functionality")
+    print("\nNote: GPT-OSS requires additional storage space (~2-4GB) and more system resources.")
+    print("It works best with systems that have 8GB+ RAM and adequate GPU support.")
+    
+    gptoss_choice = input("Enable GPT-OSS support? (y/n): ").lower().strip()
+    enable_gptoss = gptoss_choice in ['y', 'yes']
+    
+    if enable_gptoss:
+        print("GPT-OSS support will be installed.")
+    else:
+        print("GPT-OSS support will be skipped.")
+    
     try:
         # Set up installation directory
         print("\nSetting up installation directory...")
@@ -342,7 +386,12 @@ def run_terminal_installer():
         if not os.path.exists(venv_path):
             create_virtual_env(install_dir)
         
-        install_packages(install_dir)
+        install_packages(install_dir, include_gptoss=enable_gptoss)
+        
+        # Set up GPT-OSS if requested
+        if enable_gptoss:
+            if not install_gptoss_support(install_dir):
+                print("Warning: Failed to set up GPT-OSS support completely.")
         
         # Download and install Vosk model
         if not install_vosk_model(install_dir):
@@ -647,6 +696,20 @@ def run_gui_installer():
                 messagebox.showerror("Error", f"Failed to save AI preference: {e}")
                 return False
         
+        # Save GPT-OSS preference
+        enable_gptoss = gptoss_var.get()
+        try:
+            if enable_gptoss:
+                gptoss_config_file = os.path.join(install_dir, "gptoss_enabled")
+                with open(gptoss_config_file, "w") as f:
+                    f.write("true")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save GPT-OSS preference: {e}")
+            return False
+        
+        # Store GPT-OSS preference for later use in installation
+        save_api_keys.gptoss_enabled = enable_gptoss
+        
         # Check if at least one key was provided
         keys_provided = [gemini_key, chatgpt_key, claude_key]
         if not any(key and key not in ["null", "", "none"] for key in keys_provided):
@@ -690,14 +753,29 @@ def run_gui_installer():
                 # Use the virtual environment python
                 python_path = os.path.join(venv_path, "bin", "python") if platform.system() != "Windows" else os.path.join(venv_path, "Scripts", "python.exe")
                 
-                total_packages = len(REQUIRED_PACKAGES)
+                # Get GPT-OSS preference
+                enable_gptoss = getattr(save_api_keys, 'gptoss_enabled', False)
+                
+                # Install packages
+                packages_to_install = REQUIRED_PACKAGES.copy()
+                if enable_gptoss:
+                    packages_to_install.extend(GPTOSS_PACKAGES)
+                
+                total_packages = len(packages_to_install)
                 base_progress = 20  # 20% for setup
-                for i, package in enumerate(REQUIRED_PACKAGES):
+                for i, package in enumerate(packages_to_install):
                     print(f"Installing {package}...")
                     subprocess.check_call([python_path, "-m", "pip", "install", package])
-                    # Update progress bar (remaining 80% for packages)
-                    progress['value'] = base_progress + ((i + 1) / total_packages) * 80
+                    # Update progress bar (remaining 70% for packages)
+                    progress['value'] = base_progress + ((i + 1) / total_packages) * 70
                     root.update_idletasks()
+                
+                # Set up GPT-OSS if enabled
+                if enable_gptoss:
+                    progress['value'] = 90
+                    root.update_idletasks()
+                    if not install_gptoss_support(install_dir):
+                        messagebox.showwarning("Warning", "Failed to set up GPT-OSS support completely.")
                 
                 print("KiloBuddy installed successfully.")
                 
@@ -731,7 +809,7 @@ def run_gui_installer():
 
     root = tk.Tk()
     root.title("KiloBuddy Installer")
-    root.geometry("900x850")
+    root.geometry("900x1100")
     root.configure(bg="#190c3a")
     
     # Set installer window icon if icon.png exists
@@ -820,6 +898,45 @@ def run_gui_installer():
     ai_pref3_dropdown = ttk.Combobox(ai_pref_frame, textvariable=ai_pref3_var, values=["None", "Gemini", "ChatGPT", "Claude"], 
                                     width=12, state="readonly")
     ai_pref3_dropdown.grid(row=0, column=5, padx=5)
+
+    # Wake Word section
+    wake_word_section_label = tk.Label(root, text="Wake Word Configuration", 
+                                      font=("Helvetica", 16), fg="white", bg="#190c3a")
+    wake_word_section_label.pack(pady=(20, 10))
+
+    wake_word_desc = tk.Label(root, text="Choose a wake word to activate KiloBuddy voice commands:", 
+                             font=("Helvetica", 10), fg="#cccccc", bg="#190c3a")
+    wake_word_desc.pack(pady=(0, 5))
+
+    wake_word_label = tk.Label(root, text="Wake Word:", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    wake_word_label.pack(pady=(10, 2))
+
+    wake_word_entry = tk.Entry(root, width=30, font=("Helvetica", 10))
+    wake_word_entry.pack(pady=2)
+    wake_word_entry.insert(0, "computer")  # Default value
+
+    # GPT-OSS section
+    gptoss_section_label = tk.Label(root, text="GPT-OSS (Open Source GPT) Support", 
+                                   font=("Helvetica", 16), fg="white", bg="#190c3a")
+    gptoss_section_label.pack(pady=(20, 10))
+
+    gptoss_var = tk.BooleanVar()
+    gptoss_checkbox = tk.Checkbutton(root, text="Enable GPT-OSS Support", 
+                                    variable=gptoss_var,
+                                    font=("Helvetica", 12),
+                                    fg="white", bg="#190c3a",
+                                    selectcolor="#190c3a",
+                                    activebackground="#190c3a",
+                                    activeforeground="white")
+    gptoss_checkbox.pack(pady=5)
+
+    # GPT-OSS description
+    gptoss_desc_text = ("GPT-OSS allows you to run OpenAI's open-source LLM on your own computer. This means that all of your data will be processed locally. DO NOT RUN if you have a low-end system. GPT-OSS requires significant resources and storage to function well.")
+    gptoss_desc = tk.Label(root, text=gptoss_desc_text, 
+                          font=("Helvetica", 9), 
+                          fg="#cccccc", bg="#190c3a",
+                          justify="center", wraplength=600)
+    gptoss_desc.pack(pady=(5, 10))
 
     progress = ttk.Progressbar(root, orient="horizontal", length=750, mode="determinate")
     progress.pack(pady=15)
