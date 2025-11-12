@@ -81,6 +81,8 @@ def initialize():
         print("WARNING: Failed to .roperly initialize wake word.\n    -Falling back to 'computer'.\nWARN 307")
     if not load_os_version():
         print("WARNING: Failed to properly initialize OS version.\n    -Falling back to auto-detected operating system.\n    -Commands generated may not be correct.\nWARN 308")
+    if not load_api_timeout():
+        print("WARNING: Failed to properly initialize API timeout.\n    -Falling back to default 15 seconds.\nWARN 312")
     if not init_vosk():
         print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.\nFATAL 1")
         show_failure_notification("FATAL 1: Failed to initialize Vosk speech recognition.\n\nThe app will not function and will now stop.")
@@ -119,6 +121,30 @@ def detect_os():
             return "windows"
     else:
         return "unknown"
+
+# Load API Timemout in seconds from file
+def load_api_timeout():
+    global API_TIMEOUT
+    try:
+        with open(get_source_path("api_timeout"), "r") as f:
+            timeout_str = f.read().strip()
+            timeout = int(timeout_str)
+            if timeout > 0:
+                API_TIMEOUT = timeout
+                print(f"INFO: Loaded API Timeout: {API_TIMEOUT} seconds")
+                return True
+            else:
+                print(f"ERROR: Invalid API timeout in file, using default 15 seconds.\nERROR 143")
+                return False
+    except FileNotFoundError:
+        print(f"ERROR: API timeout file not found, using default 15 seconds.\nERROR 144")
+        return False
+    except ValueError:
+        print(f"ERROR: Invalid API timeout in file, using default 15 seconds.\nERROR 145")
+        return False
+    except Exception as e:
+        print(f"ERROR: Failed to load API timeout: {e}, using default 15 seconds.\nERROR 146")
+        return False
 
 # Load Update type from file
 def load_update_type():

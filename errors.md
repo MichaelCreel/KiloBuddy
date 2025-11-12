@@ -137,6 +137,18 @@
 142 - Dangerous command failed or was canceled.
     This means that the command run was declined by the user or that the command failed when it was run.
 
+143 - Invalid API timeout in file.
+    This means that the value in the file 'api_timeout' is not greater than '0'. The app will fallback to the duration '15' (seconds) and will not fail. The integer in the file may be '0' or less.
+
+144 - API timeout file not found.
+    This means that the file 'api_timeout' does not exist. The app will fallback to the duration '15' (seconds) and will not fail. The file may not exist or may be empty.
+
+145 - Invalid API timeout in file.
+    This means that the script failed to parse the contents of the file 'api_timeout'. The app will fallback to the duration '15' (seconds) and will not fail. The contents of the file may not be an integer.
+
+146 - Failed to load API timeout.
+    This means that the script had an unknown error while reading the 'api_timeout' file. The app will fallback to the duration '15' (seconds) and will not fail.
+
 # WARN (301+)
 
 301 - Failed to properly retrieve update type preference.
@@ -171,4 +183,3 @@
 
 311 - Unrecognized AI model.
     This means that the script failed to understand the model choice read from the file 'ai_preferences'. The app will try the next model in line if it exists and will not fail. The model name may be spelled incorrectly.
-    
