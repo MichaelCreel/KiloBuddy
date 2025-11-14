@@ -35,7 +35,7 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates', 'ai_preference']
+    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates', 'ai_preference', 'api_timeout']
     for file in current_files:
         if os.path.exists(file):
             dest_path = os.path.join(install_dir, file)
