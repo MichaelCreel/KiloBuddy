@@ -473,7 +473,7 @@ nohup "{python_path}" "{kilobuddy_script}" > /dev/null 2>&1 &
     
     # Create .desktop file content (background mode)
     desktop_content = f"""[Desktop Entry]
-Version=1.3.3
+Version=1.3.4
 Type=Application
 Name=KiloBuddy
 Comment=AI Voice Assistant (Background Mode)
@@ -610,7 +610,7 @@ nohup "{python_path}" "{kilobuddy_script}" > /dev/null 2>&1 &
     <key>CFBundleName</key>
     <string>KiloBuddy</string>
     <key>CFBundleVersion</key>
-    <string>1.3.3</string>
+    <string>1.3.4</string>
     <key>LSUIElement</key>
     <true/>
 </dict>
