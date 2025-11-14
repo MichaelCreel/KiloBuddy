@@ -7,8 +7,29 @@ import platform
 import shutil
 import zipfile
 import urllib.request
+import filecmp
+import hashlib
 
 REQUIRED_PACKAGES = ["google-generativeai", "openai", "anthropic", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
+
+# Compare files
+def files_are_different(file1, file2):
+    if not os.path.exists(file1) or not os.path.exists(file2):
+        return True
+    return not filecmp.cmp(file1, file2, shallow=False)
+
+def get_file_hash(filepath):
+    if not os.path.exists(filepath):
+        return None
+    
+    hash_sha256 = hashlib.sha256()
+    try:
+        with open(filepath, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_sha256.update(chunk)
+        return hash_sha256.hexdigest()
+    except Exception:
+        return None
 
 # Remove old installation if exists
 def remove_old_installation(install_dir):
@@ -36,15 +57,35 @@ def setup_install_directory():
     
     # Copy current files to install directory
     current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates', 'ai_preference', 'api_timeout']
+    # Files that should always be updated (core application files)
+    always_update_files = ['KiloBuddy.py', 'version', 'prompt', 'icon.png']
+    # Files that can be updated if they're different from installer defaults
+    installer_managed_files = ['wake_word', 'updates', 'ai_preference', 'api_timeout', 'os_version']
+    
     for file in current_files:
         if os.path.exists(file):
             dest_path = os.path.join(install_dir, file)
-            # Only copy if destination doesn't exist (don't overwrite installer-created files)
-            if not os.path.exists(dest_path):
-                print(f"Copying {file} to installation directory...")
+            
+            if file in always_update_files:
+                # Always update core application files
+                print(f"Updating {file} in installation directory...")
                 shutil.copy2(file, dest_path)
+            elif file in installer_managed_files:
+                if os.path.exists(dest_path):
+                    if files_are_different(file, dest_path):
+                        print(f"Updating {file} (new settings detected)...")
+                        shutil.copy2(file, dest_path)
+                    else:
+                        print(f"Preserving existing {file} (no changes)")
+                else:
+                    print(f"Copying new {file} to installation directory...")
+                    shutil.copy2(file, dest_path)
             else:
-                print(f"Skipping {file} (already exists in installation directory)")
+                if not os.path.exists(dest_path):
+                    print(f"Copying {file} to installation directory...")
+                    shutil.copy2(file, dest_path)
+                else:
+                    print(f"Preserving existing {file}")
     
     return install_dir
 
