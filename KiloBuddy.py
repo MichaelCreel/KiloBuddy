@@ -12,7 +12,6 @@ import threading
 import time
 import subprocess
 import tkinter as tk
-from tkinter import messagebox
 import tempfile
 import atexit
 import requests as reqs
