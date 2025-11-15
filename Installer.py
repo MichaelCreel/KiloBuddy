@@ -690,11 +690,6 @@ def run_gui_installer():
     try:
         from tkinter import font as tkFont
         base_dir = os.path.dirname(os.path.abspath(__file__))
-
-        StackSans_EL = tkFont.Font(family="StackSans Text ExtraLight", size=12)
-        StackSans_L = tkFont.Font(family="StackSans Text Light", size=12)
-        StackSans_M = tkFont.Font(family="StackSans Text Medium", size=12)
-
         StackSans_EL = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-ExtraLight.ttf"), size=9)
         StackSans_L = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Light.ttf"), size=12)
         StackSans_M = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Medium.ttf"), size=22)
