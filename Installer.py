@@ -371,6 +371,36 @@ def run_terminal_installer():
     except Exception as e:
         print(f"Failed to save wake word: {e}")
     
+    # Ask for API timeout
+    print("\n=== API Timeout Configuration ===")
+    print("Set the timeout for AI API responses (in seconds).")
+    print("Recommended: 15-30 seconds")
+    print("Minimum: 5 seconds, Maximum: 120 seconds")
+    
+    while True:
+        timeout_input = input("Enter API timeout in seconds (default: 15): ").strip()
+        if timeout_input == "":
+            api_timeout = "15"
+            break
+        try:
+            timeout_value = int(timeout_input)
+            if 5 <= timeout_value <= 120:
+                api_timeout = str(timeout_value)
+                break
+            else:
+                print("API timeout should be between 5 and 120 seconds.")
+        except ValueError:
+            print("Please enter a valid number.")
+    
+    # Save API timeout
+    try:
+        api_timeout_file = os.path.join(install_dir, "api_timeout")
+        with open(api_timeout_file, "w") as f:
+            f.write(api_timeout)
+        print(f"API timeout saved: {api_timeout} seconds")
+    except Exception as e:
+        print(f"Failed to save API timeout: {e}")
+    
     # Ask for update preferences
     print("\n=== Update Notifications ===")
     print("KiloBuddy can notify you when updates are available.")
@@ -728,6 +758,30 @@ def run_gui_installer():
             messagebox.showerror("Error", f"Failed to save wake word: {e}")
             return False
         
+        # Save API timeout
+        timeout_input = timeout_entry.get().strip()
+        if timeout_input == "":
+            api_timeout = "15"
+        else:
+            try:
+                timeout_value = int(timeout_input)
+                if 5 <= timeout_value <= 120:
+                    api_timeout = str(timeout_value)
+                else:
+                    messagebox.showerror("Error", "API timeout must be between 5 and 120 seconds.")
+                    return False
+            except ValueError:
+                messagebox.showerror("Error", "API timeout must be a valid number.")
+                return False
+        
+        try:
+            api_timeout_file = os.path.join(install_dir, "api_timeout")
+            with open(api_timeout_file, "w") as f:
+                f.write(api_timeout)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save API timeout: {e}")
+            return False
+        
         # Check if at least one key was provided
         keys_provided = [gemini_key, chatgpt_key, claude_key]
         if not any(key and key not in ["null", "", "none"] for key in keys_provided):
@@ -902,12 +956,46 @@ def run_gui_installer():
                                     width=12, state="readonly")
     ai_pref3_dropdown.grid(row=0, column=5, padx=5)
 
-    # Wake Word section
+    # Wake Word and API Timeout section
+    config_section_label = tk.Label(root, text="Configuration Settings", 
+                                   font=("Helvetica", 16), fg="white", bg="#190c3a")
+    config_section_label.pack(pady=(20, 10))
 
-    wake_word_label = tk.Label(root, text="Wake Word:", font=("Helvetica", 12), fg="white", bg="#190c3a")
-    wake_word_label.pack(pady=(10, 2))
+    # Frame for wake word and API timeout side by side
+    config_frame = tk.Frame(root, bg="#190c3a")
+    config_frame.pack(pady=5)
 
-    wake_word_entry = tk.Entry(root, width=30, font=("Helvetica", 10))
+    # Wake Word (left side)
+    wake_word_frame = tk.Frame(config_frame, bg="#190c3a")
+    wake_word_frame.pack(side="left", padx=(0, 30))
+
+    wake_word_label = tk.Label(wake_word_frame, text="Wake Word:", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    wake_word_label.pack(pady=(0, 5))
+
+    wake_word_entry = tk.Entry(wake_word_frame, width=25, font=("Helvetica", 10))
+    wake_word_entry.pack(pady=2)
+    wake_word_entry.insert(0, "computer")  # Default value
+
+    wake_word_help = tk.Label(wake_word_frame, text="Examples: computer, assistant, jarvis", 
+                             font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+    wake_word_help.pack(pady=(2, 0))
+
+    # API Timeout (right side)
+    timeout_frame = tk.Frame(config_frame, bg="#190c3a")
+    timeout_frame.pack(side="left")
+
+    timeout_label = tk.Label(timeout_frame, text="API Timeout (seconds):", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    timeout_label.pack(pady=(0, 5))
+
+    timeout_entry = tk.Entry(timeout_frame, width=15, font=("Helvetica", 10))
+    timeout_entry.pack(pady=2)
+    timeout_entry.insert(0, "15")  # Default value
+
+    timeout_help = tk.Label(timeout_frame, text="Range: 5-120 seconds", 
+                           font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+    timeout_help.pack(pady=(2, 0))
+
+    # GPT-OSS section
     wake_word_entry.pack(pady=2)
     wake_word_entry.insert(0, "computer")
 
