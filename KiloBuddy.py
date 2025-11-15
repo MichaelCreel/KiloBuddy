@@ -12,6 +12,7 @@ import threading
 import time
 import subprocess
 import tkinter as tk
+from tkinter import font as tkFont
 import tempfile
 import atexit
 import requests as reqs
@@ -831,7 +832,7 @@ def show_overlay(text):
         frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         text_widget = tk.Text(frame, 
-                             font=("Helvetica", 14), 
+                             font=StackSans_L, 
                              fg="white", 
                              bg="#2a2a2a", 
                              wrap=tk.WORD,
@@ -879,6 +880,9 @@ class KiloBuddyDashboard:
         self.frame_color = "#1D4E89"
         self.border_color = "#2E86C1"
         
+        # Load StackSans fonts
+        self.load_custom_fonts()
+        
         # Font size variables
         self.status_font_size = 24
         self.button_font_size = 24
@@ -898,15 +902,39 @@ class KiloBuddyDashboard:
                 pass
         
         self.setup_ui()
+    
+    def load_custom_fonts(self):
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            
+            # Load StackSans Light for normal text
+            light_font_path = os.path.join(base_dir, "StackSansText-Light.ttf")
+            medium_font_path = os.path.join(base_dir, "StackSansText-Medium.ttf")
+            
+            # Check if font files exist
+            if os.path.exists(light_font_path) and os.path.exists(medium_font_path):
+                self.stacksans_light_family = "StackSans Text Light"
+                self.stacksans_medium_family = "StackSans Text Medium"
+                print("INFO: StackSans fonts loaded successfully")
+            else:
+                # Fallback to system fonts
+                self.stacksans_light_family = "Helvetica"
+                self.stacksans_medium_family = "Helvetica"
+                print("INFO: StackSans fonts not found, using Helvetica fallback")
+        except Exception as e:
+            # Fallback to system fonts
+            self.stacksans_light_family = "Helvetica"
+            self.stacksans_medium_family = "Helvetica"
+            print(f"INFO: Font loading failed: {e}, using Helvetica fallback")
         
     def setup_ui(self):
         button_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         button_frame.pack(fill="x", padx=20, pady=20)
 
-        self.status_label = ctk.CTkLabel(button_frame, text="Status: Waiting...", text_color="#8A8A8A", font=ctk.CTkFont(size=self.status_font_size))
+        self.status_label = ctk.CTkLabel(button_frame, text="Status: Waiting...", text_color="#8A8A8A", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.status_font_size))
         self.status_label.pack(side="left")
 
-        quit_btn = ctk.CTkButton(button_frame, text="Quit KiloBuddy", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(size=self.button_font_size), width=140, height=35)
+        quit_btn = ctk.CTkButton(button_frame, text="Quit KiloBuddy", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=140, height=35)
         quit_btn.pack(side="right")
 
         output_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
@@ -915,13 +943,13 @@ class KiloBuddyDashboard:
         header_frame = ctk.CTkFrame(output_frame, fg_color="transparent")
         header_frame.pack(fill="x", pady=10, padx=15)
         
-        response_label = ctk.CTkLabel(header_frame, text="Response", font=ctk.CTkFont(size=self.header_font_size, weight="bold"), text_color="white")
+        response_label = ctk.CTkLabel(header_frame, text="Response", font=ctk.CTkFont(family=self.stacksans_medium_family, size=self.header_font_size), text_color="white")
         response_label.pack(side="left")
 
         text_frame = ctk.CTkFrame(output_frame, fg_color="transparent")
         text_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
         
-        self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=10, height=300)
+        self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=10, height=300)
         self.output_text.pack(fill="both", expand=True)
 
         self.update_output_display()
@@ -932,10 +960,10 @@ class KiloBuddyDashboard:
         input_container = ctk.CTkFrame(input_frame, fg_color="transparent")
         input_container.pack(fill="x", padx=15, pady=15)
 
-        self.command_entry = ctk.CTkEntry(input_container, font=ctk.CTkFont(size=self.input_font_size), fg_color=self.background_color, text_color="white", placeholder_text="Enter Command...", placeholder_text_color="#888888", corner_radius=10, height=40)
+        self.command_entry = ctk.CTkEntry(input_container, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), fg_color=self.background_color, text_color="white", placeholder_text="Enter Command...", placeholder_text_color="#888888", corner_radius=10, height=40)
         self.command_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        send_btn = ctk.CTkButton(input_container, text="Send", command=self.send_command, fg_color="#2196F3", hover_color="#1976D2", font=ctk.CTkFont(size=self.input_font_size), width=100, height=40, corner_radius=10)
+        send_btn = ctk.CTkButton(input_container, text="Send", command=self.send_command, fg_color="#2196F3", hover_color="#1976D2", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), width=100, height=40, corner_radius=10)
         send_btn.pack(side="right")
         
         self.command_entry.bind('<Return>', lambda event: self.send_command())
@@ -1044,6 +1072,15 @@ def show_dashboard():
     if not initialize():
         print("ERROR: Failed to initialize KiloBuddy.\nERROR 137")
         return
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        StackSans_EL = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-ExtraLight.ttf"), size=9)
+        StackSans_L = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Light.ttf"), size=12)
+        StackSans_M = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Medium.ttf"), size=22)
+    except:
+        StackSans_EL = ("Arial", 10)
+        StackSans_L = ("Arial", 12)
+        StackSans_M = ("Arial", 22)
     dashboard = KiloBuddyDashboard()
     dashboard.run()
 
