@@ -786,6 +786,18 @@ def show_overlay(text):
         root = tk.Tk()
         root.title("KiloBuddy")
         
+        # Load StackSans font or fallback to Helvetica
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            light_font_path = os.path.join(base_dir, "StackSansText-Light.ttf")
+            
+            if os.path.exists(light_font_path):
+                overlay_font = ("StackSans Text Light", 14)
+            else:
+                overlay_font = ("Helvetica", 14)
+        except Exception:
+            overlay_font = ("Helvetica", 14)
+        
         # Set window icon if icon.png exists
         if os.path.exists("icon.png"):
             try:
@@ -832,7 +844,7 @@ def show_overlay(text):
         frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         text_widget = tk.Text(frame, 
-                             font=StackSans_L, 
+                             font=overlay_font, 
                              fg="white", 
                              bg="#2a2a2a", 
                              wrap=tk.WORD,
