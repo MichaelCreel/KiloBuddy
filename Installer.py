@@ -59,8 +59,8 @@ def setup_install_directory():
     current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates', 'ai_preference', 'api_timeout']
     # Files that should always be updated (core application files)
     always_update_files = ['KiloBuddy.py', 'version', 'prompt', 'icon.png']
-    # Files that can be updated if they're different from installer defaults
-    installer_managed_files = ['wake_word', 'updates', 'ai_preference', 'api_timeout', 'os_version']
+    # Files that should NOT be overwritten if they exist (user just configured them)
+    user_configured_files = ['wake_word', 'updates', 'ai_preference', 'api_timeout']
     
     for file in current_files:
         if os.path.exists(file):
@@ -70,22 +70,25 @@ def setup_install_directory():
                 # Always update core application files
                 print(f"Updating {file} in installation directory...")
                 shutil.copy2(file, dest_path)
-            elif file in installer_managed_files:
+            elif file in user_configured_files:
+                if os.path.exists(dest_path):
+                    # Don't overwrite user-configured files that already exist
+                    print(f"Preserving user-configured {file}")
+                else:
+                    # Copy default file if user hasn't configured it yet
+                    print(f"Copying default {file} to installation directory...")
+                    shutil.copy2(file, dest_path)
+            else:
+                # Copy other files if they don't exist, or update if different
                 if os.path.exists(dest_path):
                     if files_are_different(file, dest_path):
-                        print(f"Updating {file} (new settings detected)...")
+                        print(f"Updating {file} (changes detected)...")
                         shutil.copy2(file, dest_path)
                     else:
                         print(f"Preserving existing {file} (no changes)")
                 else:
-                    print(f"Copying new {file} to installation directory...")
-                    shutil.copy2(file, dest_path)
-            else:
-                if not os.path.exists(dest_path):
                     print(f"Copying {file} to installation directory...")
                     shutil.copy2(file, dest_path)
-                else:
-                    print(f"Preserving existing {file}")
     
     return install_dir
 
