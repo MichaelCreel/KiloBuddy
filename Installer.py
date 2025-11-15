@@ -907,7 +907,7 @@ def run_gui_installer():
     gemini_label = tk.Label(root, text="Gemini API Key (Google):", font=StackSans_L, fg="white", bg="#190c3a")
     gemini_label.pack(pady=(10, 2))
 
-    gemini_entry = tk.Entry(root, width=60, font=StackSans_L, show="*")
+    gemini_entry = tk.Entry(root, width=60, font=StackSans_L, show="~")
     gemini_entry.pack(pady=2)
 
     gemini_help = tk.Label(root, text="Get your API key from: https://aistudio.google.com/api-keys", 
@@ -918,7 +918,7 @@ def run_gui_installer():
     chatgpt_label = tk.Label(root, text="ChatGPT API Key (OpenAI):", font=StackSans_L, fg="white", bg="#190c3a")
     chatgpt_label.pack(pady=(10, 2))
 
-    chatgpt_entry = tk.Entry(root, width=60, font=StackSans_L, show="*")
+    chatgpt_entry = tk.Entry(root, width=60, font=StackSans_L, show="~")
     chatgpt_entry.pack(pady=2)
 
     chatgpt_help = tk.Label(root, text="Get your API key from: https://platform.openai.com/api-keys", 
@@ -929,7 +929,7 @@ def run_gui_installer():
     claude_label = tk.Label(root, text="Claude API Key (Anthropic):", font=StackSans_L, fg="white", bg="#190c3a")
     claude_label.pack(pady=(10, 2))
 
-    claude_entry = tk.Entry(root, width=60, font=StackSans_L, show="*")
+    claude_entry = tk.Entry(root, width=60, font=StackSans_L, show="~")
     claude_entry.pack(pady=2)
 
     claude_help = tk.Label(root, text="Get your API key from: https://console.anthropic.com/", 
