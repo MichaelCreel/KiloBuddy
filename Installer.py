@@ -56,7 +56,7 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates', 'ai_preference', 'api_timeout']
+    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates', 'ai_preference', 'api_timeout', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
     # Files that should always be updated (core application files)
     always_update_files = ['KiloBuddy.py', 'version', 'prompt', 'icon.png']
     # Files that should NOT be overwritten if they exist (user just configured them)
@@ -687,6 +687,22 @@ def run_gui_installer():
     from tkinter import ttk
     import threading
 
+    try:
+        from tkinter import font as tkFont
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        StackSans_EL = tkFont.Font(family="StackSans Text ExtraLight", size=12)
+        StackSans_L = tkFont.Font(family="StackSans Text Light", size=12)
+        StackSans_M = tkFont.Font(family="StackSans Text Medium", size=12)
+
+        StackSans_EL = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-ExtraLight.ttf"), size=9)
+        StackSans_L = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Light.ttf"), size=12)
+        StackSans_M = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Medium.ttf"), size=22)
+    except:
+        StackSans_EL = ("Arial", 10)
+        StackSans_L = ("Arial", 12)
+        StackSans_M = ("Arial", 22)
+
     # Get installation directory and create it
     install_dir = get_install_directory()
     
@@ -879,59 +895,59 @@ def run_gui_installer():
         except Exception:
             pass  # If icon fails to load, continue without it
 
-    title = tk.Label(root, text="Install KiloBuddy", font=("Helvetica", 32), fg="white", bg="#190c3a")
+    title = tk.Label(root, text="Install KiloBuddy", font=StackSans_M, fg="white", bg="#190c3a")
     title.pack(pady=20)
 
     # Show installation directory
     install_info = tk.Label(root, text=f"Installing to: {install_dir}", 
-                           font=("Helvetica", 10), fg="#cccccc", bg="#190c3a")
+                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     install_info.pack(pady=5)
 
     # API Keys input section
     api_section_label = tk.Label(root, text="Enter at least one API Key (Gemini is free)", 
-                                font=("Helvetica", 16), fg="white", bg="#190c3a")
+                                font=StackSans_L, fg="white", bg="#190c3a")
     api_section_label.pack(pady=(20, 10))
 
     # Gemini API Key
-    gemini_label = tk.Label(root, text="Gemini API Key (Google):", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    gemini_label = tk.Label(root, text="Gemini API Key (Google):", font=StackSans_L, fg="white", bg="#190c3a")
     gemini_label.pack(pady=(10, 2))
 
-    gemini_entry = tk.Entry(root, width=60, font=("Helvetica", 10), show="*")
+    gemini_entry = tk.Entry(root, width=60, font=StackSans_L, show="*")
     gemini_entry.pack(pady=2)
 
     gemini_help = tk.Label(root, text="Get your API key from: https://aistudio.google.com/api-keys", 
-                          font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+                          font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     gemini_help.pack(pady=(0, 5))
 
     # ChatGPT API Key
-    chatgpt_label = tk.Label(root, text="ChatGPT API Key (OpenAI):", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    chatgpt_label = tk.Label(root, text="ChatGPT API Key (OpenAI):", font=StackSans_L, fg="white", bg="#190c3a")
     chatgpt_label.pack(pady=(10, 2))
 
-    chatgpt_entry = tk.Entry(root, width=60, font=("Helvetica", 10), show="*")
+    chatgpt_entry = tk.Entry(root, width=60, font=StackSans_L, show="*")
     chatgpt_entry.pack(pady=2)
 
     chatgpt_help = tk.Label(root, text="Get your API key from: https://platform.openai.com/api-keys", 
-                           font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     chatgpt_help.pack(pady=(0, 5))
 
     # Claude API Key
-    claude_label = tk.Label(root, text="Claude API Key (Anthropic):", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    claude_label = tk.Label(root, text="Claude API Key (Anthropic):", font=StackSans_L, fg="white", bg="#190c3a")
     claude_label.pack(pady=(10, 2))
 
-    claude_entry = tk.Entry(root, width=60, font=("Helvetica", 10), show="*")
+    claude_entry = tk.Entry(root, width=60, font=StackSans_L, show="*")
     claude_entry.pack(pady=2)
 
     claude_help = tk.Label(root, text="Get your API key from: https://console.anthropic.com/", 
-                          font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+                          font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     claude_help.pack(pady=(0, 10))
 
     # AI Preference section
     ai_pref_section_label = tk.Label(root, text="AI Provider Preference", 
-                                    font=("Helvetica", 16), fg="white", bg="#190c3a")
+                                    font=StackSans_L, fg="white", bg="#190c3a")
     ai_pref_section_label.pack(pady=(20, 10))
 
     ai_pref_desc = tk.Label(root, text="Choose up to 3 AI providers in order of preference:", 
-                           font=("Helvetica", 10), fg="#cccccc", bg="#190c3a")
+                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     ai_pref_desc.pack(pady=(0, 10))
 
     # AI preference dropdowns frame
@@ -939,21 +955,21 @@ def run_gui_installer():
     ai_pref_frame.pack(pady=5)
 
     # 1st preference
-    tk.Label(ai_pref_frame, text="1st:", font=("Helvetica", 10), fg="white", bg="#190c3a").grid(row=0, column=0, padx=(0, 5), sticky="e")
+    tk.Label(ai_pref_frame, text="1st:", font=StackSans_L, fg="white", bg="#190c3a").grid(row=0, column=0, padx=(0, 5), sticky="e")
     ai_pref1_var = tk.StringVar(value="Gemini")
     ai_pref1_dropdown = ttk.Combobox(ai_pref_frame, textvariable=ai_pref1_var, values=["Gemini", "ChatGPT", "Claude"], 
                                     width=12, state="readonly")
     ai_pref1_dropdown.grid(row=0, column=1, padx=5)
 
     # 2nd preference
-    tk.Label(ai_pref_frame, text="2nd:", font=("Helvetica", 10), fg="white", bg="#190c3a").grid(row=0, column=2, padx=(15, 5), sticky="e")
+    tk.Label(ai_pref_frame, text="2nd:", font=StackSans_L, fg="white", bg="#190c3a").grid(row=0, column=2, padx=(15, 5), sticky="e")
     ai_pref2_var = tk.StringVar(value="ChatGPT")
     ai_pref2_dropdown = ttk.Combobox(ai_pref_frame, textvariable=ai_pref2_var, values=["None", "Gemini", "ChatGPT", "Claude"], 
                                     width=12, state="readonly")
     ai_pref2_dropdown.grid(row=0, column=3, padx=5)
 
     # 3rd preference
-    tk.Label(ai_pref_frame, text="3rd:", font=("Helvetica", 10), fg="white", bg="#190c3a").grid(row=0, column=4, padx=(15, 5), sticky="e")
+    tk.Label(ai_pref_frame, text="3rd:", font=StackSans_L, fg="white", bg="#190c3a").grid(row=0, column=4, padx=(15, 5), sticky="e")
     ai_pref3_var = tk.StringVar(value="Claude")
     ai_pref3_dropdown = ttk.Combobox(ai_pref_frame, textvariable=ai_pref3_var, values=["None", "Gemini", "ChatGPT", "Claude"], 
                                     width=12, state="readonly")
@@ -961,7 +977,7 @@ def run_gui_installer():
 
     # Wake Word and API Timeout section
     config_section_label = tk.Label(root, text="Configuration Settings", 
-                                   font=("Helvetica", 16), fg="white", bg="#190c3a")
+                                   font=StackSans_L, fg="white", bg="#190c3a")
     config_section_label.pack(pady=(20, 10))
 
     # Frame for wake word and API timeout side by side
@@ -972,30 +988,30 @@ def run_gui_installer():
     wake_word_frame = tk.Frame(config_frame, bg="#190c3a")
     wake_word_frame.pack(side="left", padx=(0, 30))
 
-    wake_word_label = tk.Label(wake_word_frame, text="Wake Word:", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    wake_word_label = tk.Label(wake_word_frame, text="Wake Word:", font=StackSans_L, fg="white", bg="#190c3a")
     wake_word_label.pack(pady=(0, 5))
 
-    wake_word_entry = tk.Entry(wake_word_frame, width=25, font=("Helvetica", 10))
+    wake_word_entry = tk.Entry(wake_word_frame, width=25, font=StackSans_L)
     wake_word_entry.pack(pady=2)
     wake_word_entry.insert(0, "computer")  # Default value
 
     wake_word_help = tk.Label(wake_word_frame, text="Examples: computer, assistant, jarvis", 
-                             font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+                             font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     wake_word_help.pack(pady=(2, 0))
 
     # API Timeout (right side)
     timeout_frame = tk.Frame(config_frame, bg="#190c3a")
     timeout_frame.pack(side="left")
 
-    timeout_label = tk.Label(timeout_frame, text="API Timeout (seconds):", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    timeout_label = tk.Label(timeout_frame, text="API Timeout (seconds):", font=StackSans_L, fg="white", bg="#190c3a")
     timeout_label.pack(pady=(0, 5))
 
-    timeout_entry = tk.Entry(timeout_frame, width=15, font=("Helvetica", 10))
+    timeout_entry = tk.Entry(timeout_frame, width=15, font=StackSans_L)
     timeout_entry.pack(pady=2)
     timeout_entry.insert(0, "15")  # Default value
 
     timeout_help = tk.Label(timeout_frame, text="Range: 5-120 seconds", 
-                           font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
+                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     timeout_help.pack(pady=(2, 0))
 
     # GPT-OSS section
@@ -1005,7 +1021,7 @@ def run_gui_installer():
     progress = ttk.Progressbar(root, orient="horizontal", length=750, mode="determinate")
     progress.pack(pady=15)
 
-    note = tk.Label(root, text="Just click the button (with internet)", font=("Helvetica", 12), fg="white", bg="#190c3a")
+    note = tk.Label(root, text="Just click the button (with internet)", font=StackSans_L, fg="white", bg="#190c3a")
     note.pack(pady=10)
 
     install_button = tk.Button(root, text="Install", command=start_install, width=35, height=2)
