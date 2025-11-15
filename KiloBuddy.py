@@ -1263,6 +1263,11 @@ def main():
             audio_stream.stop_stream()
             audio_stream.close()
 
+def start_voice_listening():
+    voice_thread = threading.Thread(target=main, daemon=True)
+    voice_thread.start()
+    return voice_thread
+
 if __name__ == "__main__":
     if is_kilobuddy_running():
         print("INFO: Opening dashboard...")
@@ -1270,4 +1275,11 @@ if __name__ == "__main__":
     else:
         print("INFO: Launching KiloBuddy...")
         create_lock_file()
-        main()
+        
+        # Start voice listening in background thread
+        print("INFO: Starting voice assistant in background...")
+        start_voice_listening()
+        
+        # Show dashboard to indicate KiloBuddy is running
+        print("INFO: Opening dashboard...")
+        show_dashboard()
