@@ -1279,6 +1279,7 @@ def main():
         return
 
     print(f"INFO: KiloBuddy successfully started. Say '{WAKE_WORD}' followed by your command.")
+    show_overlay(f"KiloBuddy successfully started.\n\nSay '{WAKE_WORD}' to activate.")
 
     try:
         while True:
