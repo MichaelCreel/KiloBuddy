@@ -990,7 +990,7 @@ def run_gui_installer():
     wake_word_entry.pack(pady=2)
     wake_word_entry.insert(0, "computer")  # Default value
 
-    wake_word_help = tk.Label(wake_word_frame, text="Examples: computer, assistant, jarvis", 
+    wake_word_help = tk.Label(wake_word_frame, text="Examples: computer, assistant", 
                              font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     wake_word_help.pack(pady=(2, 0))
 
