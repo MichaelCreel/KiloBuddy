@@ -807,9 +807,9 @@ def show_overlay(text):
         
         root.attributes("-topmost", True)
         root.overrideredirect(True)
-        root.configure(bg="#1e1e1e")
+        root.configure(bg="#131313")
         root.lift()
-        root.attributes("-alpha", 0.8)
+        root.attributes("-alpha", 0.85)
         
         max_width = 1000
         max_height = 500
@@ -840,15 +840,15 @@ def show_overlay(text):
         
         root.geometry(f"{int(ideal_width)}x{int(ideal_height)}+100+100")
         
-        frame = tk.Frame(root, bg="#1e1e1e", relief=tk.FLAT, borderwidth=0)
+        frame = tk.Frame(root, bg="#131313", relief=tk.FLAT, borderwidth=0)
         frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         text_widget = tk.Text(frame, 
                              font=overlay_font, 
                              fg="white", 
-                             bg="#2a2a2a", 
+                             bg="#131313", 
                              wrap=tk.WORD,
-                             selectbackground="#4a4a4a",
+                             selectbackground="#195cba",
                              selectforeground="white",
                              insertbackground="white",
                              relief=tk.FLAT,
