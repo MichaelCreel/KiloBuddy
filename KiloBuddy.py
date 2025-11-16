@@ -811,32 +811,17 @@ def show_overlay(text):
         root.lift()
         root.attributes("-alpha", 0.85)
         
-        max_width = 1000
-        max_height = 500
-        min_width = 1
-        min_height = 1
-        
-        lines = text.split('\n')
-        char_width = 8.5
-        line_height = 30
-        padding = 30
-        
-        max_line_chars = max(len(line) for line in lines) if lines else 10
+        char_width = 24
+        line_height = 40
+        max_width = 800
+        max_height = 600
+        padding = 20
+
+        max_line_chars = max(len(line) for line in text.split("\n"))
         ideal_width = min(max_line_chars * char_width + padding, max_width)
-        ideal_width = max(ideal_width, min_width)
-
-        chars_per_line = max(1, int((ideal_width - padding) / char_width))
-        total_lines = 0
-        
-        for line in lines:
-            if len(line) == 0:
-                total_lines += 1
-            else:
-                line_wrapped_count = max(1, (len(line) + chars_per_line - 1) // chars_per_line)
-                total_lines += line_wrapped_count
-
+        chars_per_line = max(1, (ideal_width - padding) // char_width)
+        total_lines = sum(max(1, (len(line) + chars_per_line - 1) // chars_per_line) for line in text.split("\n"))
         ideal_height = min(total_lines * line_height + padding, max_height)
-        ideal_height = max(ideal_height, min_height)  # Minimum reasonable height
         
         root.geometry(f"{int(ideal_width)}x{int(ideal_height)}+100+100")
         
@@ -858,7 +843,7 @@ def show_overlay(text):
         needs_scrollbar = ideal_height >= max_height
         
         if needs_scrollbar:
-            scrollbar = tk.Scrollbar(frame, command=text_widget.yview, bg="#1e1e1e", troughcolor="#1e1e1e", 
+            scrollbar = tk.Scrollbar(frame, command=text_widget.yview, bg="#131313", troughcolor="#ffffff", 
                                     relief=tk.FLAT, borderwidth=0, highlightthickness=0)
             text_widget.config(yscrollcommand=scrollbar.set)
             
