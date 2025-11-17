@@ -49,15 +49,15 @@ KiloBuddy uses Google Gemini, OpenAI ChatGPT, or Anthropic Claude to process use
     Run `mac-install.command`
   - Linux:
     Run `linux-install.sh`
-    If nothing happens, tkinter is probably missing
-    Install tkinter:
-      ```bash
-      sudo apt install python3-tk
-      ```
-      Or run installer from the terminal:
-      ```bash
-      python3 Installer.py
-      ```
+    - If nothing happens, tkinter is probably missing
+      - Install tkinter:
+        ```bash
+        sudo apt install python3-tk
+        ```
+      - Or run installer from the terminal:
+        ```bash
+        python3 Installer.py
+        ```
 4. Paste your API key into the proper input field
 5. Click "Install"
 
