@@ -56,11 +56,11 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'wake_word', 'icon.png', 'version', 'updates', 'ai_preference', 'api_timeout']
+    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'icon.png', 'version']
     # Files that should always be updated (core application files)
     always_update_files = ['KiloBuddy.py', 'version', 'prompt', 'icon.png']
     # Files that should NOT be overwritten if they exist (user just configured them)
-    user_configured_files = ['wake_word', 'updates', 'ai_preference', 'api_timeout']
+    user_configured_files = ['settings', 'updates']
     
     for file in current_files:
         if os.path.exists(file):
@@ -255,6 +255,9 @@ def run_terminal_installer():
         print(f"Creating installation directory: {install_dir}")
         os.makedirs(install_dir, exist_ok=True)
     
+    # Collect all settings
+    settings_content = []
+    
     # Get API keys from user
     print("\n=== AI API Keys Setup ===")
     print("KiloBuddy supports multiple AI providers. You can enter keys for any or all of them.")
@@ -264,40 +267,16 @@ def run_terminal_installer():
     print("Gemini API (Google):")
     print("Get your API key from: https://aistudio.google.com/api-keys")
     gemini_key = input("Enter your Gemini API Key (or press Enter to skip): ").strip()
-    if gemini_key and gemini_key not in ["null", "", "none"]:
-        try:
-            api_key_path = os.path.join(install_dir, "gemini_api_key")
-            with open(api_key_path, "w") as f:
-                f.write(gemini_key)
-            print("Gemini API key saved!")
-        except Exception as e:
-            print(f"Failed to save Gemini API key: {e}")
     
     # ChatGPT API Key
     print("\nChatGPT API (OpenAI):")
     print("Get your API key from: https://platform.openai.com/api-keys")
     chatgpt_key = input("Enter your ChatGPT API Key (or press Enter to skip): ").strip()
-    if chatgpt_key and chatgpt_key not in ["null", "", "none"]:
-        try:
-            api_key_path = os.path.join(install_dir, "chatgpt_api_key")
-            with open(api_key_path, "w") as f:
-                f.write(chatgpt_key)
-            print("ChatGPT API key saved!")
-        except Exception as e:
-            print(f"Failed to save ChatGPT API key: {e}")
     
     # Claude API Key
     print("\nClaude API (Anthropic):")
     print("Get your API key from: https://console.anthropic.com/")
     claude_key = input("Enter your Claude API Key (or press Enter to skip): ").strip()
-    if claude_key and claude_key not in ["null", "", "none"]:
-        try:
-            api_key_path = os.path.join(install_dir, "claude_api_key")
-            with open(api_key_path, "w") as f:
-                f.write(claude_key)
-            print("Claude API key saved!")
-        except Exception as e:
-            print(f"Failed to save Claude API key: {e}")
     
     # Check if at least one key was provided
     keys_provided = [gemini_key, chatgpt_key, claude_key]
@@ -340,16 +319,13 @@ def run_terminal_installer():
             elif preference == "" and i == 0:
                 print("First preference is required.")
     
-    # Format and save AI preference
+    # Add AI preference to settings
     if ai_preferences:
         ai_preference_str = ", ".join(ai_preferences)
-        try:
-            ai_preference_file = os.path.join(install_dir, "ai_preference")
-            with open(ai_preference_file, "w") as f:
-                f.write(ai_preference_str)
-            print(f"AI preference saved: {ai_preference_str}")
-        except Exception as e:
-            print(f"Failed to save AI preference: {e}")
+        settings_content.append(f"preference: {ai_preference_str}")
+        print(f"AI preference set: {ai_preference_str}")
+    else:
+        settings_content.append("preference: gemini, chatgpt, claude")
     
     # Ask for wake word
     print("\n=== Wake Word Configuration ===")
@@ -365,14 +341,8 @@ def run_terminal_installer():
         else:
             print("Wake word should be 1-3 words and at least 2 characters long.")
     
-    # Save wake word
-    try:
-        wake_word_file = os.path.join(install_dir, "wake_word")
-        with open(wake_word_file, "w") as f:
-            f.write(wake_word)
-        print(f"Wake word saved: {wake_word}")
-    except Exception as e:
-        print(f"Failed to save wake word: {e}")
+    settings_content.append(f"wake_word: {wake_word}")
+    print(f"Wake word set: {wake_word}")
     
     # Ask for API timeout
     print("\n=== API Timeout Configuration ===")
@@ -395,14 +365,46 @@ def run_terminal_installer():
         except ValueError:
             print("Please enter a valid number.")
     
-    # Save API timeout
+    settings_content.append(f"timeout: {api_timeout}")
+    print(f"API timeout set: {api_timeout} seconds")
+    
+    # Add API keys to settings
+    if gemini_key and gemini_key not in ["null", "", "none"]:
+        settings_content.append(f"gemini_api_key: {gemini_key}")
+        print("Gemini API key added to settings")
+    else:
+        settings_content.append("gemini_api_key: [empty]")
+    
+    if chatgpt_key and chatgpt_key not in ["null", "", "none"]:
+        settings_content.append(f"chatgpt_api_key: {chatgpt_key}")
+        print("ChatGPT API key added to settings")
+    else:
+        settings_content.append("chatgpt_api_key: [empty]")
+    
+    if claude_key and claude_key not in ["null", "", "none"]:
+        settings_content.append(f"claude_api_key: {claude_key}")
+        print("Claude API key added to settings")
+    else:
+        settings_content.append("claude_api_key: [empty]")
+    
+    # Write all settings to single file
     try:
-        api_timeout_file = os.path.join(install_dir, "api_timeout")
-        with open(api_timeout_file, "w") as f:
-            f.write(api_timeout)
-        print(f"API timeout saved: {api_timeout} seconds")
+        settings_file = os.path.join(install_dir, "settings")
+        with open(settings_file, "w") as f:
+            f.write("\n".join(settings_content))
+        print(f"\nAll settings saved to: {settings_file}")
     except Exception as e:
-        print(f"Failed to save API timeout: {e}")
+        print(f"Failed to save settings: {e}")
+        return
+    # Write all settings to single file
+    try:
+        settings_file = os.path.join(install_dir, "settings")
+        with open(settings_file, "w") as f:
+            f.write("\n".join(settings_content))
+        print(f"\nAll settings saved to: {settings_file}")
+    except Exception as e:
+        print(f"Failed to save settings: {e}")
+        return
     
     # Ask for update preferences
     print("\n=== Update Notifications ===")
@@ -424,7 +426,7 @@ def run_terminal_installer():
         else:
             print("Please enter 1 or 2")
     
-    # Save update preference
+    # Save update preference to separate file (this is still needed for version/update tracking)
     try:
         updates_file = os.path.join(install_dir, "updates")
         with open(updates_file, "w") as f:
@@ -696,38 +698,8 @@ def run_gui_installer():
         os.makedirs(install_dir, exist_ok=True)
 
     def save_api_keys():
-        # Save Gemini API key
-        gemini_key = gemini_entry.get().strip()
-        if gemini_key and gemini_key not in ["null", "", "none"]:
-            try:
-                api_key_path = os.path.join(install_dir, "gemini_api_key")
-                with open(api_key_path, "w") as f:
-                    f.write(gemini_key)
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to save Gemini API key: {e}")
-                return False
-        
-        # Save ChatGPT API key
-        chatgpt_key = chatgpt_entry.get().strip()
-        if chatgpt_key and chatgpt_key not in ["null", "", "none"]:
-            try:
-                api_key_path = os.path.join(install_dir, "chatgpt_api_key")
-                with open(api_key_path, "w") as f:
-                    f.write(chatgpt_key)
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to save ChatGPT API key: {e}")
-                return False
-        
-        # Save Claude API key
-        claude_key = claude_entry.get().strip()
-        if claude_key and claude_key not in ["null", "", "none"]:
-            try:
-                api_key_path = os.path.join(install_dir, "claude_api_key")
-                with open(api_key_path, "w") as f:
-                    f.write(claude_key)
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to save Claude API key: {e}")
-                return False
+        # Collect all settings
+        settings_content = []
         
         # Save AI preference
         ai_preferences = []
@@ -740,26 +712,15 @@ def run_gui_installer():
         
         if ai_preferences:
             ai_preference_str = ", ".join(ai_preferences)
-            try:
-                ai_preference_file = os.path.join(install_dir, "ai_preference")
-                with open(ai_preference_file, "w") as f:
-                    f.write(ai_preference_str)
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to save AI preference: {e}")
-                return False
+            settings_content.append(f"preference: {ai_preference_str}")
+        else:
+            settings_content.append("preference: gemini, chatgpt, claude")
         
         # Save wake word
         wake_word = wake_word_entry.get().strip().lower()
         if wake_word == "":
             wake_word = "computer"
-        
-        try:
-            wake_word_file = os.path.join(install_dir, "wake_word")
-            with open(wake_word_file, "w") as f:
-                f.write(wake_word)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save wake word: {e}")
-            return False
+        settings_content.append(f"wake_word: {wake_word}")
         
         # Save API timeout
         timeout_input = timeout_entry.get().strip()
@@ -776,13 +737,35 @@ def run_gui_installer():
             except ValueError:
                 messagebox.showerror("Error", "API timeout must be a valid number.")
                 return False
+        settings_content.append(f"timeout: {api_timeout}")
         
+        # Save API keys
+        gemini_key = gemini_entry.get().strip()
+        if gemini_key and gemini_key not in ["null", "", "none"]:
+            settings_content.append(f"gemini_api_key: {gemini_key}")
+        else:
+            settings_content.append("gemini_api_key: [empty]")
+        
+        chatgpt_key = chatgpt_entry.get().strip()
+        if chatgpt_key and chatgpt_key not in ["null", "", "none"]:
+            settings_content.append(f"chatgpt_api_key: {chatgpt_key}")
+        else:
+            settings_content.append("chatgpt_api_key: [empty]")
+        
+        claude_key = claude_entry.get().strip()
+        if claude_key and claude_key not in ["null", "", "none"]:
+            settings_content.append(f"claude_api_key: {claude_key}")
+        else:
+            settings_content.append("claude_api_key: [empty]")
+        
+        # Write all settings to single file
         try:
-            api_timeout_file = os.path.join(install_dir, "api_timeout")
-            with open(api_timeout_file, "w") as f:
-                f.write(api_timeout)
+            settings_file = os.path.join(install_dir, "settings")
+            with open(settings_file, "w") as f:
+                f.write("\n".join(settings_content))
+            print("Settings saved to single settings file")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save API timeout: {e}")
+            messagebox.showerror("Error", f"Failed to save settings: {e}")
             return False
         
         # Check if at least one key was provided
@@ -979,7 +962,7 @@ def run_gui_installer():
     wake_word_entry.pack(pady=2)
     wake_word_entry.insert(0, "computer")  # Default value
 
-    wake_word_help = tk.Label(wake_word_frame, text="Examples: computer, assistant, jarvis", 
+    wake_word_help = tk.Label(wake_word_frame, text="Examples: computer, assistant", 
                              font=("Helvetica", 9), fg="#cccccc", bg="#190c3a")
     wake_word_help.pack(pady=(2, 0))
 
