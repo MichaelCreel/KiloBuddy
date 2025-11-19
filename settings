@@ -1,6 +1,0 @@
-preference: gemini, chatgpt, claude
-wake_word: computer
-timeout: 15
-gemini_api_key: 
-chatgpt_api_key: 
-claude_api_key: 
