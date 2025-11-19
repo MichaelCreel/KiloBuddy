@@ -1304,6 +1304,7 @@ def check_for_updates():
 def main():
     if not initialize():
         print("FATAL: Failed to initialize KiloBuddy. Exiting.\nFATAL 2")
+        show_failure_notification("FATAL 2: Failed to initialize KiloBuddy.\n\nThe app will not function and will now stop.")
         return
 
     print(f"INFO: KiloBuddy successfully started. Say '{WAKE_WORD}' followed by your command.")
