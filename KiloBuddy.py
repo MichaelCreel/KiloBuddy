@@ -64,24 +64,14 @@ def initialize():
         print("WARNING: Failed to properly retrieve current app version.\n    -Falling back to 'v0.0'.\nWARN 302")
     check_for_updates()
     print("INFO: Initializing KiloBuddy...")
-    if not load_gemini_api_key():
-        print("WARNING: Failed to properly initialize Gemini API key.\n    -Gemini will not generate responses.\nWARN 303")
-    if not load_chatgpt_api_key():
-        print("WARNING: Failed to properly initialize ChatGPT API key.\n    -ChatGPT will not generate responses.\nWARN 304")
-    if not load_claude_api_key():
-        print("WARNING: Failed to properly initialize Claude API key.\n    -Claude will not generate responses.\nWARN 305")
-    if not load_ai_preference():
-        print("WARNING: Failed to properly initialize AI preference.\n    -Falling back to 'gemini, chatgpt, claude'.\nWARN 306")
     if not load_prompt():
         print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.\nFATAL 0")
         show_failure_notification("FATAL 0: Failed to properly initialize prompt.\n\nThe app will not function and will now stop.")
         return False
-    if not load_wake_word():
-        print("WARNING: Failed to .roperly initialize wake word.\n    -Falling back to 'computer'.\nWARN 307")
+    if not load_settings():
+        print("WARNING: Failed to properly load settings.\n    -Falling back to default configurations.\nWARN 313")
     if not load_os_version():
         print("WARNING: Failed to properly initialize OS version.\n    -Falling back to auto-detected operating system.\n    -Commands generated may not be correct.\nWARN 308")
-    if not load_api_timeout():
-        print("WARNING: Failed to properly initialize API timeout.\n    -Falling back to default 15 seconds.\nWARN 312")
     if not init_vosk():
         print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.\nFATAL 1")
         show_failure_notification("FATAL 1: Failed to initialize Vosk speech recognition.\n\nThe app will not function and will now stop.")
@@ -120,6 +110,180 @@ def detect_os():
             return "windows"
     else:
         return "unknown"
+
+# Load settings from file
+# Load Preference from settings
+def load_preference(line):
+    global AI_PREFERENCE
+    value = line.split(":", 1)[1].strip().lower()
+    try:
+        if value.lower() in ["gemini", "chatgpt", "claude"] or "," in value:
+            AI_PREFERENCE = value.lower()
+            print(f"INFO: Loaded AI Preference: {AI_PREFERENCE}")
+            return True
+        else:
+            print(f"ERROR: Invalid AI preference '{value}'.\nERROR 112")
+            return False
+    except Exception as e:
+        print(f"ERROR: Failed to parse AI preference: {e}\nERROR 114")
+        return False
+
+# Load Wake Word from settings
+def load_wake_word(line):
+    global WAKE_WORD
+    value = line.split(":", 1)[1].strip().lower()
+    try:
+        if len(value) >= 2 and value.isalpha():
+            WAKE_WORD = value.lower()
+            print(f"INFO: Loaded Wake Word: {WAKE_WORD}")
+            return True
+        else:
+            print(f"ERROR: Invalid wake word '{value}' (must be alphabetic, 2+ chars)\nERROR 109")
+            return False
+    except Exception as e:
+        print(f"ERROR: Failed to parse wake word: {e}\nERROR 111")
+        return False
+
+# Load Timeout from settings
+def load_timeout(line):
+    global API_TIMEOUT
+    value = line.split(":", 1)[1].strip()
+    try:
+        timeout = int(value)
+        if 5 <= timeout <= 120:
+            API_TIMEOUT = timeout
+            print(f"INFO: Loaded API Timeout: {API_TIMEOUT} seconds")
+            return True
+        else:
+            print(f"ERROR: Invalid timeout '{value}' (must be 5-120 seconds)\nERROR 143")
+            return False
+    except ValueError:
+        print(f"ERROR: Invalid timeout format '{value}' (must be integer)\nERROR 144")
+        return False
+    except Exception as e:
+        print(f"ERROR: Failed to parse timeout: {e}\nERROR 145")
+        return False
+
+# Load Gemini API Key from settings
+def load_gemini_api_key(line):
+    global GEMINI_API_KEY
+    value = line.split(":", 1)[1].strip()
+    try:
+        if len(value) >= 20 and not any(char in value for char in [' ', '\t', '\n']):
+            GEMINI_API_KEY = value
+            genai.configure(api_key=value)
+            print("INFO: Loaded Gemini API Key")
+            return True
+        else:
+            print(f"ERROR: Invalid Gemini API key format.\nERROR 115")
+            return False
+    except Exception as e:
+        print(f"ERROR: Failed to parse Gemini API key: {e}\nERROR 116")
+        return False
+
+# Load ChatGPT API Key from settings
+def load_chatgpt_api_key(line):
+    global CHATGPT_API_KEY
+    value = line.split(":", 1)[1].strip()
+    try:
+        if len(value) >= 20 and not any(char in value for char in [' ', '\t', '\n']):
+            CHATGPT_API_KEY = value
+            openai.api_key = value
+            print("INFO: Loaded ChatGPT API Key")
+            return True
+        else:
+            print(f"ERROR: Invalid ChatGPT API key format.\nERROR 118")
+            return False
+    except Exception as e:
+        print(f"ERROR: Failed to parse ChatGPT API key: {e}\nERROR 119")
+        return False
+
+# Load Claude API Key from settings
+def load_claude_api_key(line):
+    global CLAUDE_API_KEY
+    value = line.split(":", 1)[1].strip()
+    try:
+        if len(value) >= 20 and not any(char in value for char in [' ', '\t', '\n']):
+            CLAUDE_API_KEY = value
+            print("INFO: Loaded Claude API Key")
+            return True
+        else:
+            print(f"ERROR: Invalid Claude API key format.\nERROR 121")
+            return False
+    except Exception as e:
+        print(f"ERROR: Failed to parse Claude API key: {e}\nERROR 122")
+        return False
+
+def load_settings():
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
+    success_count = 0
+    total_settings = 6
+    
+    try:
+        with open(get_source_path("settings"), "r") as f:
+            lines = f.readlines()
+            
+        if not lines:
+            print("WARNING: Settings file is empty, using default configurations.\n    -preference: gemini, chatgpt, claude" \
+            "\n    -wake_word: computer" \
+            "\n    -timeout: 15" \
+            "\n    -gemini_api_key: [empty]" \
+            "\n    -chatgpt_api_key: [empty]" \
+            "\n    -claude_api_key: [empty]" \
+            "\nWARN 313")
+            return False
+            
+        for line in lines:
+            line = line.strip()
+            
+            # Skip empty lines and comments
+            if not line or line.startswith('#'):
+                continue
+                
+            if line.startswith("preference:"):
+                if load_preference(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize AI preference.\n    -Falling back to 'gemini, chatgpt, claude'.\nWARN 306")
+            elif line.startswith("wake_word:"):
+                if load_wake_word(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize wake word.\n    -Falling back to 'computer'.\nWARN 307")
+            elif line.startswith("timeout:"):
+                if load_timeout(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize API timeout.\n    -Falling back to default 15 seconds.\nWARN 312")
+            elif line.startswith("gemini_api_key:"):
+                if load_gemini_api_key(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize Gemini API key.\n    -Gemini will not generate responses.\nWARN 303")
+            elif line.startswith("chatgpt_api_key:"):
+                if load_chatgpt_api_key(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize ChatGPT API key.\n    -ChatGPT will not generate responses.\nWARN 304")
+            elif line.startswith("claude_api_key:"):
+                if load_claude_api_key(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize Claude API key.\n    -Claude will not generate responses.\nWARN 305")
+                    
+    except FileNotFoundError:
+        print("ERROR: Settings file not found.\nERROR 146")
+        return False
+    except PermissionError:
+        print("ERROR: Permission denied reading settings file.\nERROR 147")
+        return False
+    except Exception as e:
+        print(f"ERROR: Failed to load settings file: {e}\nERROR 148")
+        return False
+    
+    print(f"INFO: Loaded {success_count}/{total_settings} settings successfully")
+    return success_count > 0
+    return True
 
 # Load API Timemout in seconds from file
 def load_api_timeout():
@@ -206,108 +370,6 @@ def load_os_version():
     except Exception as e:
         OS_VERSION = detect_os()
         print(f"ERROR: Failed to load OS version: {e}, auto-detected: {OS_VERSION}\nERROR 108")
-        return False
-
-# Load Wake Word from file
-def load_wake_word():
-    global WAKE_WORD
-    try:
-        with open(get_source_path("wake_word"), "r") as f:
-            word = f.read().strip().lower()
-            if word == "null" or word == "" or word == "none":
-                print("ERROR: No wake word provided, using default 'computer'.\nERROR 109")
-                return False
-            else:
-                WAKE_WORD = word
-                print(f"INFO: Loaded Wake Word: {WAKE_WORD}")
-                return True
-    except FileNotFoundError:
-        print("ERROR: Wake word file not found, using fallback 'computer'.\nERROR 110")
-        return False
-    except Exception as e:
-        print(f"ERROR: Failed to load wake word: {e}, using default 'computer'.\nERROR 111")
-        return False
-
-# Load AI Preference
-def load_ai_preference():
-    global AI_PREFERENCE
-    try:
-        with open(get_source_path("ai_preference"), "r") as f:
-            preference = f.read().strip().lower()
-            if preference == "null" or preference == "" or preference == "none":
-                print("ERROR: No AI preference provided, using default 'gemini'.\nERROR 112")
-                return False
-            else:
-                AI_PREFERENCE = preference
-                print(f"INFO: Loaded AI Preference: {AI_PREFERENCE}")
-                return True
-    except FileNotFoundError:
-        print("ERROR: AI preference file not found, using default 'gemini, chatgpt, claude'.\nERROR 113")
-        return False
-    except Exception as e:
-        print(f"ERROR: Failed to load AI preference: {e}, using default 'gemini, chatgpt, claude'.\nERROR 114")
-        return False
-
-# Load API Key for Gemini from file
-def load_gemini_api_key():
-    global GEMINI_API_KEY
-    try:
-        with open(get_source_path("gemini_api_key"), "r") as f:
-            key = f.read().strip()
-            if key == "null" or key == "" or key == "none":
-                print("ERROR: No Gemini API key provided.\nERROR 115")
-                return False
-            else:
-                genai.configure(api_key=key)
-                GEMINI_API_KEY = key
-                print("INFO: Loaded Gemini API Key")
-                return True
-    except FileNotFoundError:
-        print("ERROR: Gemini API key file not found.\nERROR 116")
-        return False
-    except Exception as e:
-        print(f"ERROR: Failed to load Gemini API key: {e}\nERROR 117")
-        return False
-
-# Load API Key for ChatGPT from file
-def load_chatgpt_api_key():
-    global CHATGPT_API_KEY
-    try:
-        with open(get_source_path("chatgpt_api_key"), "r") as f:
-            key = f.read().strip()
-            if key == "null" or key == "" or key == "none":
-                print("ERROR: No ChatGPT API key provided.\nERROR 118")
-                return False
-            else:
-                openai.api_key = key
-                CHATGPT_API_KEY = key
-                print("INFO: Loaded ChatGPT API Key")
-                return True
-    except FileNotFoundError:
-        print("ERROR: ChatGPT API key file not found.\nERROR 119")
-        return False
-    except Exception as e:
-        print(f"ERROR: Failed to load ChatGPT API key: {e}\nERROR 120")
-        return False
-
-# Load API Key for Claude from file
-def load_claude_api_key():
-    global CLAUDE_API_KEY
-    try:
-        with open(get_source_path("claude_api_key"), "r") as f:
-            key = f.read().strip()
-            if key == "null" or key == "" or key == "none":
-                print("ERROR: No Claude API key provided.\nERROR 121")
-                return False
-            else:
-                CLAUDE_API_KEY = key
-                print("INFO: Loaded Claude API Key")
-                return True
-    except FileNotFoundError:
-        print("ERROR: Claude API key file not found.\nERROR 122")
-        return False
-    except Exception as e:
-        print(f"ERROR: Failed to load Claude API key: {e}\nERROR 123")
         return False
 
 # Load Prompt for Gemini from file
