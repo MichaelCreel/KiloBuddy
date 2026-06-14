@@ -12,6 +12,10 @@ import hashlib
 
 REQUIRED_PACKAGES = ["google-generativeai", "openai", "anthropic", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
 
+WINDOWS_PACKAGES = ["pywin32", "winshell"]
+MACOS_PACKAGES = []
+LINUX_PACKAGES = []
+
 # Compare files
 def files_are_different(file1, file2):
     if not os.path.exists(file1) or not os.path.exists(file2):
