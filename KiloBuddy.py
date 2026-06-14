@@ -943,11 +943,11 @@ class KiloBuddyDashboard:
         self.load_custom_fonts()
         
         # Font size variables
-        self.status_font_size = 24
-        self.button_font_size = 24
+        self.status_font_size = 28
+        self.button_font_size = 28
         self.header_font_size = 38
-        self.text_font_size = 24
-        self.input_font_size = 24
+        self.text_font_size = 28
+        self.input_font_size = 28
 
         self.root = ctk.CTk()
         self.root.title("KiloBuddy")
@@ -990,23 +990,31 @@ class KiloBuddyDashboard:
         button_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         button_frame.pack(fill="x", padx=20, pady=20)
 
-        self.status_label = ctk.CTkLabel(button_frame, text="Status: Waiting...", text_color="#8A8A8A", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.status_font_size))
-        self.status_label.pack(side="left")
+        status_frame = ctk.CTkFrame(button_frame, fg_color="transparent")
+        status_frame.pack(side="left")
 
-        quit_btn = ctk.CTkButton(button_frame, text="Quit KiloBuddy", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=140, height=35)
+        self.status_label = ctk.CTkLabel(status_frame, text="Status:", text_color="white", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.status_font_size))
+        self.status_label.pack(side="left", padx=(0, 10))
+
+        self.status_canvas = tk.Canvas(status_frame, width=130, height=34, bg=self.background_color, highlightthickness=0, bd=0)
+        self.status_canvas.pack(side="left")
+
+        self.status_lights = {
+            "green": self.status_canvas.create_oval(6, 6, 30, 30, fill="#2E7D32", outline=""),
+            "yellow": self.status_canvas.create_oval(46, 6, 70, 30, fill="#F9A825", outline=""),
+            "red": self.status_canvas.create_oval(86, 6, 110, 30, fill="#C62828", outline="")
+        }
+
+        self.set_status_lights("waiting")
+
+        quit_btn = ctk.CTkButton(button_frame, text="Stop KB", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=100, height=35)
         quit_btn.pack(side="right")
 
         output_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
         output_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-        header_frame = ctk.CTkFrame(output_frame, fg_color="transparent")
-        header_frame.pack(fill="x", pady=10, padx=15)
-        
-        response_label = ctk.CTkLabel(header_frame, text="Response", font=ctk.CTkFont(family=self.stacksans_medium_family, size=self.header_font_size), text_color="white")
-        response_label.pack(side="left")
-
         text_frame = ctk.CTkFrame(output_frame, fg_color="transparent")
-        text_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        text_frame.pack(fill="both", expand=True, padx=15, pady=15)
         
         self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=10, height=300)
         self.output_text.pack(fill="both", expand=True)
@@ -1035,31 +1043,43 @@ class KiloBuddyDashboard:
             self.output_text.delete("0.0", "end")
             self.output_text.insert("0.0", "No response yet. Try sending a command...")
     
+    def set_status_lights(self, state):
+        inactive = {"green": "#0C370E", "yellow": "#693609", "red": "#490A0A"}
+        active_states = {
+            "waiting": {"green": inactive["green"], "yellow": inactive["yellow"], "red": inactive["red"]},
+            "processing": {"green": inactive["green"], "yellow": "#FFEB3B", "red": inactive["red"]},
+            "complete": {"green": "#4CAF50", "yellow": inactive["yellow"], "red": inactive["red"]},
+            "error": {"green": inactive["green"], "yellow": inactive["yellow"], "red": "#F44336"}
+        }
+        colors = active_states.get(state, active_states["waiting"])
+        self.status_canvas.itemconfig(self.status_lights["green"], fill=colors["green"])
+        self.status_canvas.itemconfig(self.status_lights["yellow"], fill=colors["yellow"])
+        self.status_canvas.itemconfig(self.status_lights["red"], fill=colors["red"])
+
     def send_command(self):
         command = self.command_entry.get()
         if command and command.strip():
             self.command_entry.delete(0, "end")
             
-            self.status_label.configure(text="Status: Processing...", text_color="#FF9800")
+            self.set_status_lights("processing")
             self.root.update()
             
             import threading
             thread = threading.Thread(target=self.process_command_async, args=(command,))
             thread.daemon = True
-            thread.start()
+        thread.start()
     
     def process_command_async(self, command):
         try:
             process_command(command)
             
-            self.root.after(0, lambda: self.status_label.configure(text="Status: Complete", text_color="#4CAF50"))
-            
+            self.root.after(0, lambda: self.set_status_lights("complete"))
             self.root.after(0, self.update_output_with_latest_response)
             
         except Exception as e:
             error_msg = f"Error processing command: {str(e)}"
             self.root.after(0, self.update_output_with_response, error_msg)
-            self.root.after(0, lambda: self.status_label.configure(text="Status: Error", text_color="#F44336"))
+            self.root.after(0, lambda: self.set_status_lights("error"))
     
     def update_output_with_response(self, text):
         global LAST_OUTPUT
