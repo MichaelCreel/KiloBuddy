@@ -9,7 +9,7 @@
 2 - Failed to initialize KiloBuddy.
     This means that the script experienced an error while initializing necessary assets for the app. The app will quit.
 
-# ERRORS (101-300)
+# ERRORS (101-300 : MISS 110, 113, 117, 120, 123)
 
 101 - Invalid update type in file.
     This means that the script read a string from 'updates' that was not 'release' or 'pre-release'. The app will fallback to the type 'release' and will not fail. The file contains a string that is incorrectly formatted.
@@ -35,50 +35,35 @@
 108 - Failed to load OS version.
     This means that the script had an unknown error while reading the 'os_version' file. The app will fallback to auto-detecting the operating system and will not fail.
 
-109 - No wake word provided.
-    This means that the script read a string from 'wake_word' that was 'empty', 'null', or 'none'. The app will fallback to the word 'computer' and will not fail.
+109 - Invalid wake word.
+    This means that the script read a string from 'settings' that was not a valid wake word. The app will fallback to the wake word 'computer' and will not fail.
 
-110 - Wake word file not found.
-    This means that the 'wake_word' file does not exist. The app will fallback to the word 'computer' and will not fail.
+111 - Failed to parse wake word.
+    This means that the script had an unknown error while reading the wake word from 'settings'. The app will fallback to the wake word 'computer' and will not fail.
 
-111 - Failed to load wake word.
-    This means that the script had an unknown error while reading the 'wake_word' file. The app will fallback to the word 'computer' and will not fail.
+112 - Invalid AI preference.
+    This means that the script read a string from 'settings' that was not a valid preference. The app will fallback to the order 'gemini, chatgpt, claude' and will not fail.
 
-112 - No AI preference provided.
-    This means that the script read a string from 'ai_preference' that was 'empty', 'null', or 'none'. The app will fallback to the order 'gemini, chatgpt, claude' and will not fail.
+114 - Failed to parse AI preference.
+    This means that the script had an unknown error while reading the preference from 'settings'. The app will fallback to the order 'gemini, chatgpt, claude' and will not fail.
 
-113 - AI preference file not found.
-    This means that the 'ai_preference' file does not exist. The app will fallback to the order 'gemini, chatgpt, claude' and will not fail.
+115 - Invalid Gemini API key format.
+    This means that the script read a string from 'settings' that was not a valid API key for Gemini. The app will not fail, but will be unable to use Gemini.
 
-114 - Failed to load AI preference.
-    This means that the script had an unknown error while reading the 'ai_preference' file. The app will fallback to the order 'gemini, chatgpt, claude' and will not fail.
+116 - Failed to parse Gemini API key.
+    This means that the script had an unknown error reading the Gemini API key from 'settings'. The app will not fail, but will be unable to use Gemini.
 
-115 - No Gemini API key provided.
-    This means that the script read a string from 'gemini_api_key' that was 'empty', 'null', or 'none'. The app will not fail, but will be unable to use Gemini.
+118 - Invalid ChatGPT API key format.
+    This means that the script read a string from 'settings' that was not a valid API key for ChatGPT. The app will not fail, but will be unable to use ChatGPT.
 
-116 - Gemini API key file not found.
-    This means that the file 'gemini_api_key' does not exist. The app will not fail, but will be unable to use Gemini.
+119 - Failed to parse ChatGPT API key.
+    This means that the script had an unknown error reading the ChatGPT API key from 'settings'. The app will not fail, but will be unable to use ChatGPT.
 
-117 - Failed to load Gemini API key.
-    This means that the script had an unknown error while reading the 'gemini_api_key' file. The app will not fail, but will be unable to use Gemini.
+121 - Invalid Claude API key format.
+    This means that the script read a string from 'settings' that was not a valid API key for Claude. The app will not fail, but will be unable to use Claude.
 
-118 - No ChatGPT API key provided.
-    This means that the script read a string from 'chatgpt_api_key' that was 'empty', 'null', or 'none'. The app will not fail, but will be unable to use ChatGPT.
-
-119 - ChatGPT API key file not found.
-    This means that the file 'chatgpt_api_key' does not exist. The app will not fail, but will be unable to use ChatGPT.
-
-120 - Failed to load ChatGPT API key.
-    This means that the script had an unknown error while reading the 'chatgpt_api_key' file. The app will not fail, but will be unable to use ChatGPT.
-
-121 - No Claude API key provided.
-    This means that the script read a string from 'claude_api_key' that was 'empty', 'null', or 'none'. The app will not fail, but will be unable to use Claude.
-
-122 - Claude API key file not found.
-    This means that the file 'claude_api_key' does not exist. The app will not fail, but will be unable to use Claude.
-
-123 - Failed to load Claude API key.
-    This means that the script had an unknown error while reading the 'claude_api_key' file. The app will not fail, but will be unable to use Claude.
+122 - Failed to parse Cluade API key.
+    This means that the script had an unknown error reading the Claude API key from 'settings'. The app will not fail, but will be unable to use ChatGPT.
 
 124 - Prompt file is empty.
     This means that the script found the prompt length to be zero. The app requires the prompt file for proper generation parsing and will fail.
@@ -137,17 +122,23 @@
 142 - Dangerous command failed or was canceled.
     This means that the command run was declined by the user or that the command failed when it was run.
 
-143 - Invalid API timeout in file.
-    This means that the value in the file 'api_timeout' is not greater than '0'. The app will fallback to the duration '15' (seconds) and will not fail. The integer in the file may be '0' or less.
+143 - Invalid timeout.
+    This means that the script read a string from 'settings' that was not within a valid timeout range. The app will fallback to the timeout '15' (seconds) and will not fail. Timeout may be less than 5 or greater than 120.
 
-144 - API timeout file not found.
-    This means that the file 'api_timeout' does not exist. The app will fallback to the duration '15' (seconds) and will not fail. The file may not exist or may be empty.
+144 - Invalid timeout format.
+    This means that the script read a string from 'settings' that was not a valid timeout. The app will fallback to the timeout '15' (seconds) and will not fail. Timeout may not be an integer.
 
-145 - Invalid API timeout in file.
-    This means that the script failed to parse the contents of the file 'api_timeout'. The app will fallback to the duration '15' (seconds) and will not fail. The contents of the file may not be an integer.
+145 - Failed to parse timeout.
+    This means that the script had an unknown error while reading the timeout from 'settings'. The app will fallback to the timeout '15' (seconds) and will not fail.
 
-146 - Failed to load API timeout.
-    This means that the script had an unknown error while reading the 'api_timeout' file. The app will fallback to the duration '15' (seconds) and will not fail.
+146 - Settings file not found.
+    This means that the 'settings' file does not exist. The app will fallback to default configurations and will not fail.
+
+147 - Permission denied reading settings file.
+    This means that the script doesn't have permission to read the 'settings' file. The app will fallback to default configurations and will not fail.
+
+148 - Failed to load settings file.
+    This means that the script had an unknown error while reading the 'settings' file. The app will fallback to default configurations and will not fail.
 
 # WARN (301+)
 
@@ -183,3 +174,11 @@
 
 311 - Unrecognized AI model.
     This means that the script failed to understand the model choice read from the file 'ai_preferences'. The app will try the next model in line if it exists and will not fail. The model name may be spelled incorrectly.
+
+312 - Failed to properly initialize API timeout.
+    This means that the script failed to read the timeout from the 'settings' file. The app will fallback to the timeout '15' (seconds) and will not fail.
+
+313 - Settings file is empty.
+    This means that the 'settings' file exists but contains no data. The app will fallback to default configurations and will not fail.
+
+
