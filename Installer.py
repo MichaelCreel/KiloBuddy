@@ -16,6 +16,24 @@ WINDOWS_PACKAGES = ["pywin32", "winshell"]
 MACOS_PACKAGES = []
 LINUX_PACKAGES = []
 
+SYSTEM_PACKAGE_HINTS = {
+    "Linux": [
+        "If you encounter issues with audio input, ensure that your microphone is functioning properly.",
+        "If your microphone is functioning, ensure the correct drivers are installed on your system."
+    ],
+    "Windows": [
+        "Windows shortcut creation requires pywin32 and winshell, which are installed by the installer.",
+        "If shortcut creation still fails, ensure pythonw.exe is available in the active Python installation."
+
+        "If you encounter issues with audio input, ensure that your microphone is functioning properly.",
+        "If your microphone is functioning, ensure that you have the correct audio drivers using check for updates in system settings."
+    ],
+    "Darwin": [
+        "If you encounter issues with audio input, ensure that your microphone is functioning properly.",
+        "If your microphone is functioning, ensure the correct drivers are installed on your system."
+    ]
+}
+
 # Compare files
 def files_are_different(file1, file2):
     if not os.path.exists(file1) or not os.path.exists(file2):
@@ -209,15 +227,40 @@ def create_virtual_env(install_dir):
     venv.create(venv_path, with_pip=True)
     return venv_path
 
+def print_system_package_hints():
+    system = platform.system()
+    hints = SYSTEM_PACKAGE_HINTS.get(system)
+    if hints:
+        print("\nSystem package hints:")
+        for hint in hints:
+            print(hint)
+
 # Install packages into the virtual environment
 def install_packages(install_dir):
     # Use the virtual environment python instead of system python
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     python_path = os.path.join(venv_path, "bin", "python") if platform.system() != "Windows" else os.path.join(venv_path, "Scripts", "python.exe")
-    
+
+    print_system_package_hints()
+
     for package in REQUIRED_PACKAGES:
         print(f"Installing {package}...")
         subprocess.check_call([python_path, "-m", "pip", "install", package])
+
+    system = platform.system()
+    if system == "Windows":
+        for package in WINDOWS_PACKAGES:
+            print(f"Installing Windows-specific package {package}...")
+            subprocess.check_call([python_path, "-m", "pip", "install", package])
+    elif system == "Darwin":
+        for package in MACOS_PACKAGES:
+            print(f"Installing macOS-specific package {package}...")
+            subprocess.check_call([python_path, "-m", "pip", "install", package])
+    elif system == "Linux":
+        for package in LINUX_PACKAGES:
+            print(f"Installing Linux-specific package {package}...")
+            subprocess.check_call([python_path, "-m", "pip", "install", package])
+
     print("KiloBuddy installed successfully. The original download folder can now be deleted.")
 
 # Download and install Vosk model
