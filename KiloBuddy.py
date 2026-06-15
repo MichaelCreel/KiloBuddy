@@ -626,12 +626,14 @@ def listen_for_wake_word():
                     print(f"INFO: Heard: {text}")
                     if WAKE_WORD in text:
                         print(f"INFO: Wake word detected...")
+                        show_activation_popup()
                         return True
             else:
                 partial = json.loads(vosk_rec.PartialResult())
                 text = partial.get('partial', '').lower()
                 if text and WAKE_WORD in text:
                     print(f"INFO: Wake word detected...")
+                    show_activation_popup()
                     return True
         except Exception as e:
             if STOP_EVENT.is_set():
@@ -974,6 +976,51 @@ def show_overlay(text):
 
     threading.Thread(target=open_overlay).start()
 
+
+def show_activation_popup():
+    def open_popup():
+        popup = tk.Tk()
+        popup.title("KiloBuddy Activated")
+        popup.overrideredirect(True)
+        popup.attributes("-topmost", True)
+        popup.attributes("-alpha", 0.92)
+        popup.configure(bg="#0D253B")
+
+        width = 260
+        height = 90
+        popup.geometry(f"{width}x{height}+20+20")
+
+        canvas = tk.Canvas(popup, width=width, height=height, bg="#0D253B", highlightthickness=0)
+        canvas.pack(fill="both", expand=True)
+
+        text_label = tk.Label(popup, text="Listening...", fg="#FFFFFF", bg="#0D253B", font=("Helvetica", 12, "bold"))
+        text_label.place(relx=0.5, rely=0.65, anchor="center")
+
+        circles = []
+        for i in range(3):
+            x = 45 + i * 70
+            circle = canvas.create_oval(x - 10, 24 - 10, x + 10, 24 + 10, fill="#64B5F6", outline="")
+            circles.append(circle)
+
+        def animate(step=0):
+            for index, circle_id in enumerate(circles):
+                offset = (step + index) % 6
+                size = 10 + (offset * 2)
+                x = 45 + index * 70
+                y = 24
+                canvas.coords(circle_id, x - size, y - size, x + size, y + size)
+                alpha = 255 - offset * 30
+                color = f"#{max(0, alpha):02x}{180:02x}{246:02x}"
+                canvas.itemconfig(circle_id, fill=color)
+            if step < 12:
+                popup.after(90, animate, step + 1)
+
+        animate(0)
+        popup.after(2200, popup.destroy)
+        popup.mainloop()
+
+    threading.Thread(target=open_popup, daemon=True).start()
+
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
     def __init__(self):
@@ -996,7 +1043,9 @@ class KiloBuddyDashboard:
 
         self.root = ctk.CTk()
         self.root.title("KiloBuddy")
-        self.root.geometry("1100x1000")
+        self.root.geometry("1000x800")
+        self.root.minsize(900, 650)
+        self.root.resizable(True, True)
         self.root.configure(fg_color=self.background_color)
         self.root.protocol("WM_DELETE_WINDOW", self.close_dashboard)
 
@@ -1144,7 +1193,11 @@ class KiloBuddyDashboard:
             self.output_text.insert("0.0", "No response available.")
         
     def quit_kilobuddy(self):
-        result = tk.messagebox.askyesno("Quit KiloBuddy", "Are you sure you want to quit KiloBuddy?\n\nThis will stop the voice assistant.", parent=self.root)
+        result = show_custom_confirm(
+            "Stop KiloBuddy",
+            "Are you sure you want to stop KiloBuddy?\n\nThis will stop the voice assistant and close the dashboard.",
+            parent=self.root
+        )
         if result:
             request_kilobuddy_stop()
             try:
@@ -1353,7 +1406,60 @@ def show_failure_notification(message):
     popup_thread.daemon = True
     popup_thread.start()
 
-# Show update notification popup
+
+def show_custom_confirm(title, message, parent=None):
+    result = {"value": False}
+    try:
+        dialog = ctk.CTkToplevel(parent) if parent else ctk.CTkToplevel()
+        dialog.title(title)
+        dialog.geometry("620x320")
+        dialog.configure(fg_color="#131a2b")
+        dialog.attributes("-topmost", True)
+        dialog.resizable(True, True)
+        if parent:
+            dialog.transient(parent)
+
+        dialog.update_idletasks()
+        dialog.lift()
+        dialog.focus_force()
+        dialog.grab_set()
+
+        text_frame = ctk.CTkFrame(dialog, fg_color="#1f2d4b")
+        text_frame.pack(fill="both", expand=True, padx=20, pady=(20, 10))
+
+        message_label = ctk.CTkLabel(text_frame, text=message, wraplength=440, justify="left", text_color="white", font=ctk.CTkFont(size=28))
+        message_label.pack(fill="both", expand=True)
+
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20, pady=(0, 20))
+
+        def choose_yes():
+            result["value"] = True
+            dialog.destroy()
+
+        def choose_no():
+            dialog.destroy()
+
+        button_font = ("StackSans Text Light", 28)
+
+        yes_btn = ctk.CTkButton(btn_frame, text="Yes", command=choose_yes, fg_color="#4CAF50", hover_color="#43A047", width=100, height=35, font=button_font)
+        yes_btn.pack(side="right", padx=(10, 0))
+
+        no_btn = ctk.CTkButton(btn_frame, text="No", command=choose_no, fg_color="#4A6572", hover_color="#3A5068", width=100, height=35, font=button_font)
+        no_btn.pack(side="right")
+
+        dialog.protocol("WM_DELETE_WINDOW", choose_no)
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+        dialog.wait_window()
+    except Exception as e:
+        print(f"ERROR: Could not show custom confirm dialog: {e}")
+        result["value"] = False
+    return result["value"]
+
+# Show activation popup when KiloBuddy hears the wake word
 def show_update_notification(latest_version, release_type, download_url):
     def show_popup():
         try:
