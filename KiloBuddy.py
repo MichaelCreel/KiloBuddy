@@ -1090,7 +1090,7 @@ class KiloBuddyDashboard:
             self.output_text.insert("0.0", "No response yet. Try sending a command...")
     
     def set_status_lights(self, state):
-        inactive = {"green": "#0C370E", "yellow": "#693609", "red": "#490A0A"}
+        inactive = {"green": "#104712", "yellow": "#693609", "red": "#490A0A"}
         active_states = {
             "waiting": {"green": inactive["green"], "yellow": inactive["yellow"], "red": inactive["red"]},
             "processing": {"green": inactive["green"], "yellow": "#FFEB3B", "red": inactive["red"]},
