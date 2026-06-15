@@ -41,6 +41,11 @@ vosk_rec = None
 audio_stream = None
 STOP_EVENT = threading.Event()
 VOICE_THREAD = None
+DASHBOARD_ROOT = None
+ACTIVE_OVERLAY = {
+    "popup": None,
+    "lock": threading.Lock()
+}
 
 def get_kilobuddy_pid():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
@@ -626,14 +631,12 @@ def listen_for_wake_word():
                     print(f"INFO: Heard: {text}")
                     if WAKE_WORD in text:
                         print(f"INFO: Wake word detected...")
-                        show_activation_popup()
                         return True
             else:
                 partial = json.loads(vosk_rec.PartialResult())
                 text = partial.get('partial', '').lower()
                 if text and WAKE_WORD in text:
                     print(f"INFO: Wake word detected...")
-                    show_activation_popup()
                     return True
         except Exception as e:
             if STOP_EVENT.is_set():
@@ -647,7 +650,7 @@ def listen_for_command():
     global vosk_rec, audio_stream
     
     print(f"INFO: Listening for command...")
-    
+    show_activation_indicator(0)
     try:
         vosk_rec.Reset()
         timeout_start = time.time()
@@ -679,6 +682,8 @@ def listen_for_command():
             return None
         print(f"ERROR: Failed to listen for command: {e}\nERROR 135")
         return None
+    finally:
+        hide_activation_indicator()
 
 # Process Command
 def process_command(command):
@@ -977,49 +982,73 @@ def show_overlay(text):
     threading.Thread(target=open_overlay).start()
 
 
-def show_activation_popup():
-    def open_popup():
-        popup = tk.Tk()
-        popup.title("KiloBuddy Activated")
-        popup.overrideredirect(True)
-        popup.attributes("-topmost", True)
-        popup.attributes("-alpha", 0.92)
-        popup.configure(bg="#0D253B")
+ACTIVE_OVERLAY = {
+    "window": None,
+    "lock": threading.Lock()
+}
 
-        width = 260
-        height = 90
-        popup.geometry(f"{width}x{height}+20+20")
 
-        canvas = tk.Canvas(popup, width=width, height=height, bg="#0D253B", highlightthickness=0)
+def show_activation_indicator(duration=2600):
+    if DASHBOARD_ROOT is None:
+        return
+
+    def create_indicator():
+        with ACTIVE_OVERLAY["lock"]:
+            if ACTIVE_OVERLAY["window"] is not None:
+                return
+
+        overlay = tk.Toplevel(DASHBOARD_ROOT)
+        overlay.overrideredirect(True)
+        overlay.attributes("-topmost", True)
+        overlay.attributes("-alpha", 0.86)
+
+        width = 290
+        height = 70
+        overlay.geometry(f"{width}x{height}+18+18")
+        overlay.configure(bg="#131313")
+
+        frame = tk.Frame(overlay, bg="#131313", relief=tk.FLAT, borderwidth=0)
+        frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+        canvas = tk.Canvas(frame, width=width - 10, height=height - 10, bg="#131313", highlightthickness=0, bd=0)
         canvas.pack(fill="both", expand=True)
 
-        text_label = tk.Label(popup, text="Listening...", fg="#FFFFFF", bg="#0D253B", font=("Helvetica", 12, "bold"))
-        text_label.place(relx=0.5, rely=0.65, anchor="center")
+        canvas.create_text(14, 18, anchor="nw", text="Listening", fill="#FFFFFF", font=("Helvetica", 12, "bold"))
 
-        circles = []
-        for i in range(3):
-            x = 45 + i * 70
-            circle = canvas.create_oval(x - 10, 24 - 10, x + 10, 24 + 10, fill="#64B5F6", outline="")
-            circles.append(circle)
+        dot_centers = [width - 100, width - 72, width - 44]
+        for cx in dot_centers:
+            canvas.create_oval(cx - 7, height // 2 - 12, cx + 7, height // 2 + 6, fill="#4FA4FF", outline="")
 
-        def animate(step=0):
-            for index, circle_id in enumerate(circles):
-                offset = (step + index) % 6
-                size = 10 + (offset * 2)
-                x = 45 + index * 70
-                y = 24
-                canvas.coords(circle_id, x - size, y - size, x + size, y + size)
-                alpha = 255 - offset * 30
-                color = f"#{max(0, alpha):02x}{180:02x}{246:02x}"
-                canvas.itemconfig(circle_id, fill=color)
-            if step < 12:
-                popup.after(90, animate, step + 1)
+        def close_indicator(event=None):
+            hide_activation_indicator()
 
-        animate(0)
-        popup.after(2200, popup.destroy)
-        popup.mainloop()
+        overlay.bind("<Button-1>", close_indicator)
+        overlay.bind("<Escape>", close_indicator)
 
-    threading.Thread(target=open_popup, daemon=True).start()
+        with ACTIVE_OVERLAY["lock"]:
+            ACTIVE_OVERLAY["window"] = overlay
+
+        if duration > 0:
+            overlay.after(duration, hide_activation_indicator)
+
+    DASHBOARD_ROOT.after(0, create_indicator)
+
+
+def hide_activation_indicator():
+    if DASHBOARD_ROOT is None:
+        return
+
+    def destroy_indicator():
+        with ACTIVE_OVERLAY["lock"]:
+            window = ACTIVE_OVERLAY.get("window")
+            if window is not None and window.winfo_exists():
+                try:
+                    window.destroy()
+                except:
+                    pass
+            ACTIVE_OVERLAY["window"] = None
+
+    DASHBOARD_ROOT.after(0, destroy_indicator)
 
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
@@ -1041,7 +1070,9 @@ class KiloBuddyDashboard:
         self.text_font_size = 28
         self.input_font_size = 28
 
+        global DASHBOARD_ROOT
         self.root = ctk.CTk()
+        DASHBOARD_ROOT = self.root
         self.root.title("KiloBuddy")
         self.root.geometry("1000x800")
         self.root.minsize(900, 650)
