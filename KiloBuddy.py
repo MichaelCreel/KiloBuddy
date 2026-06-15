@@ -322,6 +322,23 @@ def load_settings():
     return success_count > 0
     return True
 
+
+def save_settings():
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
+    try:
+        with open(get_source_path("settings"), "w") as f:
+            f.write(f"preference: {AI_PREFERENCE}\n")
+            f.write(f"wake_word: {WAKE_WORD}\n")
+            f.write(f"timeout: {API_TIMEOUT}\n")
+            f.write(f"gemini_api_key: {GEMINI_API_KEY}\n")
+            f.write(f"chatgpt_api_key: {CHATGPT_API_KEY}\n")
+            f.write(f"claude_api_key: {CLAUDE_API_KEY}\n")
+        print("INFO: Saved settings to settings file.")
+        return True
+    except Exception as e:
+        print(f"ERROR: Failed to save settings: {e}\nERROR 149")
+        return False
+
 # Load API Timemout in seconds from file
 def load_api_timeout():
     global API_TIMEOUT
@@ -1136,6 +1153,9 @@ class KiloBuddyDashboard:
         quit_btn = ctk.CTkButton(button_frame, text="Stop KB", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=100, height=35)
         quit_btn.pack(side="right")
 
+        settings_btn = ctk.CTkButton(button_frame, text="Settings", command=self.open_settings_window, fg_color="#607d8b", hover_color="#546e7a", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=120, height=35)
+        settings_btn.pack(side="right", padx=(0, 10))
+
         output_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
         output_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
@@ -1161,6 +1181,137 @@ class KiloBuddyDashboard:
         
         self.command_entry.bind('<Return>', lambda event: self.send_command())
         
+    def open_settings_window(self):
+        try:
+            settings_window = ctk.CTkToplevel(self.root)
+            settings_window.title("KiloBuddy Settings")
+            settings_window.geometry("620x870")
+            settings_window.configure(fg_color="#0B3147")
+            settings_window.transient(self.root)
+            settings_window.lift()
+            settings_window.update_idletasks()
+
+            header = ctk.CTkLabel(settings_window, text="Settings", font=ctk.CTkFont(family=self.stacksans_medium_family, size=28), text_color="white")
+            header.pack(padx=20, pady=(20, 10), anchor="w")
+
+            form_frame = ctk.CTkFrame(settings_window, fg_color="#142A44", corner_radius=15)
+            form_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+            def make_label(entry_text):
+                return ctk.CTkLabel(form_frame, text=entry_text, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), text_color="white")
+
+            pref_label = make_label("AI Provider Preference")
+            pref_label.pack(anchor="w", padx=20, pady=(20, 4))
+            pref_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
+            pref_entry.insert(0, AI_PREFERENCE)
+            pref_entry.pack(padx=20, pady=(0, 10))
+
+            wake_label = make_label("Wake Word")
+            wake_label.pack(anchor="w", padx=20, pady=(10, 4))
+            wake_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="computer")
+            wake_entry.insert(0, WAKE_WORD)
+            wake_entry.pack(padx=20, pady=(0, 10))
+
+            timeout_label = make_label("API Timeout (seconds)")
+            timeout_label.pack(anchor="w", padx=20, pady=(10, 4))
+            timeout_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="15")
+            timeout_entry.insert(0, str(API_TIMEOUT))
+            timeout_entry.pack(padx=20, pady=(0, 10))
+
+            gemini_label = make_label("Gemini API Key")
+            gemini_label.pack(anchor="w", padx=20, pady=(10, 4))
+            gemini_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key")
+            gemini_entry.insert(0, GEMINI_API_KEY)
+            gemini_entry.pack(padx=20, pady=(0, 10))
+
+            chatgpt_label = make_label("ChatGPT API Key")
+            chatgpt_label.pack(anchor="w", padx=20, pady=(10, 4))
+            chatgpt_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key")
+            chatgpt_entry.insert(0, CHATGPT_API_KEY)
+            chatgpt_entry.pack(padx=20, pady=(0, 10))
+
+            claude_label = make_label("Claude API Key")
+            claude_label.pack(anchor="w", padx=20, pady=(10, 4))
+            claude_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key")
+            claude_entry.insert(0, CLAUDE_API_KEY)
+            claude_entry.pack(padx=20, pady=(0, 10))
+
+            status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=28), text_color="#FFEE58")
+            status_label.pack(anchor="w", padx=20, pady=(10, 0))
+
+            def save_and_close():
+                preference_value = pref_entry.get().strip().lower()
+                wake_value = wake_entry.get().strip().lower()
+                timeout_value = timeout_entry.get().strip()
+                gemini_value = gemini_entry.get().strip()
+                chatgpt_value = chatgpt_entry.get().strip()
+                claude_value = claude_entry.get().strip()
+
+                if not preference_value:
+                    status_label.configure(text="AI provider preference may not be empty.")
+                    return
+                allowed = {"gemini", "chatgpt", "claude"}
+                parsed = [item.strip() for item in preference_value.split(",") if item.strip()]
+                if not parsed or any(item not in allowed for item in parsed):
+                    status_label.configure(text="Provider preference must contain gemini, chatgpt, claude.")
+                    return
+
+                if len(wake_value) < 2 or not wake_value.isalpha():
+                    status_label.configure(text="Wake word must be alphabetic and at least 2 characters.")
+                    return
+
+                try:
+                    timeout_int = int(timeout_value)
+                    if timeout_int < 5 or timeout_int > 120:
+                        raise ValueError
+                except ValueError:
+                    status_label.configure(text="API timeout must be an integer between 5 and 120.")
+                    return
+
+                if gemini_value and (" " in gemini_value or len(gemini_value) < 20):
+                    status_label.configure(text="Gemini key must be at least 20 chars or blank.")
+                    return
+                if chatgpt_value and (" " in chatgpt_value or len(chatgpt_value) < 20):
+                    status_label.configure(text="ChatGPT key must be at least 20 chars or blank.")
+                    return
+                if claude_value and (" " in claude_value or len(claude_value) < 20):
+                    status_label.configure(text="Claude key must be at least 20 chars or blank.")
+                    return
+
+                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
+                AI_PREFERENCE = ", ".join(parsed)
+                WAKE_WORD = wake_value
+                API_TIMEOUT = timeout_int
+                GEMINI_API_KEY = gemini_value
+                CHATGPT_API_KEY = chatgpt_value
+                CLAUDE_API_KEY = claude_value
+
+                if save_settings():
+                    status_label.configure(text="Settings saved successfully.", text_color="#81C784")
+                else:
+                    status_label.configure(text="Failed to save settings.", text_color="#EF9A9A")
+
+            button_row = ctk.CTkFrame(settings_window, fg_color="transparent")
+            button_row.pack(fill="x", padx=20, pady=(0, 20))
+
+            button_font = ("StackSans Text Light", 28)
+
+            save_btn = ctk.CTkButton(button_row, text="Save", command=save_and_close, fg_color="#4CAF50", hover_color="#43A047", width=120, height=40, font=button_font)
+            save_btn.pack(side="right", padx=(0, 10))
+
+            close_btn = ctk.CTkButton(button_row, text="Close", command=settings_window.destroy, fg_color="#666666", hover_color="#555555", width=120, height=40, font=button_font)
+            close_btn.pack(side="right")
+
+            settings_window.grab_set()
+            settings_window.focus_force()
+            settings_window.wait_window()
+        except Exception as e:
+            print(f"ERROR: Failed to open settings window: {e}")
+            try:
+                settings_window.destroy()
+            except:
+                pass
+
     def update_output_display(self):
         if LAST_OUTPUT:
             self.output_text.delete("0.0", "end")
