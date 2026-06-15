@@ -1259,6 +1259,9 @@ def request_kilobuddy_stop():
     if VOICE_THREAD is not None and VOICE_THREAD.is_alive():
         print("INFO: Waiting for voice thread to exit...")
         VOICE_THREAD.join(timeout=3)
+        if VOICE_THREAD.is_alive():
+            print("INFO: Voice thread did not exit cleanly, forcing process termination.")
+            os._exit(0)
     return True
 
 
