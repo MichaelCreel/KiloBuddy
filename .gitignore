@@ -6,3 +6,4 @@ ai_preference
 package.sh
 vosk-model/
 settings
+__pycache__/
