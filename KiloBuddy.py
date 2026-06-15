@@ -7,6 +7,7 @@ import re
 import os
 import sys
 import platform
+import signal
 import google.generativeai as genai
 import threading
 import time
@@ -38,8 +39,38 @@ DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", 
 vosk_model = None
 vosk_rec = None
 audio_stream = None
+STOP_EVENT = threading.Event()
+VOICE_THREAD = None
 
-# Initialize Vosk Speech Recognition
+def get_kilobuddy_pid():
+    lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
+    if not os.path.exists(lock_file):
+        return None
+    try:
+        with open(lock_file, "r") as f:
+            pid = int(f.read().strip())
+            return pid
+    except Exception:
+        return None
+
+
+def is_process_running(pid):
+    try:
+        if platform.system() == "Windows":
+            import ctypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if handle == 0:
+                return False
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return True
+        else:
+            os.kill(pid, 0)
+            return True
+    except Exception:
+        return False
+
+
 def init_vosk():
     global vosk_model, vosk_rec, audio_stream
     try:
@@ -579,8 +610,14 @@ def listen_for_wake_word():
     
     print(f"INFO: Listening for wake word ('{WAKE_WORD}')...")
 
-    while True:
+    last_heartbeat = time.time()
+    while not STOP_EVENT.is_set():
         try:
+            current_time = time.time()
+            if current_time - last_heartbeat >= 5:
+                print("INFO: Voice thread running and listening")
+                last_heartbeat = current_time
+
             data = audio_stream.read(4096, exception_on_overflow=False)
             if vosk_rec.AcceptWaveform(data):
                 result = json.loads(vosk_rec.Result())
@@ -597,8 +634,11 @@ def listen_for_wake_word():
                     print(f"INFO: Wake word detected...")
                     return True
         except Exception as e:
+            if STOP_EVENT.is_set():
+                return False
             print(f"ERROR: Failed to listen for wake word: {e}\nERROR 134")
             time.sleep(0.25)
+    return False
 
 # Listen for Command after Wake Word
 def listen_for_command():
@@ -611,7 +651,7 @@ def listen_for_command():
         timeout_start = time.time()
         timeout_duration = 10
         
-        while time.time() - timeout_start < timeout_duration:
+        while time.time() - timeout_start < timeout_duration and not STOP_EVENT.is_set():
             data = audio_stream.read(4096, exception_on_overflow=False)
             if vosk_rec.AcceptWaveform(data):
                 result = json.loads(vosk_rec.Result())
@@ -620,6 +660,9 @@ def listen_for_command():
                     print(f"INFO: Command received: {command}")
                     return command
         
+        if STOP_EVENT.is_set():
+            return None
+
         final_result = json.loads(vosk_rec.FinalResult())
         command = final_result.get('text', '')
         if command.strip():
@@ -630,6 +673,8 @@ def listen_for_command():
             return None
             
     except Exception as e:
+        if STOP_EVENT.is_set():
+            return None
         print(f"ERROR: Failed to listen for command: {e}\nERROR 135")
         return None
 
@@ -953,6 +998,7 @@ class KiloBuddyDashboard:
         self.root.title("KiloBuddy")
         self.root.geometry("1100x1000")
         self.root.configure(fg_color=self.background_color)
+        self.root.protocol("WM_DELETE_WINDOW", self.close_dashboard)
 
         if os.path.exists("icon.png"):
             try:
@@ -1067,7 +1113,7 @@ class KiloBuddyDashboard:
             import threading
             thread = threading.Thread(target=self.process_command_async, args=(command,))
             thread.daemon = True
-        thread.start()
+            thread.start()
     
     def process_command_async(self, command):
         try:
@@ -1098,21 +1144,27 @@ class KiloBuddyDashboard:
             self.output_text.insert("0.0", "No response available.")
         
     def quit_kilobuddy(self):
-        result = tk.messagebox.askyesno("Quit KiloBuddy", "Are you sure you want to quit KiloBuddy?\n\nThis will stop the voice assistant.")
+        result = tk.messagebox.askyesno("Quit KiloBuddy", "Are you sure you want to quit KiloBuddy?\n\nThis will stop the voice assistant.", parent=self.root)
         if result:
-            lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
-            if os.path.exists(lock_file):
-                try:
-                    os.remove(lock_file)
-                except:
-                    pass
-
-            self.root.destroy()
-
-            os._exit(0)
+            request_kilobuddy_stop()
+            try:
+                self.root.destroy()
+            except:
+                pass
+            try:
+                self.root.quit()
+            except:
+                pass
+            sys.exit(0)
     
     def run(self):
         self.root.mainloop()
+
+    def close_dashboard(self):
+        try:
+            self.root.destroy()
+        except:
+            pass
 
 def normalize_version(version):
     return version.lower().lstrip('v')
@@ -1128,9 +1180,87 @@ def is_newer_version(current, latest):
     except:
         return False
 
-def is_kilobuddy_running():
+def get_kilobuddy_pid():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
-    return os.path.exists(lock_file)
+    if not os.path.exists(lock_file):
+        return None
+    try:
+        with open(lock_file, "r") as f:
+            pid = int(f.read().strip())
+            return pid
+    except Exception:
+        return None
+
+
+def is_process_running(pid):
+    try:
+        if platform.system() == "Windows":
+            import ctypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if handle == 0:
+                return False
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return True
+        else:
+            os.kill(pid, 0)
+            return True
+    except Exception:
+        return False
+
+
+def is_kilobuddy_running():
+    pid = get_kilobuddy_pid()
+    if pid and is_process_running(pid):
+        return True
+    cleanup_lock_file()
+    return False
+
+
+def stop_remote_kilobuddy(pid):
+    if pid is None or pid == os.getpid():
+        return False
+    try:
+        if platform.system() == "Windows":
+            subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            os.kill(pid, signal.SIGTERM)
+        return True
+    except Exception:
+        return False
+
+
+def request_kilobuddy_stop():
+    pid = get_kilobuddy_pid()
+    if pid and pid != os.getpid():
+        stopped = stop_remote_kilobuddy(pid)
+        if stopped:
+            cleanup_lock_file()
+        return stopped
+
+    STOP_EVENT.set()
+    cleanup_lock_file()
+    global audio_stream, VOICE_THREAD
+    if audio_stream:
+        try:
+            if hasattr(audio_stream, 'abort_stream'):
+                audio_stream.abort_stream()
+        except:
+            pass
+        try:
+            audio_stream.stop_stream()
+        except:
+            pass
+        try:
+            audio_stream.close()
+        except:
+            pass
+
+    if VOICE_THREAD is not None and VOICE_THREAD.is_alive():
+        print("INFO: Waiting for voice thread to exit...")
+        VOICE_THREAD.join(timeout=3)
+    return True
+
 
 def create_lock_file():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
@@ -1147,10 +1277,8 @@ def cleanup_lock_file():
         except:
             pass
 
+
 def show_dashboard():
-    if not initialize():
-        print("ERROR: Failed to initialize KiloBuddy.\nERROR 137")
-        return
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         StackSans_EL = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-ExtraLight.ttf"), size=9)
@@ -1355,6 +1483,12 @@ def check_for_updates():
         return None
 
 # Main Method that controls KiloBuddy
+def handle_signal(signum, frame):
+    print(f"\nINFO: Signal {signum} received, stopping KiloBuddy...")
+    request_kilobuddy_stop()
+    sys.exit(0)
+
+
 def main():
     if not initialize():
         print("FATAL: Failed to initialize KiloBuddy. Exiting.\nFATAL 2")
@@ -1365,7 +1499,7 @@ def main():
     show_overlay(f"KiloBuddy successfully started.\n\nSay '{WAKE_WORD}' to activate.")
 
     try:
-        while True:
+        while is_kilobuddy_running() and not STOP_EVENT.is_set():
             # Start Listening for Wake Word
             if listen_for_wake_word():
                 # Start Listening for Command
@@ -1380,11 +1514,14 @@ def main():
         if audio_stream:
             audio_stream.stop_stream()
             audio_stream.close()
+        cleanup_lock_file()
 
 def start_voice_listening():
-    voice_thread = threading.Thread(target=main, daemon=True)
-    voice_thread.start()
-    return voice_thread
+    global VOICE_THREAD
+    # Keep the voice thread alive independently of the dashboard window.
+    VOICE_THREAD = threading.Thread(target=main, daemon=False)
+    VOICE_THREAD.start()
+    return VOICE_THREAD
 
 if __name__ == "__main__":
     if is_kilobuddy_running():
@@ -1393,6 +1530,8 @@ if __name__ == "__main__":
     else:
         print("INFO: Launching KiloBuddy...")
         create_lock_file()
+        
+        signal.signal(signal.SIGINT, handle_signal)
         
         # Start voice listening in background thread
         print("INFO: Starting voice assistant in background...")
