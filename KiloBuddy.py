@@ -20,6 +20,7 @@ import requests as reqs
 import customtkinter as ctk
 import openai
 import anthropic
+import requests
 
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -154,8 +155,8 @@ def load_preference(line):
     global AI_PREFERENCE
     value = line.split(":", 1)[1].strip().lower()
     try:
-        if value.lower() in ["gemini", "chatgpt", "claude"] or "," in value:
-            AI_PREFERENCE = value.lower()
+        if value:
+            AI_PREFERENCE = ", ".join(part.strip().lower() for part in value.split(",") if part.strip())
             print(f"INFO: Loaded AI Preference: {AI_PREFERENCE}")
             return True
         else:
@@ -478,8 +479,9 @@ def generate_text(input_prompt):
                 continue
             result = claude_generate(input_prompt)
         else:
-            print(f"WARNING: Unrecognized AI model '{model}', trying next AI model...\nWARN 311")
-            continue
+            print(f"Using local AI model: {model}")
+            print(f"If no local models are installed, this means something went wrong calling the others.")
+            result = local_generate(input_prompt, model)
         
         # If we got a successful result, return it
         if result is not None and result.strip():
@@ -493,6 +495,57 @@ def generate_text(input_prompt):
     show_failure_notification("ERROR 127: All AI models failed to generate text.")
     return "ERROR: All AI models failed to generate text."
 
+def local_generate(input_prompt, model_name):
+    result = {"text": None}
+    timeout_triggered = threading.Event()
+
+    def local_call():
+        if timeout_triggered.is_set():
+            return
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/generate",
+                json={"model": model_name, "prompt": input_prompt},
+                timeout=(API_TIMEOUT, None),
+                stream=True
+            )
+            if response.ok:
+                reply = ""
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    obj = json.loads(line.decode("utf-8"))
+                    if "response" in obj:
+                        reply += obj["response"]
+                    if obj.get("done"):
+                        break
+                if reply and not timeout_triggered.is_set():
+                    result["text"] = reply
+            print(reply)
+        except Exception as e:
+            if not timeout_triggered.is_set():
+                print(f"ERROR: Failed to generate text with local model '{model_name}': {e}\nERROR 137")
+    
+    def fallback():
+        timeout_triggered.set()
+        print(f"ERROR: Local model '{model_name}' API Timeout.\nERROR 149")
+
+    thread = threading.Thread(target=local_call)
+    thread.start()
+
+    timer = threading.Timer(API_TIMEOUT, fallback)
+    timer.start()
+
+    while result["text"] is None and not timeout_triggered.is_set():
+        thread.join(timeout=0.1)
+
+    timer.cancel()
+
+    if thread.is_alive():
+        thread.join(timeout=1)
+
+    return result["text"]
+ 
 def chatgpt_generate(input_prompt):
     result = {"text": None}
     timeout_triggered = threading.Event()
@@ -559,7 +612,7 @@ def claude_generate(input_prompt):
                 result["text"] = reply.strip()
         except Exception as e:
             if not timeout_triggered.is_set():
-                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
+                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 137")
 
     def fallback():
         timeout_triggered.set()
@@ -1250,10 +1303,9 @@ class KiloBuddyDashboard:
                 if not preference_value:
                     status_label.configure(text="AI provider preference may not be empty.")
                     return
-                allowed = {"gemini", "chatgpt", "claude"}
                 parsed = [item.strip() for item in preference_value.split(",") if item.strip()]
-                if not parsed or any(item not in allowed for item in parsed):
-                    status_label.configure(text="Provider preference must contain gemini, chatgpt, claude.")
+                if not parsed:
+                    status_label.configure(text="Provider preference may not be empty.")
                     return
 
                 if len(wake_value) < 2 or not wake_value.isalpha():
