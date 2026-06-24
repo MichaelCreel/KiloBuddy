@@ -28,6 +28,7 @@ CHATGPT_API_KEY = "" # API Key for calling ChatGPT API, loaded from chatgpt_api_
 CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key file
 AI_PREFERENCE = "gemini, chatgpt, claude" # Preferred order of AI models to call, loaded from ai_preference file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for AI API calls, loaded from prompt file
+INITIAL_PROMPT = "Return 'Initial Prompt not loaded'." # Prompt for initial AI API call, loaded from initial prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
@@ -103,6 +104,10 @@ def initialize():
     check_for_updates()
     print("INFO: Initializing KiloBuddy...")
     if not load_prompt():
+        print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.\nFATAL 0")
+        show_failure_notification("FATAL 0: Failed to properly initialize prompt.\n\nThe app will not function and will now stop.")
+        return False
+    if not load_initial_prompt():
         print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.\nFATAL 0")
         show_failure_notification("FATAL 0: Failed to properly initialize prompt.\n\nThe app will not function and will now stop.")
         return False
@@ -323,7 +328,6 @@ def load_settings():
     return success_count > 0
     return True
 
-
 def save_settings():
     global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
     try:
@@ -427,7 +431,28 @@ def load_os_version():
         print(f"ERROR: Failed to load OS version: {e}, auto-detected: {OS_VERSION}\nERROR 108")
         return False
 
-# Load Prompt for Gemini from file
+# Load Inital Prompt for AI from file
+def load_initial_prompt():
+    try:
+        with open(get_source_path("initial_prompt"), "r") as f:
+            lines = f.readlines()
+            global INITIAL_PROMPT
+            prompt_content = "".join(lines).strip()
+
+            # Validate prompt content
+            if len(prompt_content) == 0:
+                print("ERROR: Initial prompt file is empty.\nERROR 124")
+            else:
+                INITIAL_PROMPT = prompt_content
+        return True
+    except FileNotFoundError:
+        print("ERROR: Initial prompt file not found.\nERROR 125")
+        return False
+    except Exception as e:
+        print(f"ERROR: Failed to load initial prompt: {e}\nERROR 126")
+        return False
+
+# Load Prompt for AI from file
 def load_prompt():
     try:
         with open(get_source_path("prompt"), "r") as f:
@@ -456,7 +481,7 @@ def get_source_path(filename):
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, filename)
 
-# Generate Text using Gemini
+# Generate Text using AI
 def generate_text(input_prompt):
     ai_models = [model.strip().lower() for model in AI_PREFERENCE.split(",")]
     
@@ -761,9 +786,9 @@ def process_command(command):
         print("INFO: No command to process.")
         return
     
-    global PROMPT
+    global INITIAL_PROMPT
     global OS_VERSION
-    combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nUser Command: {command}"
+    combined_prompt = f"OS: {OS_VERSION}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
 
     print("INFO: Generating response...")
     response = generate_text(combined_prompt)
