@@ -185,4 +185,5 @@
 313 - Settings file is empty.
     This means that the 'settings' file exists but contains no data. The app will fallback to default configurations and will not fail.
 
-
+314 - Failed to properly initialize manage_ollama setting.
+    This means that the script failed to read the manage_ollama setting from the 'settings' file. The app will fallback to the default 'false' and will not fail.

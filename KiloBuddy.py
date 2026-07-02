@@ -36,6 +36,8 @@ PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for 
 LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
+MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
+OLLAMA_THREAD = None # Thread to track Ollama process if managed
 DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
 
 # Vosk Speech Recognition Variables
@@ -259,10 +261,10 @@ def load_claude_api_key(line):
         return False
 
 def load_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
     success_count = 0
-    total_settings = 6
-    
+    total_settings = 7
+
     try:
         with open(get_source_path("settings"), "r") as f:
             lines = f.readlines()
@@ -274,6 +276,7 @@ def load_settings():
             "\n    -gemini_api_key: [empty]" \
             "\n    -chatgpt_api_key: [empty]" \
             "\n    -claude_api_key: [empty]" \
+            "\n    -manage_ollama: false" \
             "\nWARN 313")
             return False
             
@@ -314,6 +317,11 @@ def load_settings():
                     success_count += 1
                 else:
                     print("WARNING: Failed to properly initialize Claude API key.\n    -Claude will not generate responses.\nWARN 305")
+            elif line.startswith("manage_ollama:"):
+                if load_manage_ollama(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize manage_ollama setting.\n    -Falling back to default 'false'.\nWARN 314")
                     
     except FileNotFoundError:
         print("ERROR: Settings file not found.\nERROR 146")
@@ -330,7 +338,7 @@ def load_settings():
     return True
 
 def save_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
     try:
         with open(get_source_path("settings"), "w") as f:
             f.write(f"preference: {AI_PREFERENCE}\n")
@@ -339,6 +347,7 @@ def save_settings():
             f.write(f"gemini_api_key: {GEMINI_API_KEY}\n")
             f.write(f"chatgpt_api_key: {CHATGPT_API_KEY}\n")
             f.write(f"claude_api_key: {CLAUDE_API_KEY}\n")
+            f.write(f"manage_ollama: {MANAGE_OLLAMA}\n")
         print("INFO: Saved settings to settings file.")
         return True
     except Exception as e:
