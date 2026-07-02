@@ -21,6 +21,7 @@ import customtkinter as ctk
 import openai
 import anthropic
 import requests
+import shlex
 
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -877,7 +878,10 @@ def user_call(command):
         print(f"INFO: Substituted $LAST_OUTPUT in command")
     
     # Check for dangerous commands
-    if any(dangerous in command.lower() for dangerous in DANGEROUS_COMMANDS):
+    tokens = shlex.split(command)
+    exe = os.path.basename(tokens[0])
+    print(f"Command found: {exe}")
+    if exe.lower() in DANGEROUS_COMMANDS:
         print("WARNING: Dangerous command detected. Prompting for administrator confirmation.")
         
         if OS_VERSION.startswith("linux"):
