@@ -260,6 +260,22 @@ def load_claude_api_key(line):
         print(f"ERROR: Failed to parse Claude API key: {e}\nERROR 122")
         return False
 
+# Load Manage Ollama from settings
+def load_manage_ollama(line):
+    global MANAGE_OLLAMA
+    value = line.split(":", 1)[1].strip().lower()
+    try:
+        if value in ["true", "false"]:
+            MANAGE_OLLAMA = (value == "true")
+            print(f"INFO: Loaded Manage Ollama: {MANAGE_OLLAMA}")
+            return True
+        else:
+            print(f"ERROR: Invalid manage_ollama value '{value}' (must be 'true' or 'false')\nERROR 110")
+            return False
+    except Exception as e:
+        print(f"ERROR: Failed to parse manage_ollama setting: {e}\nERROR 113")
+        return False
+
 def load_settings():
     global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
     success_count = 0

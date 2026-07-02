@@ -9,7 +9,7 @@
 2 - Failed to initialize KiloBuddy.
     This means that the script experienced an error while initializing necessary assets for the app. The app will quit.
 
-# ERRORS (101-300 : MISS 110, 113, 117, 120, 123)
+# ERRORS (101-300 : MISS 117, 120, 123)
 
 101 - Invalid update type in file.
     This means that the script read a string from 'updates' that was not 'release' or 'pre-release'. The app will fallback to the type 'release' and will not fail. The file contains a string that is incorrectly formatted.
@@ -38,11 +38,17 @@
 109 - Invalid wake word.
     This means that the script read a string from 'settings' that was not a valid wake word. The app will fallback to the wake word 'computer' and will not fail.
 
+110 - Invalid manage_ollama value.
+    This means that the script read a string from 'settings' that was not a valid boolean value for manage_ollama. The app will fallback to the default 'false' and will not fail.
+
 111 - Failed to parse wake word.
     This means that the script had an unknown error while reading the wake word from 'settings'. The app will fallback to the wake word 'computer' and will not fail.
 
 112 - Invalid AI preference.
     This means that the script read a string from 'settings' that was not a valid preference. The app will fallback to the order 'gemini, chatgpt, claude' and will not fail.
+
+113 - Failed to parse manage_ollama setting.
+    This means that the script had an unknown error while reading the manage_ollama setting from 'settings'. The app will fallback to the default 'false' and will not fail.
 
 114 - Failed to parse AI preference.
     This means that the script had an unknown error while reading the preference from 'settings'. The app will fallback to the order 'gemini, chatgpt, claude' and will not fail.
