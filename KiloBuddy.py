@@ -1297,19 +1297,19 @@ class KiloBuddyDashboard:
 
             gemini_label = make_label("Gemini API Key")
             gemini_label.pack(anchor="w", padx=20, pady=(10, 4))
-            gemini_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key")
+            gemini_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
             gemini_entry.insert(0, GEMINI_API_KEY)
             gemini_entry.pack(padx=20, pady=(0, 10))
 
             chatgpt_label = make_label("ChatGPT API Key")
             chatgpt_label.pack(anchor="w", padx=20, pady=(10, 4))
-            chatgpt_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key")
+            chatgpt_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
             chatgpt_entry.insert(0, CHATGPT_API_KEY)
             chatgpt_entry.pack(padx=20, pady=(0, 10))
 
             claude_label = make_label("Claude API Key")
             claude_label.pack(anchor="w", padx=20, pady=(10, 4))
-            claude_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key")
+            claude_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
             claude_entry.insert(0, CLAUDE_API_KEY)
             claude_entry.pack(padx=20, pady=(0, 10))
 
