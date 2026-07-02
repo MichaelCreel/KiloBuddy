@@ -546,7 +546,6 @@ def local_generate(input_prompt, model_name):
                         break
                 if reply and not timeout_triggered.is_set():
                     result["text"] = reply
-            print(reply)
         except Exception as e:
             if not timeout_triggered.is_set():
                 print(f"ERROR: Failed to generate text with local model '{model_name}': {e}\nERROR 137")
