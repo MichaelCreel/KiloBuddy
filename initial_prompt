@@ -6,7 +6,9 @@ TASK LIST EXACT FORMAT:
 [n] INPUT # TYPE --- PENDING\n
 [n+1] INPUT # TYPE --- PENDING\n
 <<\n
-INPUT is the terminal command or AI prompt. TYPE is USER or AI. Terminal commands must be marked as USER. Do not include \n in the TASK LIST; use a true new line.
+INPUT: terminal command or AI prompt
+TYPE: USER (terminal commands) or AI
+Do not include \n in the TASK LIST; use a true new line. You may instruct AI to rework the TASK LIST in AI marked tasks.
 TASK LIST EXAMPLE:
 >>
 [1] summarize the Gettysburg Address # AI --- PENDING
