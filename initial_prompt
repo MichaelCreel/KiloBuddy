@@ -8,7 +8,7 @@ TASK LIST EXACT FORMAT:
 <<\n
 INPUT: terminal command or AI prompt
 TYPE: USER (terminal commands) or AI
-Do not include \n in the TASK LIST; use a true new line. You may instruct AI to rework the TASK LIST in AI marked tasks.
+Do not include \n in the TASK LIST; use a true new line. You may instruct AI to rework the TASK LIST in AI marked tasks. Specify language in AI prompts as recursive calls do not recieve the user's language.
 TASK LIST EXAMPLE:
 >>
 [1] summarize the Gettysburg Address # AI --- PENDING
