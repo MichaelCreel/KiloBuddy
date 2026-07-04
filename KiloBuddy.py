@@ -1321,12 +1321,47 @@ class KiloBuddyDashboard:
         send_btn.pack(side="right")
         
         self.command_entry.bind('<Return>', lambda event: self.send_command())
+
+    class HoverToolTip:
+        def __init__(self, widget, text):
+            self.widget = widget
+            self.text = text
+            self.tooltip_window = None
+            widget.bind("<Enter>", self.show_tooltip)
+            widget.bind("<Leave>", self.hide_tooltip)
         
+        def show_tooltip(self, event=None):
+            if self.tooltip_window is not None:
+                return
+            
+            x = self.widget.winfo_rootx() + 40
+            y = self.widget.winfo_rooty() + 40
+
+            self.tooltip_window = tw = ctk.CTkToplevel(self.widget)
+            tw.wm_overrideredirect(True)
+            tw.geometry(f"+{x}+{y}")
+            tw.configure(fg_color="#1E1E1E")
+
+            label = ctk.CTkLabel(
+                tw,
+                text=self.text,
+                font=ctk.CTkFont(family="StackSans Text Light", size=20),
+                text_color="white",
+                justify="left",
+                wraplength=300
+            )
+            label.pack(padx=10, pady=6)
+
+        def hide_tooltip(self, event=None):
+            if self.tooltip_window:
+                self.tooltip_window.destroy()
+                self.tooltip_window = None
+
     def open_settings_window(self):
         try:
             settings_window = ctk.CTkToplevel(self.root)
             settings_window.title("KiloBuddy Settings")
-            settings_window.geometry("620x870")
+            settings_window.geometry("620x930")
             settings_window.configure(fg_color="#0B3147")
             settings_window.transient(self.root)
             settings_window.lift()
@@ -1346,42 +1381,70 @@ class KiloBuddyDashboard:
             pref_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
             pref_entry.insert(0, AI_PREFERENCE)
             pref_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                pref_entry,
+                "Enter the order of your preferred AI providers, separated by commas.\nEx: gemini, chatgpt, claude\n\nFor Ollama models, enter the model name as it appears in the Ollama list.\nEx: llama3.18B, phi3:mini"
+            )
 
             wake_label = make_label("Wake Word")
             wake_label.pack(anchor="w", padx=20, pady=(10, 4))
             wake_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="computer")
             wake_entry.insert(0, WAKE_WORD)
             wake_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                wake_entry,
+                "Enter the wake word that KiloBuddy will listen for to activate.\n\nMust be lowercase."
+            )
 
             timeout_label = make_label("API Timeout (seconds)")
             timeout_label.pack(anchor="w", padx=20, pady=(10, 4))
             timeout_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="15")
             timeout_entry.insert(0, str(API_TIMEOUT))
             timeout_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                timeout_entry,
+                "Enter the maximum time (in seconds) to wait for an AI provider to respond.\n\nIf your models keep timing out, increase this value.\n\nMust be an integer between 5 and 120 (no decimals)."
+            )
 
             gemini_label = make_label("Gemini API Key")
             gemini_label.pack(anchor="w", padx=20, pady=(10, 4))
             gemini_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
             gemini_entry.insert(0, GEMINI_API_KEY)
             gemini_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                gemini_entry,
+                "Enter your Gemini API key.\n\nThis key allows the app to interact with Google/Gemini and generate responses."
+            )
 
             chatgpt_label = make_label("ChatGPT API Key")
             chatgpt_label.pack(anchor="w", padx=20, pady=(10, 4))
             chatgpt_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
             chatgpt_entry.insert(0, CHATGPT_API_KEY)
             chatgpt_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                chatgpt_entry,
+                "Enter your ChatGPT API key.\n\nThis key allows the app to interact with OpenAI/ChatGPT and generate responses."
+            )
 
             claude_label = make_label("Claude API Key")
             claude_label.pack(anchor="w", padx=20, pady=(10, 4))
             claude_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
             claude_entry.insert(0, CLAUDE_API_KEY)
             claude_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                claude_entry,
+                "Enter your Claude API key.\n\nThis key allows the app to interact with Anthropic/Claude and generate responses."
+            )
 
             manage_ollama_var = ctk.BooleanVar(value=MANAGE_OLLAMA)
             manage_ollama_label = make_label("Manage Ollama")
             manage_ollama_label.pack(anchor="w", padx=20, pady=(10, 4))
             manage_ollama_checkbox = ctk.CTkCheckBox(form_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = 24), text_color="white")
             manage_ollama_checkbox.pack(anchor="w", padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                manage_ollama_checkbox,
+                "When enabled, KiloBuddy will manage startup and shutdown of Ollama when it is not already running.\n\nWhen disabled, KiloBuddy will not manage Ollama and will assume it is already running.\n\nIgnore this setting if you are not using local models."
+            )
 
             status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=28), text_color="#FFEE58")
             status_label.pack(anchor="w", padx=20, pady=(10, 0))
