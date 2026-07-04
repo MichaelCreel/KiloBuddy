@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import psutil
 from vosk import Model, KaldiRecognizer
 import json
 import pyaudio
@@ -122,6 +123,8 @@ def initialize():
         print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.\nFATAL 1")
         show_failure_notification("FATAL 1: Failed to initialize Vosk speech recognition.\n\nThe app will not function and will now stop.")
         return False
+    if not start_ollama():
+        print("WARNING: Failed to start Ollama.\n    -Local models will not function.\nWARN 315")
     print("INFO: KiloBuddy Initialized.")
     return True
 
@@ -156,6 +159,38 @@ def detect_os():
             return "windows"
     else:
         return "unknown"
+
+# Starts the Ollama server if managed
+def start_ollama():
+    global MANAGE_OLLAMA, OLLAMA_THREAD
+    if not MANAGE_OLLAMA:
+        print("INFO: Ollama management disabled. Startup skipped.")
+        return True
+    else:
+        if ollama_check():
+            print("INFO: Ollama is already running, management will be skipped to avoid interference.")
+            return True
+        else:
+            print("INFO: Starting Ollama server and management...")
+            OLLAMA_THREAD = subprocess.Popen(["ollama", "serve"])
+            return True
+    return False
+
+# Check if Ollama is already running
+def ollama_check():
+    for p in psutil.process_iter(["name"]):
+        name = p.info["name"]
+        if name and "ollama" in name.lower():
+            return True
+    return False
+
+# Stop the Ollama server if managed
+def stop_ollama():
+    global MANAGE_OLLAMA, OLLAMA_THREAD
+    if MANAGE_OLLAMA:
+        if ollama_check() and OLLAMA_THREAD is not None:
+            print("INFO: Stopping Ollama server...")
+            OLLAMA_THREAD.terminate()
 
 # Load settings from file
 # Load Preference from settings
@@ -1383,13 +1418,14 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Claude key must be at least 20 chars or blank.")
                     return
 
-                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
+                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
                 AI_PREFERENCE = ", ".join(parsed)
                 WAKE_WORD = wake_value
                 API_TIMEOUT = timeout_int
                 GEMINI_API_KEY = gemini_value
                 CHATGPT_API_KEY = chatgpt_value
                 CLAUDE_API_KEY = claude_value
+                MANAGE_OLLAMA = manage_ollama_value
 
                 if save_settings():
                     status_label.configure(text="Settings saved successfully.", text_color="#81C784")
@@ -1579,6 +1615,7 @@ def request_kilobuddy_stop():
         return stopped
 
     STOP_EVENT.set()
+    stop_ollama()
     cleanup_lock_file()
     global audio_stream, VOICE_THREAD
     if audio_stream:

@@ -193,3 +193,6 @@
 
 314 - Failed to properly initialize manage_ollama setting.
     This means that the script failed to read the manage_ollama setting from the 'settings' file. The app will fallback to the default 'false' and will not fail.
+
+315 - Failed to start Ollama.
+    This means that the script failed to start Ollama for local model generation. The app will not fail and may continue. Ollama may not be installed.
