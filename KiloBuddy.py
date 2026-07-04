@@ -1377,6 +1377,12 @@ class KiloBuddyDashboard:
             claude_entry.insert(0, CLAUDE_API_KEY)
             claude_entry.pack(padx=20, pady=(0, 10))
 
+            manage_ollama_var = ctk.BooleanVar(value=MANAGE_OLLAMA)
+            manage_ollama_label = make_label("Manage Ollama")
+            manage_ollama_label.pack(anchor="w", padx=20, pady=(10, 4))
+            manage_ollama_checkbox = ctk.CTkCheckBox(form_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = 24), text_color="white")
+            manage_ollama_checkbox.pack(anchor="w", padx=20, pady=(0, 10))
+
             status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=28), text_color="#FFEE58")
             status_label.pack(anchor="w", padx=20, pady=(10, 0))
 
@@ -1387,6 +1393,7 @@ class KiloBuddyDashboard:
                 gemini_value = gemini_entry.get().strip()
                 chatgpt_value = chatgpt_entry.get().strip()
                 claude_value = claude_entry.get().strip()
+                manage_ollama_value = manage_ollama_var.get()
 
                 if not preference_value:
                     status_label.configure(text="AI provider preference may not be empty.")
