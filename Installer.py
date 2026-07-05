@@ -4,6 +4,7 @@ import subprocess
 import venv
 import os
 import platform
+import psutil
 import shutil
 import zipfile
 import urllib.request
@@ -879,7 +880,7 @@ def run_gui_installer():
                     root.update_idletasks()
                 
                 print("KiloBuddy installed successfully.")
-                
+
                 # Download and install Vosk model
                 progress['value'] = 85
                 root.update_idletasks()
@@ -908,6 +909,30 @@ def run_gui_installer():
         # Run installation in a separate thread so GUI doesn't freeze
         threading.Thread(target=install_thread, daemon=True).start()
 
+    def update_visibility():
+        # Hide local values if local models are disabled
+        if not use_local_models_var.get():
+            install_ollama_checkbox.pack_forget()
+            manage_ollama_checkbox.pack_forget()
+            ollama_help.pack_forget()
+
+            install_ollama_var.set(False)
+            manage_ollama_var.set(False)
+
+            ai_pref1_dropdown["values"] = ["Gemini", "ChatGPT", "Claude"]
+            ai_pref2_dropdown["values"] = ["None", "Gemini", "ChatGPT", "Claude"]
+            ai_pref3_dropdown["values"] = ["None", "Gemini", "ChatGPT", "Claude"]
+
+            return
+        
+        install_ollama_checkbox.pack(pady=(0, 10))
+        ollama_help.pack(pady=(0, 10))
+        manage_ollama_checkbox.pack(pady=(0, 10))
+
+        ai_pref1_dropdown["values"] = ["phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref2_dropdown["values"] = ["None", "phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref3_dropdown["values"] = ["None", "phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+
     root = tk.Tk()
     root.title("KiloBuddy Installer")
     root.geometry("900x950")
@@ -927,11 +952,6 @@ def run_gui_installer():
     install_info = tk.Label(root, text=f"Installing to: {install_dir}", 
                            font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     install_info.pack(pady=5)
-
-    # API Keys input section
-    api_section_label = tk.Label(root, text="Enter at least one API Key (Gemini is free)", 
-                                font=StackSans_L, fg="white", bg="#190c3a")
-    api_section_label.pack(pady=(20, 10))
 
     # Gemini API Key
     gemini_label = tk.Label(root, text="Gemini API Key (Google):", font=StackSans_L, fg="white", bg="#190c3a")
@@ -965,6 +985,57 @@ def run_gui_installer():
     claude_help = tk.Label(root, text="Get your API key from: https://console.anthropic.com/", 
                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     claude_help.pack(pady=(0, 10))
+
+    install_ollama_var = tk.BooleanVar(value=False)
+    use_local_models_var = tk.BooleanVar(value=False)
+    manage_ollama_var = tk.BooleanVar(value=False)
+
+    ollama_label = tk.Label(root, text="Local Model Management:", font=StackSans_L, fg="white", bg="#190c3a")
+    ollama_label.pack(pady=(10, 2))
+
+    local_model_frame = tk.Frame(root, bg="#190c3a")
+    local_model_frame.pack(pady=(10, 10))
+
+    use_local_models_checkbox = tk.Checkbutton(
+        local_model_frame,
+        text = "Use Local AI Models",
+        variable = use_local_models_var,
+        font=StackSans_L,
+        fg="white",
+        bg="#190c3a",
+        selectcolor="#2e2e2e",
+        activebackground="#1e1e1e",
+        activeforeground="white",
+        command=lambda: update_visibility()
+    )
+    use_local_models_checkbox.pack(pady=(0, 10))
+
+    install_ollama_checkbox = tk.Checkbutton(
+        local_model_frame,
+        text = "Install Ollama (runs local AI models)",
+        variable=install_ollama_var,
+        font=StackSans_L,
+        fg="white",
+        bg="#190c3a",
+        selectcolor="#2e2e2e",
+        activebackground="#1e1e1e",
+        activeforeground="white",
+    )
+
+    ollama_help = tk.Label(local_model_frame, text="If you have already installed Ollama, leave this unchecked.", 
+                          font=StackSans_EL, fg="#cccccc", bg="#190c3a")
+
+    manage_ollama_checkbox = tk.Checkbutton(
+        local_model_frame,
+        text = "Manage Ollama",
+        variable = manage_ollama_var,
+        font=StackSans_L,
+        fg="white",
+        bg="#190c3a",
+        selectcolor="#2e2e2e",
+        activebackground="#1e1e1e",
+        activeforeground="white",
+    )
 
     # AI Preference section
     ai_pref_section_label = tk.Label(root, text="AI Provider Preference", 
