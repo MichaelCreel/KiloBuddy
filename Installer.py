@@ -85,7 +85,7 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'icon.png', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
+    current_files = ['KiloBuddy.py', 'initial_prompt', 'prompt', 'os_version', 'icon.png', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
     # Files that should always be updated (core application files)
     always_update_files = ['KiloBuddy.py', 'version', 'prompt', 'icon.png']
     # Files that should NOT be overwritten if they exist (user just configured them)
@@ -1015,7 +1015,7 @@ def run_gui_installer():
                     print(f"Installing {package}...")
                     subprocess.check_call([python_path, "-m", "pip", "install", package])
                     # Update progress bar (remaining 80% for packages)
-                    progress['value'] = base_progress + ((i + 1) / total_packages) * 80
+                    progress['value'] = base_progress + ((i + 1) / total_packages) * 40
                     root.update_idletasks()
                 
                 print("KiloBuddy installed successfully.")
@@ -1026,6 +1026,9 @@ def run_gui_installer():
                         print("Installing Ollama...")
                         if not install_ollama():
                             print("Warning: Failed to install Ollama. Local models may not work.")
+                        else:
+                            progress['value'] = 70
+                            root.update_idletasks()
                     
                     # Download local models if necessary
                     models_to_install = {
@@ -1037,6 +1040,8 @@ def run_gui_installer():
                     for model in models_to_install:
                         if model in LOCAL_MODELS:
                             install_local_model(model)
+                        progress['value'] = progress['value'] + 5
+                        root.update_idletasks()
 
 
                 # Download and install Vosk model
