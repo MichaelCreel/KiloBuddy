@@ -4,17 +4,24 @@ import subprocess
 import venv
 import os
 import platform
+import psutil
 import shutil
 import zipfile
 import urllib.request
 import filecmp
 import hashlib
 
-REQUIRED_PACKAGES = ["google-generativeai", "openai", "anthropic", "pyaudio", "tk", "requests", "customtkinter", "vosk"]
+REQUIRED_PACKAGES = ["google-generativeai", "openai", "anthropic", "pyaudio", "tk", "requests", "customtkinter", "vosk", "requests", "psutil"]
 
 WINDOWS_PACKAGES = ["pywin32", "winshell"]
 MACOS_PACKAGES = []
 LINUX_PACKAGES = []
+
+LOCAL_MODELS = {
+    "phi3:mini",
+    "llama3.1:8b",
+    "qwen2.5:14b-instruct"
+}
 
 SYSTEM_PACKAGE_HINTS = {
     "Linux": [
@@ -78,7 +85,7 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'prompt', 'os_version', 'icon.png', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
+    current_files = ['KiloBuddy.py', 'initial_prompt', 'prompt', 'os_version', 'icon.png', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
     # Files that should always be updated (core application files)
     always_update_files = ['KiloBuddy.py', 'version', 'prompt', 'icon.png']
     # Files that should NOT be overwritten if they exist (user just configured them)
@@ -263,6 +270,73 @@ def install_packages(install_dir):
 
     print("KiloBuddy installed successfully. The original download folder can now be deleted.")
 
+# Download and install Ollama
+def install_ollama():
+    system = platform.system()
+    if system == "Windows":
+        try:
+            ollama_msi_url = "https://ollama.com/download/OllamaSetup.exe"
+            msi_path = os.path.join(os.getenv("TEMP"), "OllamaSetup.exe")
+
+            print("Downloading Ollama for Windows...")
+            urllib.request.urlretrieve(ollama_msi_url, msi_path)
+
+            print("Running Ollama Installer...")
+            subprocess.run([msi_path, "/S"], check=True)
+
+            print("Ollama installed successfully.")
+            return True
+        except Exception as e:
+            print(f"Failed to install Ollama on Windows: {e}")
+            return False
+
+    if system == "Darwin":
+        try:
+            ollama_dmg_url = "https://ollama.com/download/Ollama.dmg"
+            dmg_path = os.path.join("/tmp", "Ollama.dmg")
+
+            print("Downloading Ollama for macOS...")
+            urllib.request.urlretrieve(ollama_dmg_url, dmg_path)
+
+            print("Mounting DMG...")
+            subprocess.run(["hdiutil", "attach", dmg_path], check=True)
+
+            print("Copying Ollama to Applications...")
+            subprocess.run(["cp", "-R", "/Volumes/Ollama/Ollama.app", "/Applications/"], check=True)
+
+            print("Unmounting DMG...")
+            subprocess.run(["hdiutil", "detach", "/Volumes/Ollama"], check=True)
+
+            print("Ollama installed successfully.")
+            return True
+        except Exception as e:
+            print(f"Failed to install Ollama on macOS: {e}")
+            return False
+    if system == "Linux":
+        try:
+            print("Installing Ollama for Linux...")
+            subprocess.run(["bash", "-c", "curl -s https://ollama.com/install.sh | sh"], check=True)
+
+            print("Ollama installed successfully.")
+            return True
+        except Exception as e:
+            print(f"Failed to install Ollama on Linux: {e}")
+            return False
+    else:
+        print("Unsupported OS for Ollama installation. Please install Ollama manually.")
+        return False
+
+# Download a local model
+def install_local_model(model_name):
+    print(f"Installing local model: {model_name}")
+    try:
+        subprocess.run(["ollama", "pull", model_name], check=True)
+        print(f"Model {model_name} installed successfully.")
+        return True
+    except Exception as e:
+        print(f"Failed to install {model_name}: {e}")
+        return False
+
 # Download and install Vosk model
 def install_vosk_model(install_dir):
     model_dir = os.path.join(install_dir, "vosk-model")
@@ -308,7 +382,6 @@ def run_terminal_installer():
     # Get API keys from user
     print("\n=== AI API Keys Setup ===")
     print("KiloBuddy supports multiple AI providers. You can enter keys for any or all of them.")
-    print("Enter at least one API Key (Gemini is free).\n")
     
     # Gemini API Key
     print("Gemini API (Google):")
@@ -333,15 +406,63 @@ def run_terminal_installer():
         if continue_choice not in ['y', 'yes']:
             return
     
+    print("\n=== Local Model Management ===")
+    print("Do you want to use local models?")
+
+    while True:
+        choice = input("Enter your choice (y/n): ").lower().strip()
+        if choice == "y":
+            use_local_models = True
+            break
+        elif choice == "n":
+            use_local_models = False
+            break
+        else:
+            print("Enter 'y' or 'n'")
+
+    print("Do you want to install Ollama?")
+    
+    while True:
+        choice = input("Enter your choice (y/n): ").lower().strip()
+        if choice == "y":
+            do_install_ollama = True
+            break
+        elif choice == "n":
+            do_install_ollama = False
+            break
+        else:
+            print("Enter 'y' or 'n'")
+
+    print("Do you want KiloBuddy to manage Ollama?")
+
+    while True:
+        choice = input("Enter your choice (y/n): ").lower().strip()
+        if choice == "y":
+            manage_ollama = True
+            settings_content.append("manage_ollama: true")
+            break
+        elif choice == "n":
+            manage_ollama = False
+            settings_content.append("manage_ollama: false")
+            break
+        else:
+            print("Enter 'y' or 'n'")
+
     # Ask for AI preference
     print("\n=== AI Provider Preference ===")
     print("KiloBuddy can try multiple AI providers in order of preference.")
     print("Enter up to 3 AI providers in order of preference (capitalization doesn't matter):")
-    print("Available providers: gemini, chatgpt, claude")
+    if use_local_models:
+        print("Available providers: gemini, chatgpt, claude, " + ", ".join(LOCAL_MODELS))
+    else:
+        print("Available providers: gemini, chatgpt, claude")
     print("Example: gemini, chatgpt, claude")
     
     ai_preferences = []
     valid_providers = ["gemini", "chatgpt", "claude"]
+
+    if use_local_models:
+        valid_providers = valid_providers + list(LOCAL_MODELS)
     
     for i in range(3):
         while True:
@@ -493,6 +614,21 @@ def run_terminal_installer():
             create_virtual_env(install_dir)
         
         install_packages(install_dir)
+
+        # Download and install Ollama if selected
+        if use_local_models:
+            if do_install_ollama:
+                if install_ollama():
+                    print("Ollama installed successfully.")
+                else:
+                    print("Warning: Failed to install Ollama. Local models may not work.")
+            # Download local models if necessary
+            for model in ai_preferences:
+                if model in LOCAL_MODELS:
+                    if install_local_model(model):
+                        print(f"Local model {model} installed successfully.")
+                    else:
+                        print(f"Warning: Failed to install local model {model}.")
         
         # Download and install Vosk model
         if not install_vosk_model(install_dir):
@@ -797,6 +933,10 @@ def run_gui_installer():
                 return False
         settings_content.append(f"timeout: {api_timeout}")
         
+        # Save Manage Ollama
+        manage_ollama = manage_ollama_var.get()
+        settings_content.append(f"manage_ollama: {str(manage_ollama).lower()}")
+
         # Save API keys
         gemini_key = gemini_entry.get().strip()
         if gemini_key and gemini_key not in ["null", "", "none"]:
@@ -875,11 +1015,35 @@ def run_gui_installer():
                     print(f"Installing {package}...")
                     subprocess.check_call([python_path, "-m", "pip", "install", package])
                     # Update progress bar (remaining 80% for packages)
-                    progress['value'] = base_progress + ((i + 1) / total_packages) * 80
+                    progress['value'] = base_progress + ((i + 1) / total_packages) * 40
                     root.update_idletasks()
                 
                 print("KiloBuddy installed successfully.")
-                
+
+                # Download and install Ollama if selected
+                if use_local_models_var.get():
+                    if install_ollama_var.get():
+                        print("Installing Ollama...")
+                        if not install_ollama():
+                            print("Warning: Failed to install Ollama. Local models may not work.")
+                        else:
+                            progress['value'] = 70
+                            root.update_idletasks()
+                    
+                    # Download local models if necessary
+                    models_to_install = {
+                        ai_pref1_var.get().lower(),
+                        ai_pref2_var.get().lower(),
+                        ai_pref3_var.get().lower()
+                    }
+
+                    for model in models_to_install:
+                        if model in LOCAL_MODELS:
+                            install_local_model(model)
+                        progress['value'] = progress['value'] + 5
+                        root.update_idletasks()
+
+
                 # Download and install Vosk model
                 progress['value'] = 85
                 root.update_idletasks()
@@ -908,6 +1072,30 @@ def run_gui_installer():
         # Run installation in a separate thread so GUI doesn't freeze
         threading.Thread(target=install_thread, daemon=True).start()
 
+    def update_visibility():
+        # Hide local values if local models are disabled
+        if not use_local_models_var.get():
+            install_ollama_checkbox.pack_forget()
+            manage_ollama_checkbox.pack_forget()
+            ollama_help.pack_forget()
+
+            install_ollama_var.set(False)
+            manage_ollama_var.set(False)
+
+            ai_pref1_dropdown["values"] = ["Gemini", "ChatGPT", "Claude"]
+            ai_pref2_dropdown["values"] = ["None", "Gemini", "ChatGPT", "Claude"]
+            ai_pref3_dropdown["values"] = ["None", "Gemini", "ChatGPT", "Claude"]
+
+            return
+        
+        install_ollama_checkbox.pack(pady=(0, 10))
+        ollama_help.pack(pady=(0, 10))
+        manage_ollama_checkbox.pack(pady=(0, 10))
+
+        ai_pref1_dropdown["values"] = ["phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref2_dropdown["values"] = ["None", "phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref3_dropdown["values"] = ["None", "phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+
     root = tk.Tk()
     root.title("KiloBuddy Installer")
     root.geometry("900x950")
@@ -927,11 +1115,6 @@ def run_gui_installer():
     install_info = tk.Label(root, text=f"Installing to: {install_dir}", 
                            font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     install_info.pack(pady=5)
-
-    # API Keys input section
-    api_section_label = tk.Label(root, text="Enter at least one API Key (Gemini is free)", 
-                                font=StackSans_L, fg="white", bg="#190c3a")
-    api_section_label.pack(pady=(20, 10))
 
     # Gemini API Key
     gemini_label = tk.Label(root, text="Gemini API Key (Google):", font=StackSans_L, fg="white", bg="#190c3a")
@@ -965,6 +1148,57 @@ def run_gui_installer():
     claude_help = tk.Label(root, text="Get your API key from: https://console.anthropic.com/", 
                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     claude_help.pack(pady=(0, 10))
+
+    install_ollama_var = tk.BooleanVar(value=False)
+    use_local_models_var = tk.BooleanVar(value=False)
+    manage_ollama_var = tk.BooleanVar(value=False)
+
+    ollama_label = tk.Label(root, text="Local Model Management:", font=StackSans_L, fg="white", bg="#190c3a")
+    ollama_label.pack(pady=(10, 2))
+
+    local_model_frame = tk.Frame(root, bg="#190c3a")
+    local_model_frame.pack(pady=(10, 10))
+
+    use_local_models_checkbox = tk.Checkbutton(
+        local_model_frame,
+        text = "Use Local AI Models",
+        variable = use_local_models_var,
+        font=StackSans_L,
+        fg="white",
+        bg="#190c3a",
+        selectcolor="#2e2e2e",
+        activebackground="#1e1e1e",
+        activeforeground="white",
+        command=lambda: update_visibility()
+    )
+    use_local_models_checkbox.pack(pady=(0, 10))
+
+    install_ollama_checkbox = tk.Checkbutton(
+        local_model_frame,
+        text = "Install Ollama (runs local AI models)",
+        variable=install_ollama_var,
+        font=StackSans_L,
+        fg="white",
+        bg="#190c3a",
+        selectcolor="#2e2e2e",
+        activebackground="#1e1e1e",
+        activeforeground="white",
+    )
+
+    ollama_help = tk.Label(local_model_frame, text="If you have already installed Ollama, leave this unchecked.", 
+                          font=StackSans_EL, fg="#cccccc", bg="#190c3a")
+
+    manage_ollama_checkbox = tk.Checkbutton(
+        local_model_frame,
+        text = "Manage Ollama",
+        variable = manage_ollama_var,
+        font=StackSans_L,
+        fg="white",
+        bg="#190c3a",
+        selectcolor="#2e2e2e",
+        activebackground="#1e1e1e",
+        activeforeground="white",
+    )
 
     # AI Preference section
     ai_pref_section_label = tk.Label(root, text="AI Provider Preference", 

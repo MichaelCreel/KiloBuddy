@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import psutil
 from vosk import Model, KaldiRecognizer
 import json
 import pyaudio
@@ -20,6 +21,8 @@ import requests as reqs
 import customtkinter as ctk
 import openai
 import anthropic
+import requests
+import shlex
 
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -27,12 +30,15 @@ CHATGPT_API_KEY = "" # API Key for calling ChatGPT API, loaded from chatgpt_api_
 CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key file
 AI_PREFERENCE = "gemini, chatgpt, claude" # Preferred order of AI models to call, loaded from ai_preference file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for AI API calls, loaded from prompt file
+INITIAL_PROMPT = "Return 'Initial Prompt not loaded'." # Prompt for initial AI API call, loaded from initial prompt file
 WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
 LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
+MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
+OLLAMA_THREAD = None # Thread to track Ollama process if managed
 DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
 
 # Vosk Speech Recognition Variables
@@ -105,6 +111,10 @@ def initialize():
         print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.\nFATAL 0")
         show_failure_notification("FATAL 0: Failed to properly initialize prompt.\n\nThe app will not function and will now stop.")
         return False
+    if not load_initial_prompt():
+        print("FATAL: Failed to properly initialize prompt.\n    -The app will not function and will now stop.\nFATAL 0")
+        show_failure_notification("FATAL 0: Failed to properly initialize prompt.\n\nThe app will not function and will now stop.")
+        return False
     if not load_settings():
         print("WARNING: Failed to properly load settings.\n    -Falling back to default configurations.\nWARN 313")
     if not load_os_version():
@@ -113,6 +123,8 @@ def initialize():
         print("FATAL: Failed to initialize Vosk speech recognition.\n    -The app will not function and will now stop.\nFATAL 1")
         show_failure_notification("FATAL 1: Failed to initialize Vosk speech recognition.\n\nThe app will not function and will now stop.")
         return False
+    if not start_ollama():
+        print("WARNING: Failed to start Ollama.\n    -Local models will not function.\nWARN 315")
     print("INFO: KiloBuddy Initialized.")
     return True
 
@@ -148,14 +160,46 @@ def detect_os():
     else:
         return "unknown"
 
+# Starts the Ollama server if managed
+def start_ollama():
+    global MANAGE_OLLAMA, OLLAMA_THREAD
+    if not MANAGE_OLLAMA:
+        print("INFO: Ollama management disabled. Startup skipped.")
+        return True
+    else:
+        if ollama_check():
+            print("INFO: Ollama is already running, management will be skipped to avoid interference.")
+            return True
+        else:
+            print("INFO: Starting Ollama server and management...")
+            OLLAMA_THREAD = subprocess.Popen(["ollama", "serve"])
+            return True
+    return False
+
+# Check if Ollama is already running
+def ollama_check():
+    for p in psutil.process_iter(["name"]):
+        name = p.info["name"]
+        if name and "ollama" in name.lower():
+            return True
+    return False
+
+# Stop the Ollama server if managed
+def stop_ollama():
+    global MANAGE_OLLAMA, OLLAMA_THREAD
+    if MANAGE_OLLAMA:
+        if ollama_check() and OLLAMA_THREAD is not None:
+            print("INFO: Stopping Ollama server...")
+            OLLAMA_THREAD.terminate()
+
 # Load settings from file
 # Load Preference from settings
 def load_preference(line):
     global AI_PREFERENCE
     value = line.split(":", 1)[1].strip().lower()
     try:
-        if value.lower() in ["gemini", "chatgpt", "claude"] or "," in value:
-            AI_PREFERENCE = value.lower()
+        if value:
+            AI_PREFERENCE = ", ".join(part.strip().lower() for part in value.split(",") if part.strip())
             print(f"INFO: Loaded AI Preference: {AI_PREFERENCE}")
             return True
         else:
@@ -251,11 +295,27 @@ def load_claude_api_key(line):
         print(f"ERROR: Failed to parse Claude API key: {e}\nERROR 122")
         return False
 
+# Load Manage Ollama from settings
+def load_manage_ollama(line):
+    global MANAGE_OLLAMA
+    value = line.split(":", 1)[1].strip().lower()
+    try:
+        if value in ["true", "false"]:
+            MANAGE_OLLAMA = (value == "true")
+            print(f"INFO: Loaded Manage Ollama: {MANAGE_OLLAMA}")
+            return True
+        else:
+            print(f"ERROR: Invalid manage_ollama value '{value}' (must be 'true' or 'false')\nERROR 110")
+            return False
+    except Exception as e:
+        print(f"ERROR: Failed to parse manage_ollama setting: {e}\nERROR 113")
+        return False
+
 def load_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
     success_count = 0
-    total_settings = 6
-    
+    total_settings = 7
+
     try:
         with open(get_source_path("settings"), "r") as f:
             lines = f.readlines()
@@ -267,6 +327,7 @@ def load_settings():
             "\n    -gemini_api_key: [empty]" \
             "\n    -chatgpt_api_key: [empty]" \
             "\n    -claude_api_key: [empty]" \
+            "\n    -manage_ollama: false" \
             "\nWARN 313")
             return False
             
@@ -307,6 +368,11 @@ def load_settings():
                     success_count += 1
                 else:
                     print("WARNING: Failed to properly initialize Claude API key.\n    -Claude will not generate responses.\nWARN 305")
+            elif line.startswith("manage_ollama:"):
+                if load_manage_ollama(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize manage_ollama setting.\n    -Falling back to default 'false'.\nWARN 314")
                     
     except FileNotFoundError:
         print("ERROR: Settings file not found.\nERROR 146")
@@ -322,9 +388,8 @@ def load_settings():
     return success_count > 0
     return True
 
-
 def save_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
     try:
         with open(get_source_path("settings"), "w") as f:
             f.write(f"preference: {AI_PREFERENCE}\n")
@@ -333,6 +398,7 @@ def save_settings():
             f.write(f"gemini_api_key: {GEMINI_API_KEY}\n")
             f.write(f"chatgpt_api_key: {CHATGPT_API_KEY}\n")
             f.write(f"claude_api_key: {CLAUDE_API_KEY}\n")
+            f.write(f"manage_ollama: {MANAGE_OLLAMA}\n")
         print("INFO: Saved settings to settings file.")
         return True
     except Exception as e:
@@ -426,7 +492,28 @@ def load_os_version():
         print(f"ERROR: Failed to load OS version: {e}, auto-detected: {OS_VERSION}\nERROR 108")
         return False
 
-# Load Prompt for Gemini from file
+# Load Inital Prompt for AI from file
+def load_initial_prompt():
+    try:
+        with open(get_source_path("initial_prompt"), "r") as f:
+            lines = f.readlines()
+            global INITIAL_PROMPT
+            prompt_content = "".join(lines).strip()
+
+            # Validate prompt content
+            if len(prompt_content) == 0:
+                print("ERROR: Initial prompt file is empty.\nERROR 124")
+            else:
+                INITIAL_PROMPT = prompt_content
+        return True
+    except FileNotFoundError:
+        print("ERROR: Initial prompt file not found.\nERROR 125")
+        return False
+    except Exception as e:
+        print(f"ERROR: Failed to load initial prompt: {e}\nERROR 126")
+        return False
+
+# Load Prompt for AI from file
 def load_prompt():
     try:
         with open(get_source_path("prompt"), "r") as f:
@@ -455,7 +542,7 @@ def get_source_path(filename):
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, filename)
 
-# Generate Text using Gemini
+# Generate Text using AI
 def generate_text(input_prompt):
     ai_models = [model.strip().lower() for model in AI_PREFERENCE.split(",")]
     
@@ -478,8 +565,9 @@ def generate_text(input_prompt):
                 continue
             result = claude_generate(input_prompt)
         else:
-            print(f"WARNING: Unrecognized AI model '{model}', trying next AI model...\nWARN 311")
-            continue
+            print(f"Using local AI model: {model}")
+            print(f"If no local models are installed, this means something went wrong calling the others.")
+            result = local_generate(input_prompt, model)
         
         # If we got a successful result, return it
         if result is not None and result.strip():
@@ -493,6 +581,56 @@ def generate_text(input_prompt):
     show_failure_notification("ERROR 127: All AI models failed to generate text.")
     return "ERROR: All AI models failed to generate text."
 
+def local_generate(input_prompt, model_name):
+    result = {"text": None}
+    timeout_triggered = threading.Event()
+
+    def local_call():
+        if timeout_triggered.is_set():
+            return
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/generate",
+                json={"model": model_name, "prompt": input_prompt},
+                timeout=(API_TIMEOUT, None),
+                stream=True
+            )
+            if response.ok:
+                reply = ""
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    obj = json.loads(line.decode("utf-8"))
+                    if "response" in obj:
+                        reply += obj["response"]
+                    if obj.get("done"):
+                        break
+                if reply and not timeout_triggered.is_set():
+                    result["text"] = reply
+        except Exception as e:
+            if not timeout_triggered.is_set():
+                print(f"ERROR: Failed to generate text with local model '{model_name}': {e}\nERROR 137")
+    
+    def fallback():
+        timeout_triggered.set()
+        print(f"ERROR: Local model '{model_name}' API Timeout.\nERROR 149")
+
+    thread = threading.Thread(target=local_call)
+    thread.start()
+
+    timer = threading.Timer(API_TIMEOUT, fallback)
+    timer.start()
+
+    while result["text"] is None and not timeout_triggered.is_set():
+        thread.join(timeout=0.1)
+
+    timer.cancel()
+
+    if thread.is_alive():
+        thread.join(timeout=1)
+
+    return result["text"]
+ 
 def chatgpt_generate(input_prompt):
     result = {"text": None}
     timeout_triggered = threading.Event()
@@ -559,7 +697,7 @@ def claude_generate(input_prompt):
                 result["text"] = reply.strip()
         except Exception as e:
             if not timeout_triggered.is_set():
-                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
+                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 137")
 
     def fallback():
         timeout_triggered.set()
@@ -708,9 +846,9 @@ def process_command(command):
         print("INFO: No command to process.")
         return
     
-    global PROMPT
+    global INITIAL_PROMPT
     global OS_VERSION
-    combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nUser Command: {command}"
+    combined_prompt = f"OS: {OS_VERSION}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
 
     print("INFO: Generating response...")
     response = generate_text(combined_prompt)
@@ -800,7 +938,10 @@ def user_call(command):
         print(f"INFO: Substituted $LAST_OUTPUT in command")
     
     # Check for dangerous commands
-    if any(dangerous in command.lower() for dangerous in DANGEROUS_COMMANDS):
+    tokens = shlex.split(command)
+    exe = os.path.basename(tokens[0])
+    print(f"Command found: {exe}")
+    if exe.lower() in DANGEROUS_COMMANDS:
         print("WARNING: Dangerous command detected. Prompting for administrator confirmation.")
         
         if OS_VERSION.startswith("linux"):
@@ -1180,12 +1321,47 @@ class KiloBuddyDashboard:
         send_btn.pack(side="right")
         
         self.command_entry.bind('<Return>', lambda event: self.send_command())
+
+    class HoverToolTip:
+        def __init__(self, widget, text):
+            self.widget = widget
+            self.text = text
+            self.tooltip_window = None
+            widget.bind("<Enter>", self.show_tooltip)
+            widget.bind("<Leave>", self.hide_tooltip)
         
+        def show_tooltip(self, event=None):
+            if self.tooltip_window is not None:
+                return
+            
+            x = self.widget.winfo_rootx() + 40
+            y = self.widget.winfo_rooty() + 40
+
+            self.tooltip_window = tw = ctk.CTkToplevel(self.widget)
+            tw.wm_overrideredirect(True)
+            tw.geometry(f"+{x}+{y}")
+            tw.configure(fg_color="#1E1E1E")
+
+            label = ctk.CTkLabel(
+                tw,
+                text=self.text,
+                font=ctk.CTkFont(family="StackSans Text Light", size=20),
+                text_color="white",
+                justify="left",
+                wraplength=300
+            )
+            label.pack(padx=10, pady=6)
+
+        def hide_tooltip(self, event=None):
+            if self.tooltip_window:
+                self.tooltip_window.destroy()
+                self.tooltip_window = None
+
     def open_settings_window(self):
         try:
             settings_window = ctk.CTkToplevel(self.root)
             settings_window.title("KiloBuddy Settings")
-            settings_window.geometry("620x870")
+            settings_window.geometry("620x930")
             settings_window.configure(fg_color="#0B3147")
             settings_window.transient(self.root)
             settings_window.lift()
@@ -1205,36 +1381,70 @@ class KiloBuddyDashboard:
             pref_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
             pref_entry.insert(0, AI_PREFERENCE)
             pref_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                pref_entry,
+                "Enter the order of your preferred AI providers, separated by commas.\nEx: gemini, chatgpt, claude\n\nFor Ollama models, enter the model name as it appears in the Ollama list.\nEx: llama3.18B, phi3:mini"
+            )
 
             wake_label = make_label("Wake Word")
             wake_label.pack(anchor="w", padx=20, pady=(10, 4))
             wake_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="computer")
             wake_entry.insert(0, WAKE_WORD)
             wake_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                wake_entry,
+                "Enter the wake word that KiloBuddy will listen for to activate.\n\nMust be lowercase."
+            )
 
             timeout_label = make_label("API Timeout (seconds)")
             timeout_label.pack(anchor="w", padx=20, pady=(10, 4))
             timeout_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="15")
             timeout_entry.insert(0, str(API_TIMEOUT))
             timeout_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                timeout_entry,
+                "Enter the maximum time (in seconds) to wait for an AI provider to respond.\n\nIf your models keep timing out, increase this value.\n\nMust be an integer between 5 and 120 (no decimals)."
+            )
 
             gemini_label = make_label("Gemini API Key")
             gemini_label.pack(anchor="w", padx=20, pady=(10, 4))
-            gemini_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key")
+            gemini_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
             gemini_entry.insert(0, GEMINI_API_KEY)
             gemini_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                gemini_entry,
+                "Enter your Gemini API key.\n\nThis key allows the app to interact with Google/Gemini and generate responses."
+            )
 
             chatgpt_label = make_label("ChatGPT API Key")
             chatgpt_label.pack(anchor="w", padx=20, pady=(10, 4))
-            chatgpt_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key")
+            chatgpt_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
             chatgpt_entry.insert(0, CHATGPT_API_KEY)
             chatgpt_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                chatgpt_entry,
+                "Enter your ChatGPT API key.\n\nThis key allows the app to interact with OpenAI/ChatGPT and generate responses."
+            )
 
             claude_label = make_label("Claude API Key")
             claude_label.pack(anchor="w", padx=20, pady=(10, 4))
-            claude_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key")
+            claude_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
             claude_entry.insert(0, CLAUDE_API_KEY)
             claude_entry.pack(padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                claude_entry,
+                "Enter your Claude API key.\n\nThis key allows the app to interact with Anthropic/Claude and generate responses."
+            )
+
+            manage_ollama_var = ctk.BooleanVar(value=MANAGE_OLLAMA)
+            manage_ollama_label = make_label("Manage Ollama")
+            manage_ollama_label.pack(anchor="w", padx=20, pady=(10, 4))
+            manage_ollama_checkbox = ctk.CTkCheckBox(form_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = 24), text_color="white")
+            manage_ollama_checkbox.pack(anchor="w", padx=20, pady=(0, 10))
+            self.HoverToolTip(
+                manage_ollama_checkbox,
+                "When enabled, KiloBuddy will manage startup and shutdown of Ollama when it is not already running.\n\nWhen disabled, KiloBuddy will not manage Ollama and will assume it is already running.\n\nIgnore this setting if you are not using local models."
+            )
 
             status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=28), text_color="#FFEE58")
             status_label.pack(anchor="w", padx=20, pady=(10, 0))
@@ -1246,14 +1456,14 @@ class KiloBuddyDashboard:
                 gemini_value = gemini_entry.get().strip()
                 chatgpt_value = chatgpt_entry.get().strip()
                 claude_value = claude_entry.get().strip()
+                manage_ollama_value = manage_ollama_var.get()
 
                 if not preference_value:
                     status_label.configure(text="AI provider preference may not be empty.")
                     return
-                allowed = {"gemini", "chatgpt", "claude"}
                 parsed = [item.strip() for item in preference_value.split(",") if item.strip()]
-                if not parsed or any(item not in allowed for item in parsed):
-                    status_label.configure(text="Provider preference must contain gemini, chatgpt, claude.")
+                if not parsed:
+                    status_label.configure(text="Provider preference may not be empty.")
                     return
 
                 if len(wake_value) < 2 or not wake_value.isalpha():
@@ -1278,13 +1488,14 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Claude key must be at least 20 chars or blank.")
                     return
 
-                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY
+                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
                 AI_PREFERENCE = ", ".join(parsed)
                 WAKE_WORD = wake_value
                 API_TIMEOUT = timeout_int
                 GEMINI_API_KEY = gemini_value
                 CHATGPT_API_KEY = chatgpt_value
                 CLAUDE_API_KEY = claude_value
+                MANAGE_OLLAMA = manage_ollama_value
 
                 if save_settings():
                     status_label.configure(text="Settings saved successfully.", text_color="#81C784")
@@ -1474,6 +1685,7 @@ def request_kilobuddy_stop():
         return stopped
 
     STOP_EVENT.set()
+    stop_ollama()
     cleanup_lock_file()
     global audio_stream, VOICE_THREAD
     if audio_stream:

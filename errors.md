@@ -9,7 +9,7 @@
 2 - Failed to initialize KiloBuddy.
     This means that the script experienced an error while initializing necessary assets for the app. The app will quit.
 
-# ERRORS (101-300 : MISS 110, 113, 117, 120, 123)
+# ERRORS (101-300 : MISS 117, 120, 123)
 
 101 - Invalid update type in file.
     This means that the script read a string from 'updates' that was not 'release' or 'pre-release'. The app will fallback to the type 'release' and will not fail. The file contains a string that is incorrectly formatted.
@@ -38,11 +38,17 @@
 109 - Invalid wake word.
     This means that the script read a string from 'settings' that was not a valid wake word. The app will fallback to the wake word 'computer' and will not fail.
 
+110 - Invalid manage_ollama value.
+    This means that the script read a string from 'settings' that was not a valid boolean value for manage_ollama. The app will fallback to the default 'false' and will not fail.
+
 111 - Failed to parse wake word.
     This means that the script had an unknown error while reading the wake word from 'settings'. The app will fallback to the wake word 'computer' and will not fail.
 
 112 - Invalid AI preference.
     This means that the script read a string from 'settings' that was not a valid preference. The app will fallback to the order 'gemini, chatgpt, claude' and will not fail.
+
+113 - Failed to parse manage_ollama setting.
+    This means that the script had an unknown error while reading the manage_ollama setting from 'settings'. The app will fallback to the default 'false' and will not fail.
 
 114 - Failed to parse AI preference.
     This means that the script had an unknown error while reading the preference from 'settings'. The app will fallback to the order 'gemini, chatgpt, claude' and will not fail.
@@ -104,8 +110,9 @@
 136 - No response generated.
     This means that the script received no response from generation. Command processing will fail, but the app will keep running.
 
-137 - Failed to initialize KiloBuddy.
-    This means that the script had an error during the initialization process. The app will continue to run but may not function properly.
+137 - Failed to generate text with local model.
+    This means that the script had an unknown error while trying to use a local model to ge133 - Gemini API Timeout.
+    This means that the Gemini API did not respond before the maximum time allowed for generation was reached. The generation will fail, but the app will keep running.nerate text. The generation will fail, but the app will keep running. The local model may not be installed or inaccessible. The local models may also not be enabled, in which case this error can be ignored.
 
 138 - Couldn't show failure notification.
     This means that the script failed to show a failure notification when an error occurred. The app will not fail.
@@ -139,6 +146,9 @@
 
 148 - Failed to load settings file.
     This means that the script had an unknown error while reading the 'settings' file. The app will fallback to default configurations and will not fail.
+
+149 - Gemini API Timeout.
+    This means that the local model API did not respond before the maximum time allowed for generation was reached. The generation will fail, but the app will keep running.
 
 # WARN (301+)
 
@@ -181,4 +191,8 @@
 313 - Settings file is empty.
     This means that the 'settings' file exists but contains no data. The app will fallback to default configurations and will not fail.
 
+314 - Failed to properly initialize manage_ollama setting.
+    This means that the script failed to read the manage_ollama setting from the 'settings' file. The app will fallback to the default 'false' and will not fail.
 
+315 - Failed to start Ollama.
+    This means that the script failed to start Ollama for local model generation. The app will not fail and may continue. Ollama may not be installed.
