@@ -17,6 +17,12 @@ WINDOWS_PACKAGES = ["pywin32", "winshell"]
 MACOS_PACKAGES = []
 LINUX_PACKAGES = []
 
+LOCAL_MODELS = {
+    "phi3:mini",
+    "llama3.1:8b",
+    "qwen2.5:14b-instruct"
+}
+
 SYSTEM_PACKAGE_HINTS = {
     "Linux": [
         "If you encounter issues with audio input, ensure that your microphone is functioning properly.",
@@ -264,6 +270,73 @@ def install_packages(install_dir):
 
     print("KiloBuddy installed successfully. The original download folder can now be deleted.")
 
+# Download and install Ollama
+def install_ollama():
+    system = platform.system()
+    if system == "Windows":
+        try:
+            ollama_msi_url = "https://ollama.com/download/OllamaSetup.exe"
+            msi_path = os.path.join(os.getenv("TEMP"), "OllamaSetup.exe")
+
+            print("Downloading Ollama for Windows...")
+            urllib.request.urlretrieve(ollama_msi_url, msi_path)
+
+            print("Running Ollama Installer...")
+            subprocess.run([msi_path, "/S"], check=True)
+
+            print("Ollama installed successfully.")
+            return True
+        except Exception as e:
+            print(f"Failed to install Ollama on Windows: {e}")
+            return False
+
+    if system == "Darwin":
+        try:
+            ollama_dmg_url = "https://ollama.com/download/Ollama.dmg"
+            dmg_path = os.path.join("/tmp", "Ollama.dmg")
+
+            print("Downloading Ollama for macOS...")
+            urllib.request.urlretrieve(ollama_dmg_url, dmg_path)
+
+            print("Mounting DMG...")
+            subprocess.run(["hdiutil", "attach", dmg_path], check=True)
+
+            print("Copying Ollama to Applications...")
+            subprocess.run(["cp", "-R", "/Volumes/Ollama/Ollama.app", "/Applications/"], check=True)
+
+            print("Unmounting DMG...")
+            subprocess.run(["hdiutil", "detach", "/Volumes/Ollama"], check=True)
+
+            print("Ollama installed successfully.")
+            return True
+        except Exception as e:
+            print(f"Failed to install Ollama on macOS: {e}")
+            return False
+    if system == "Linux":
+        try:
+            print("Installing Ollama for Linux...")
+            subprocess.run(["bash", "-c", "curl -s https://ollama.com/install.sh | sh"], check=True)
+
+            print("Ollama installed successfully.")
+            return True
+        except Exception as e:
+            print(f"Failed to install Ollama on Linux: {e}")
+            return False
+    else:
+        print("Unsupported OS for Ollama installation. Please install Ollama manually.")
+        return False
+
+# Download a local model
+def install_local_model(model_name):
+    print(f"Installing local model: {model_name}")
+    try:
+        subprocess.run(["ollama", "pull", model_name], check=True)
+        print(f"Model {model_name} installed successfully.")
+        return True
+    except Exception as e:
+        print(f"Failed to install {model_name}: {e}")
+        return False
+
 # Download and install Vosk model
 def install_vosk_model(install_dir):
     model_dir = os.path.join(install_dir, "vosk-model")
@@ -309,7 +382,6 @@ def run_terminal_installer():
     # Get API keys from user
     print("\n=== AI API Keys Setup ===")
     print("KiloBuddy supports multiple AI providers. You can enter keys for any or all of them.")
-    print("Enter at least one API Key (Gemini is free).\n")
     
     # Gemini API Key
     print("Gemini API (Google):")
@@ -334,15 +406,63 @@ def run_terminal_installer():
         if continue_choice not in ['y', 'yes']:
             return
     
+    print("\n=== Local Model Management ===")
+    print("Do you want to use local models?")
+
+    while True:
+        choice = input("Enter your choice (y/n): ").lower().strip()
+        if choice == "y":
+            use_local_models = True
+            break
+        elif choice == "n":
+            use_local_models = False
+            break
+        else:
+            print("Enter 'y' or 'n'")
+
+    print("Do you want to install Ollama?")
+    
+    while True:
+        choice = input("Enter your choice (y/n): ").lower().strip()
+        if choice == "y":
+            do_install_ollama = True
+            break
+        elif choice == "n":
+            do_install_ollama = False
+            break
+        else:
+            print("Enter 'y' or 'n'")
+
+    print("Do you want KiloBuddy to manage Ollama?")
+
+    while True:
+        choice = input("Enter your choice (y/n): ").lower().strip()
+        if choice == "y":
+            manage_ollama = True
+            settings_content.append("manage_ollama: true")
+            break
+        elif choice == "n":
+            manage_ollama = False
+            settings_content.append("manage_ollama: false")
+            break
+        else:
+            print("Enter 'y' or 'n'")
+
     # Ask for AI preference
     print("\n=== AI Provider Preference ===")
     print("KiloBuddy can try multiple AI providers in order of preference.")
     print("Enter up to 3 AI providers in order of preference (capitalization doesn't matter):")
-    print("Available providers: gemini, chatgpt, claude")
+    if use_local_models:
+        print("Available providers: gemini, chatgpt, claude, " + ", ".join(LOCAL_MODELS))
+    else:
+        print("Available providers: gemini, chatgpt, claude")
     print("Example: gemini, chatgpt, claude")
     
     ai_preferences = []
     valid_providers = ["gemini", "chatgpt", "claude"]
+
+    if use_local_models:
+        valid_providers = valid_providers + list(LOCAL_MODELS)
     
     for i in range(3):
         while True:
@@ -494,6 +614,21 @@ def run_terminal_installer():
             create_virtual_env(install_dir)
         
         install_packages(install_dir)
+
+        # Download and install Ollama if selected
+        if use_local_models:
+            if do_install_ollama:
+                if install_ollama():
+                    print("Ollama installed successfully.")
+                else:
+                    print("Warning: Failed to install Ollama. Local models may not work.")
+            # Download local models if necessary
+            for model in ai_preferences:
+                if model in LOCAL_MODELS:
+                    if install_local_model(model):
+                        print(f"Local model {model} installed successfully.")
+                    else:
+                        print(f"Warning: Failed to install local model {model}.")
         
         # Download and install Vosk model
         if not install_vosk_model(install_dir):
@@ -798,6 +933,10 @@ def run_gui_installer():
                 return False
         settings_content.append(f"timeout: {api_timeout}")
         
+        # Save Manage Ollama
+        manage_ollama = manage_ollama_var.get()
+        settings_content.append(f"manage_ollama: {str(manage_ollama).lower()}")
+
         # Save API keys
         gemini_key = gemini_entry.get().strip()
         if gemini_key and gemini_key not in ["null", "", "none"]:
@@ -880,6 +1019,25 @@ def run_gui_installer():
                     root.update_idletasks()
                 
                 print("KiloBuddy installed successfully.")
+
+                # Download and install Ollama if selected
+                if use_local_models_var.get():
+                    if install_ollama_var.get():
+                        print("Installing Ollama...")
+                        if not install_ollama():
+                            print("Warning: Failed to install Ollama. Local models may not work.")
+                    
+                    # Download local models if necessary
+                    models_to_install = {
+                        ai_pref1_var.get().lower(),
+                        ai_pref2_var.get().lower(),
+                        ai_pref3_var.get().lower()
+                    }
+
+                    for model in models_to_install:
+                        if model in LOCAL_MODELS:
+                            install_local_model(model)
+
 
                 # Download and install Vosk model
                 progress['value'] = 85
