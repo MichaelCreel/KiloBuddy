@@ -11,7 +11,7 @@ import urllib.request
 import filecmp
 import hashlib
 
-REQUIRED_PACKAGES = ["google-generativeai", "openai", "anthropic", "pyaudio", "tk", "requests", "customtkinter", "vosk", "requests", "shlex", "psutil"]
+REQUIRED_PACKAGES = ["google-generativeai", "openai", "anthropic", "pyaudio", "tk", "requests", "customtkinter", "vosk", "requests", "psutil"]
 
 WINDOWS_PACKAGES = ["pywin32", "winshell"]
 MACOS_PACKAGES = []
