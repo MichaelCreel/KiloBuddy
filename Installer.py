@@ -4,7 +4,6 @@ import subprocess
 import venv
 import os
 import platform
-import psutil
 import shutil
 import zipfile
 import urllib.request
@@ -85,9 +84,9 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'initial_prompt', 'prompt', 'os_version', 'icon.png', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
+    current_files = ['KiloBuddy.py', 'initial_prompt', 'prompt', 'os_version', 'icon.png', 'icon.ico', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
     # Files that should always be updated (core application files)
-    always_update_files = ['KiloBuddy.py', 'version', 'prompt', 'icon.png']
+    always_update_files = ['KiloBuddy.py', 'version', 'prompt', 'icon.png', 'icon.ico']
     # Files that should NOT be overwritten if they exist (user just configured them)
     user_configured_files = ['settings', 'updates']
     
@@ -746,14 +745,24 @@ NoDisplay=false
 # Windows Shortcuts
 def create_windows_shortcuts(install_dir):
     try:
+        # Use virtual environment
+        venv_path = os.path.join(install_dir, "kilobuddy_env")
+        site_packages = os.path.join(venv_path, "Lib", "site-packages")
+
+        import sys
+        sys.path.insert(0, site_packages)
+
         import winshell
         from win32com.client import Dispatch
         
-        venv_path = os.path.join(install_dir, "kilobuddy_env")
-        python_path = os.path.join(venv_path, "Scripts", "python.exe")
         pythonw_path = os.path.join(venv_path, "Scripts", "pythonw.exe")
         kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")
         
+        # Find correct icon
+        icon_path = os.path.join(install_dir, "icon.ico")
+        if not os.path.exists(icon_path):
+            icon_path = pythonw_path
+
         # Create Start Menu shortcut
         start_menu = winshell.start_menu()
         shortcut_path = os.path.join(start_menu, "KiloBuddy.lnk")
@@ -763,29 +772,23 @@ def create_windows_shortcuts(install_dir):
         shortcut.Targetpath = pythonw_path
         shortcut.Arguments = f'"{kilobuddy_script}"'
         shortcut.WorkingDirectory = install_dir
-        if os.path.exists(os.path.join(install_dir, "icon.png")):
-            shortcut.IconLocation = os.path.join(install_dir, "icon.png")
-        else:
-            shortcut.IconLocation = pythonw_path
+        shortcut.IconLocation = icon_path
         shortcut.save()
         print("Added KiloBuddy to Start Menu")
         
-        # Ask about desktop shortcut
-        create_desktop = input("Create desktop shortcut? (y/n): ").lower().strip()
-        if create_desktop in ['y', 'yes']:
-            desktop = winshell.desktop()
+        # Create Desktop shortcut
+        desktop = winshell.desktop()
+        if os.path.exists(desktop):
             desktop_shortcut_path = os.path.join(desktop, "KiloBuddy.lnk")
-            
             desktop_shortcut = shell.CreateShortCut(desktop_shortcut_path)
             desktop_shortcut.Targetpath = pythonw_path
             desktop_shortcut.Arguments = f'"{kilobuddy_script}"'
             desktop_shortcut.WorkingDirectory = install_dir
-            if os.path.exists(os.path.join(install_dir, "icon.png")):
-                desktop_shortcut.IconLocation = os.path.join(install_dir, "icon.png")
-            else:
-                desktop_shortcut.IconLocation = pythonw_path
+            desktop_shortcut.IconLocation = icon_path
             desktop_shortcut.save()
             print("Desktop shortcut created")
+        else:
+            print("Desktop directory not found, failed to create desktop shortcut")
             
     except ImportError:
         print("Windows shortcut creation requires pywin32. Install with: pip install pywin32 winshell")
@@ -1052,6 +1055,13 @@ def run_gui_installer():
                 
                 progress['value'] = 100
                 
+                # Install system specific packages required for installation
+                if platform.system() == "Windows":
+                    for package in WINDOWS_PACKAGES:
+                        print(f"Installing Windows-specific package {package}...")
+                        subprocess.check_call([python_path, "-m", "pip", "install", package])
+
+
                 # Create system shortcuts
                 try:
                     # Mark as GUI mode for shortcut creation
