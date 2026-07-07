@@ -83,13 +83,23 @@ def setup_install_directory():
         print(f"Creating installation directory: {install_dir}")
         os.makedirs(install_dir, exist_ok=True)
     
-    # Copy current files to install directory
-    current_files = ['KiloBuddy.py', 'initial_prompt', 'prompt', 'os_version', 'icon.png', 'icon.ico', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
+    # Copy current files to install directory for all systems
+    current_files = ['KiloBuddy.py', 'initial_prompt', 'prompt', 'os_version', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
+    windows_current_files = ['icon.ico']
+    macos_current_files = ['icon.png']
+    linux_current_files = ['icon.png']
     # Files that should always be updated (core application files)
     always_update_files = ['KiloBuddy.py', 'version', 'prompt', 'icon.png', 'icon.ico']
     # Files that should NOT be overwritten if they exist (user just configured them)
     user_configured_files = ['settings', 'updates']
     
+    if platform.system() == "Windows":
+        current_files += windows_current_files
+    if platform.system() == "Darwin":
+        current_files += macos_current_files
+    if platform.system() == "Linux":
+        current_files += linux_current_files
+
     for file in current_files:
         if os.path.exists(file):
             dest_path = os.path.join(install_dir, file)
