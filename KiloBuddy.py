@@ -809,22 +809,33 @@ def listen_for_command():
     try:
         vosk_rec.Reset()
         timeout_start = time.time()
-        timeout_duration = 10
-        
-        while time.time() - timeout_start < timeout_duration and not STOP_EVENT.is_set():
-            data = audio_stream.read(4096, exception_on_overflow=False)
+        timeout_duration = 3.5
+        last_speech_time = time.time()
+        accepted_text = ""
+        full_command = ""
+
+        while time.time() - last_speech_time < timeout_duration:
+            data = audio_stream.read(4096)
             if vosk_rec.AcceptWaveform(data):
-                result = json.loads(vosk_rec.Result())
-                command = result.get('text', '')
-                if command.strip():
-                    print(f"INFO: Command received: {command}")
-                    return command
+                result = json.loads(vosk_rec.Result()).get('text', '')
+                if result:
+                    accepted_text = result.strip()
+                    print(f"Accepted Text: {accepted_text}")
+                    full_command += " " + accepted_text
+                    print(f"Full Command: {full_command}")
+                    last_speech_time = time.time()
+            else:
+                partial = json.loads(vosk_rec.PartialResult()).get("partial", "")
+                new_speech = partial[len(accepted_text):].strip() if partial.startswith(accepted_text) else partial
+                print(f"New Speech: {new_speech}")
+                # Only treat partial as speech if it contains alphabetic characters
+                if any(c.isalpha() for c in partial):
+                    last_speech_time = time.time()
         
         if STOP_EVENT.is_set():
             return None
 
-        final_result = json.loads(vosk_rec.FinalResult())
-        command = final_result.get('text', '')
+        command = full_command
         if command.strip():
             print(f"INFO: Command received: {command}")
             return command
