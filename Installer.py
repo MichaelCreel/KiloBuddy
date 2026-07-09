@@ -85,7 +85,7 @@ def setup_install_directory():
     
     # Copy current files to install directory for all systems
     current_files = ['KiloBuddy.py', 'initial_prompt', 'prompt', 'os_version', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
-    windows_current_files = ['icon.ico']
+    windows_current_files = ['icon.ico', 'launch_kilobuddy.exe']
     macos_current_files = ['icon.png']
     linux_current_files = ['icon.png']
     # Files that should always be updated (core application files)
@@ -777,10 +777,12 @@ def create_windows_shortcuts(install_dir):
         start_menu = winshell.start_menu()
         shortcut_path = os.path.join(start_menu, "KiloBuddy.lnk")
         
+        launcher_path = os.path.join(install_dir, "launch_kilobuddy.exe")
+
         shell = Dispatch('WScript.Shell')
         shortcut = shell.CreateShortCut(shortcut_path)
-        shortcut.Targetpath = pythonw_path
-        shortcut.Arguments = f'"{kilobuddy_script}"'
+        shortcut.Targetpath = launcher_path
+        shortcut.Arguments = ""
         shortcut.WorkingDirectory = install_dir
         shortcut.IconLocation = icon_path
         shortcut.save()
@@ -791,8 +793,8 @@ def create_windows_shortcuts(install_dir):
         if os.path.exists(desktop):
             desktop_shortcut_path = os.path.join(desktop, "KiloBuddy.lnk")
             desktop_shortcut = shell.CreateShortCut(desktop_shortcut_path)
-            desktop_shortcut.Targetpath = pythonw_path
-            desktop_shortcut.Arguments = f'"{kilobuddy_script}"'
+            desktop_shortcut.Targetpath = launcher_path
+            desktop_shortcut.Arguments = ""
             desktop_shortcut.WorkingDirectory = install_dir
             desktop_shortcut.IconLocation = icon_path
             desktop_shortcut.save()
@@ -884,6 +886,31 @@ def run_gui_installer():
     from tkinter import messagebox
     from tkinter import ttk
     import threading
+
+    class ScrollableFrame(tk.Frame):
+        def __init__(self, container, *args, **kwargs):
+            super().__init__(container, *args, **kwargs)
+            canvas = tk.Canvas(self, bg="#190c3a", highlightthickness=0)
+            scrollbar = tk.Scrollbar(self, orient="vertical", command=canvas.yview, width=20)
+            self.scrollable_frame = tk.Frame(canvas, bg="#190c3a")
+
+            self.scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(
+                    scrollregion=canvas.bbox("all")
+                )
+            )
+
+            canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            # Windows and macOS
+            canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+            # Linux (X11)
+            canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+            canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
     try:
         from tkinter import font as tkFont
@@ -1120,6 +1147,9 @@ def run_gui_installer():
     root.title("KiloBuddy Installer")
     root.geometry("900x950")
     root.configure(bg="#190c3a")
+
+    scroll_frame = ScrollableFrame(root)
+    scroll_frame.pack(fill="both", expand=True)
     
     # Set installer window icon if icon.png exists
     if os.path.exists("icon.png"):
@@ -1128,44 +1158,44 @@ def run_gui_installer():
         except Exception:
             pass  # If icon fails to load, continue without it
 
-    title = tk.Label(root, text="Install KiloBuddy", font=StackSans_M, fg="white", bg="#190c3a")
+    title = tk.Label(scroll_frame.scrollable_frame, text="Install KiloBuddy", font=StackSans_M, fg="white", bg="#190c3a")
     title.pack(pady=20)
 
     # Show installation directory
-    install_info = tk.Label(root, text=f"Installing to: {install_dir}", 
+    install_info = tk.Label(scroll_frame.scrollable_frame, text=f"Installing to: {install_dir}", 
                            font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     install_info.pack(pady=5)
 
     # Gemini API Key
-    gemini_label = tk.Label(root, text="Gemini API Key (Google):", font=StackSans_L, fg="white", bg="#190c3a")
+    gemini_label = tk.Label(scroll_frame.scrollable_frame, text="Gemini API Key (Google):", font=StackSans_L, fg="white", bg="#190c3a")
     gemini_label.pack(pady=(10, 2))
 
-    gemini_entry = tk.Entry(root, width=60, font=StackSans_L, show="~")
+    gemini_entry = tk.Entry(scroll_frame.scrollable_frame, width=60, font=StackSans_L, show="~")
     gemini_entry.pack(pady=2)
 
-    gemini_help = tk.Label(root, text="Get your API key from: https://aistudio.google.com/api-keys", 
+    gemini_help = tk.Label(scroll_frame.scrollable_frame, text="Get your API key from: https://aistudio.google.com/api-keys", 
                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     gemini_help.pack(pady=(0, 5))
 
     # ChatGPT API Key
-    chatgpt_label = tk.Label(root, text="ChatGPT API Key (OpenAI):", font=StackSans_L, fg="white", bg="#190c3a")
+    chatgpt_label = tk.Label(scroll_frame.scrollable_frame, text="ChatGPT API Key (OpenAI):", font=StackSans_L, fg="white", bg="#190c3a")
     chatgpt_label.pack(pady=(10, 2))
 
-    chatgpt_entry = tk.Entry(root, width=60, font=StackSans_L, show="~")
+    chatgpt_entry = tk.Entry(scroll_frame.scrollable_frame, width=60, font=StackSans_L, show="~")
     chatgpt_entry.pack(pady=2)
 
-    chatgpt_help = tk.Label(root, text="Get your API key from: https://platform.openai.com/api-keys", 
+    chatgpt_help = tk.Label(scroll_frame.scrollable_frame, text="Get your API key from: https://platform.openai.com/api-keys", 
                            font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     chatgpt_help.pack(pady=(0, 5))
 
     # Claude API Key
-    claude_label = tk.Label(root, text="Claude API Key (Anthropic):", font=StackSans_L, fg="white", bg="#190c3a")
+    claude_label = tk.Label(scroll_frame.scrollable_frame, text="Claude API Key (Anthropic):", font=StackSans_L, fg="white", bg="#190c3a")
     claude_label.pack(pady=(10, 2))
 
-    claude_entry = tk.Entry(root, width=60, font=StackSans_L, show="~")
+    claude_entry = tk.Entry(scroll_frame.scrollable_frame, width=60, font=StackSans_L, show="~")
     claude_entry.pack(pady=2)
 
-    claude_help = tk.Label(root, text="Get your API key from: https://console.anthropic.com/", 
+    claude_help = tk.Label(scroll_frame.scrollable_frame, text="Get your API key from: https://console.anthropic.com/", 
                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     claude_help.pack(pady=(0, 10))
 
@@ -1173,10 +1203,10 @@ def run_gui_installer():
     use_local_models_var = tk.BooleanVar(value=False)
     manage_ollama_var = tk.BooleanVar(value=False)
 
-    ollama_label = tk.Label(root, text="Local Model Management:", font=StackSans_L, fg="white", bg="#190c3a")
+    ollama_label = tk.Label(scroll_frame.scrollable_frame, text="Local Model Management:", font=StackSans_L, fg="white", bg="#190c3a")
     ollama_label.pack(pady=(10, 2))
 
-    local_model_frame = tk.Frame(root, bg="#190c3a")
+    local_model_frame = tk.Frame(scroll_frame.scrollable_frame, bg="#190c3a")
     local_model_frame.pack(pady=(10, 10))
 
     use_local_models_checkbox = tk.Checkbutton(
@@ -1221,16 +1251,16 @@ def run_gui_installer():
     )
 
     # AI Preference section
-    ai_pref_section_label = tk.Label(root, text="AI Provider Preference", 
+    ai_pref_section_label = tk.Label(scroll_frame.scrollable_frame, text="AI Provider Preference", 
                                     font=StackSans_L, fg="white", bg="#190c3a")
     ai_pref_section_label.pack(pady=(20, 10))
 
-    ai_pref_desc = tk.Label(root, text="Choose up to 3 AI providers in order of preference:", 
+    ai_pref_desc = tk.Label(scroll_frame.scrollable_frame, text="Choose up to 3 AI providers in order of preference:", 
                            font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     ai_pref_desc.pack(pady=(0, 10))
 
     # AI preference dropdowns frame
-    ai_pref_frame = tk.Frame(root, bg="#190c3a")
+    ai_pref_frame = tk.Frame(scroll_frame.scrollable_frame, bg="#190c3a")
     ai_pref_frame.pack(pady=5)
 
     # 1st preference
@@ -1255,12 +1285,12 @@ def run_gui_installer():
     ai_pref3_dropdown.grid(row=0, column=5, padx=5)
 
     # Wake Word and API Timeout section
-    config_section_label = tk.Label(root, text="Configuration Settings", 
+    config_section_label = tk.Label(scroll_frame.scrollable_frame, text="Configuration Settings", 
                                    font=StackSans_L, fg="white", bg="#190c3a")
     config_section_label.pack(pady=(20, 10))
 
     # Frame for wake word and API timeout side by side
-    config_frame = tk.Frame(root, bg="#190c3a")
+    config_frame = tk.Frame(scroll_frame.scrollable_frame, bg="#190c3a")
     config_frame.pack(pady=5)
 
     # Wake Word (left side)
@@ -1297,13 +1327,13 @@ def run_gui_installer():
     wake_word_entry.pack(pady=2)
     wake_word_entry.insert(0, "computer")
 
-    progress = ttk.Progressbar(root, orient="horizontal", length=750, mode="determinate")
+    progress = ttk.Progressbar(scroll_frame.scrollable_frame, orient="horizontal", length=750, mode="determinate")
     progress.pack(pady=15)
 
-    note = tk.Label(root, text="Just click the button (with internet)", font=StackSans_L, fg="white", bg="#190c3a")
+    note = tk.Label(scroll_frame.scrollable_frame, text="Just click the button (with internet)", font=StackSans_L, fg="white", bg="#190c3a")
     note.pack(pady=10)
 
-    install_button = tk.Button(root, text="Install", command=start_install, width=35, height=2)
+    install_button = tk.Button(scroll_frame.scrollable_frame, text="Install", command=start_install, width=35, height=2)
     install_button.pack(pady=15)
 
     root.mainloop()
