@@ -901,7 +901,7 @@ def run_gui_installer():
                 )
             )
 
-            canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+            canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw", width=canvas.winfo_width())
             canvas.configure(yscrollcommand=scrollbar.set)
 
             canvas.pack(side="left", fill="both", expand=True)
@@ -912,6 +912,11 @@ def run_gui_installer():
             canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
             canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
+            def _on_canvas_resize(event):
+                canvas.itemconfig(self.window_item, width=event.width)
+
+            self.window_item = canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+            canvas.bind("<Configure>", _on_canvas_resize)
     try:
         from tkinter import font as tkFont
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1171,7 +1176,7 @@ def run_gui_installer():
     gemini_label.pack(pady=(10, 2))
 
     gemini_entry = tk.Entry(scroll_frame.scrollable_frame, width=60, font=StackSans_L, show="~")
-    gemini_entry.pack(pady=2)
+    gemini_entry.pack(pady=2, padx=30, fill="x", expand=True)
 
     gemini_help = tk.Label(scroll_frame.scrollable_frame, text="Get your API key from: https://aistudio.google.com/api-keys", 
                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
@@ -1182,7 +1187,7 @@ def run_gui_installer():
     chatgpt_label.pack(pady=(10, 2))
 
     chatgpt_entry = tk.Entry(scroll_frame.scrollable_frame, width=60, font=StackSans_L, show="~")
-    chatgpt_entry.pack(pady=2)
+    chatgpt_entry.pack(pady=2, padx=30, fill="x", expand=True)
 
     chatgpt_help = tk.Label(scroll_frame.scrollable_frame, text="Get your API key from: https://platform.openai.com/api-keys", 
                            font=StackSans_EL, fg="#cccccc", bg="#190c3a")
@@ -1193,7 +1198,7 @@ def run_gui_installer():
     claude_label.pack(pady=(10, 2))
 
     claude_entry = tk.Entry(scroll_frame.scrollable_frame, width=60, font=StackSans_L, show="~")
-    claude_entry.pack(pady=2)
+    claude_entry.pack(pady=2, padx=30, fill="x", expand=True)
 
     claude_help = tk.Label(scroll_frame.scrollable_frame, text="Get your API key from: https://console.anthropic.com/", 
                           font=StackSans_EL, fg="#cccccc", bg="#190c3a")
