@@ -23,6 +23,7 @@ import openai
 import anthropic
 import requests
 import shlex
+from pathlib import Path
 
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -857,9 +858,9 @@ def process_command(command):
         print("INFO: No command to process.")
         return
     
-    global INITIAL_PROMPT
-    global OS_VERSION
-    combined_prompt = f"OS: {OS_VERSION}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
+    global INITIAL_PROMPT, OS_VERSION
+    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
+    print(combined_prompt)
 
     print("INFO: Generating response...")
     response = generate_text(combined_prompt)
