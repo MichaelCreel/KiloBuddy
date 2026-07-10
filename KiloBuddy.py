@@ -777,14 +777,8 @@ def listen_for_wake_word():
     
     print(f"INFO: Listening for wake word ('{WAKE_WORD}')...")
 
-    last_heartbeat = time.time()
     while not STOP_EVENT.is_set():
         try:
-            current_time = time.time()
-            if current_time - last_heartbeat >= 5:
-                print("INFO: Voice thread running and listening")
-                last_heartbeat = current_time
-
             data, overflow = audio_stream.read(4096)
             if vosk_rec.AcceptWaveform(bytes(data)):
                 result = json.loads(vosk_rec.Result())
