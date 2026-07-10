@@ -3,7 +3,7 @@
 import psutil
 from vosk import Model, KaldiRecognizer
 import json
-import pyaudio
+import sounddevice as sd
 import re
 import os
 import sys
@@ -92,8 +92,14 @@ def init_vosk():
             return False
         vosk_model = Model(model_path)
         vosk_rec = KaldiRecognizer(vosk_model, 16000)
-        p = pyaudio.PyAudio()
-        audio_stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8192)
+
+        audio_stream = sd.RawInputStream(
+            samplerate = 16000,
+            channels = 1,
+            dtype = "int16",
+            blocksize = 4096
+        )
+        audio_stream.start()
         return True
     except Exception as e:
         print(f"ERROR: Failed to initialize Vosk: {e}")
@@ -779,8 +785,8 @@ def listen_for_wake_word():
                 print("INFO: Voice thread running and listening")
                 last_heartbeat = current_time
 
-            data = audio_stream.read(4096, exception_on_overflow=False)
-            if vosk_rec.AcceptWaveform(data):
+            data, overflow = audio_stream.read(4096)
+            if vosk_rec.AcceptWaveform(bytes(data)):
                 result = json.loads(vosk_rec.Result())
                 text = result.get('text', '').lower()
                 if text:
@@ -816,8 +822,8 @@ def listen_for_command():
         full_command = ""
 
         while time.time() - last_speech_time < timeout_duration:
-            data = audio_stream.read(4096)
-            if vosk_rec.AcceptWaveform(data):
+            data, overflow = audio_stream.read(4096)
+            if vosk_rec.AcceptWaveform(bytes(data)):
                 result = json.loads(vosk_rec.Result()).get('text', '')
                 if result:
                     accepted_text = result.strip()
@@ -1707,7 +1713,7 @@ def request_kilobuddy_stop():
         except:
             pass
         try:
-            audio_stream.stop_stream()
+            audio_stream.stop()
         except:
             pass
         try:
@@ -2027,7 +2033,7 @@ def main():
         print("\nINFO: KiloBuddy Shutting Down...")
     finally:
         if audio_stream:
-            audio_stream.stop_stream()
+            audio_stream.stop()
             audio_stream.close()
         cleanup_lock_file()
 
