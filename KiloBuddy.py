@@ -1256,6 +1256,24 @@ class KiloBuddyDashboard:
         self.root.configure(fg_color=self.background_color)
         self.root.protocol("WM_DELETE_WINDOW", self.close_dashboard)
 
+        def apply_taskbar_icon():
+            ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
+            if os.path.exists(ico_path):
+                try:
+                    self.root.iconbitmap(ico_path)
+                except Exception as e:
+                    print(f"Window error: {e}")
+                    pass
+
+        self.root.after(0, apply_taskbar_icon)
+
+        ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
+        if os.path.exists(ico_path):
+            try:
+                self.root.iconbitmap(ico_path)
+            except Exception:
+                pass
+
         if os.path.exists("icon.png"):
             try:
                 self.root.iconphoto(False, tk.PhotoImage(file="icon.png"))
