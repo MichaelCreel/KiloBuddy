@@ -7,3 +7,4 @@ package.sh
 vosk-model/
 settings
 __pycache__/
+kilobuddy_env/
