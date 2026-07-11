@@ -825,14 +825,11 @@ def listen_for_command():
                 result = json.loads(vosk_rec.Result()).get('text', '')
                 if result:
                     accepted_text = result.strip()
-                    print(f"Accepted Text: {accepted_text}")
                     full_command += " " + accepted_text
-                    print(f"Full Command: {full_command}")
                     last_speech_time = time.time()
             else:
                 partial = json.loads(vosk_rec.PartialResult()).get("partial", "")
                 new_speech = partial[len(accepted_text):].strip() if partial.startswith(accepted_text) else partial
-                print(f"New Speech: {new_speech}")
                 # Only treat partial as speech if it contains alphabetic characters
                 if any(c.isalpha() for c in partial):
                     last_speech_time = time.time()
@@ -864,7 +861,6 @@ def process_command(command):
     
     global INITIAL_PROMPT, OS_VERSION
     combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
-    print(combined_prompt)
 
     print("INFO: Generating response...")
     response = generate_text(combined_prompt)
@@ -887,7 +883,6 @@ def process_response(response):
     if user_output:
         # Store the output in the global variable
         LAST_OUTPUT = user_output
-        print(f"\n=== KiloBuddy Output ===\n{user_output}\n========================\n")
         show_overlay(user_output)
     
     if todo_list:
@@ -956,7 +951,8 @@ def user_call(command):
     # Check for dangerous commands
     tokens = shlex.split(command)
     exe = os.path.basename(tokens[0])
-    print(f"Command found: {exe}")
+    print(f"INFO: Command found: {exe}")
+    print(f"INFO: Attempting command: {command}")
     if exe.lower() in DANGEROUS_COMMANDS:
         print("WARNING: Dangerous command detected. Prompting for administrator confirmation.")
         
