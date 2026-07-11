@@ -196,3 +196,6 @@
 
 315 - Failed to start Ollama.
     This means that the script failed to start Ollama for local model generation. The app will not fail and may continue. Ollama may not be installed.
+
+316 - Failed to retrieve system scaling.
+    This means that the app failed to retrieve the scaling setting from the system. The app will not fail, but windows and window content may be scaled incorrectly.
