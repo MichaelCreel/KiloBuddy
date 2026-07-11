@@ -40,6 +40,7 @@ VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
 MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
 OLLAMA_THREAD = None # Thread to track Ollama process if managed
+WINDOW_SCALING = 1.0 # Scaling for the windows to match system scaling
 DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
 
 # Vosk Speech Recognition Variables
@@ -1076,11 +1077,11 @@ def show_overlay(text):
             light_font_path = os.path.join(base_dir, "StackSansText-Light.ttf")
             
             if os.path.exists(light_font_path):
-                overlay_font = ("StackSans Text Light", 14)
+                overlay_font = ("StackSans Text Light", int(14 * WINDOW_SCALING))
             else:
-                overlay_font = ("Helvetica", 14)
+                overlay_font = ("Helvetica", int(14 * WINDOW_SCALING))
         except Exception:
-            overlay_font = ("Helvetica", 14)
+            overlay_font = ("Helvetica", int(14 * WINDOW_SCALING))
         
         # Set window icon if icon.png exists
         if os.path.exists("icon.png"):
@@ -1095,11 +1096,11 @@ def show_overlay(text):
         root.lift()
         root.attributes("-alpha", 0.85)
         
-        char_width = 24
-        line_height = 40
-        max_width = 800
-        max_height = 600
-        padding = 20
+        char_width = int(24 * WINDOW_SCALING)
+        line_height = int(40 * WINDOW_SCALING)
+        max_width = int(800 * WINDOW_SCALING)
+        max_height = int(600 * WINDOW_SCALING)
+        padding = int(20 * WINDOW_SCALING)
 
         max_line_chars = max(len(line) for line in text.split("\n"))
         ideal_width = min(max_line_chars * char_width + padding, max_width)
@@ -1107,11 +1108,11 @@ def show_overlay(text):
         total_lines = sum(max(1, (len(line) + chars_per_line - 1) // chars_per_line) for line in text.split("\n"))
         ideal_height = min(total_lines * line_height + padding, max_height)
         
-        root.geometry(f"{int(ideal_width)}x{int(ideal_height)}+100+100")
+        root.geometry(f"{int(ideal_width)}x{int(ideal_height)}+{int(100 * WINDOW_SCALING)}+{int(100 * WINDOW_SCALING)}")
         
         frame = tk.Frame(root, bg="#131313", relief=tk.FLAT, borderwidth=0)
-        frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+        frame.pack(fill=tk.BOTH, expand=True, padx=int(5 * WINDOW_SCALING), pady=int(5 * WINDOW_SCALING))
+
         text_widget = tk.Text(frame, 
                              font=overlay_font, 
                              fg="white", 
@@ -1172,22 +1173,22 @@ def show_activation_indicator(duration=2600):
         overlay.attributes("-topmost", True)
         overlay.attributes("-alpha", 0.86)
 
-        width = 290
-        height = 70
-        overlay.geometry(f"{width}x{height}+18+18")
+        width = int(290 * WINDOW_SCALING)
+        height = int(70 * WINDOW_SCALING)
+        overlay.geometry(f"{width}x{height}+{int(18 * WINDOW_SCALING)}+{int(18 * WINDOW_SCALING)}")
         overlay.configure(bg="#131313")
 
         frame = tk.Frame(overlay, bg="#131313", relief=tk.FLAT, borderwidth=0)
-        frame.pack(fill="both", expand=True, padx=5, pady=5)
+        frame.pack(fill="both", expand=True, padx=int(5 * WINDOW_SCALING), pady=int(5 * WINDOW_SCALING))
 
-        canvas = tk.Canvas(frame, width=width - 10, height=height - 10, bg="#131313", highlightthickness=0, bd=0)
+        canvas = tk.Canvas(frame, width=width - int(10 * WINDOW_SCALING), height=height - int(10 * WINDOW_SCALING), bg="#131313", highlightthickness=0, bd=0)
         canvas.pack(fill="both", expand=True)
 
-        canvas.create_text(14, 18, anchor="nw", text="Listening", fill="#FFFFFF", font=("Helvetica", 12, "bold"))
+        canvas.create_text(int(14 * WINDOW_SCALING), int(18 * WINDOW_SCALING), anchor="nw", text="Listening", fill="#FFFFFF", font=("Helvetica", int(12 * WINDOW_SCALING), "bold"))
 
-        dot_centers = [width - 100, width - 72, width - 44]
+        dot_centers = [width - int(100 * WINDOW_SCALING), width - int(72 * WINDOW_SCALING), width - int(44 * WINDOW_SCALING)]
         for cx in dot_centers:
-            canvas.create_oval(cx - 7, height // 2 - 12, cx + 7, height // 2 + 6, fill="#4FA4FF", outline="")
+            canvas.create_oval(cx - int(7 * WINDOW_SCALING), height // 2 - int(12 * WINDOW_SCALING), cx + int(7 * WINDOW_SCALING), height // 2 + int(6 * WINDOW_SCALING), fill="#4FA4FF", outline="")
 
         def close_indicator(event=None):
             hide_activation_indicator()
@@ -1233,19 +1234,23 @@ class KiloBuddyDashboard:
         # Load StackSans fonts
         self.load_custom_fonts()
         
+        global WINDOW_SCALING
+
         # Font size variables
-        self.status_font_size = 28
-        self.button_font_size = 28
-        self.header_font_size = 38
-        self.text_font_size = 28
-        self.input_font_size = 28
+        self.status_font_size = int(28 * WINDOW_SCALING)
+        self.button_font_size = int(28 * WINDOW_SCALING)
+        self.header_font_size = int(38 * WINDOW_SCALING)
+        self.text_font_size = int(28 * WINDOW_SCALING)
+        self.input_font_size = int(28 * WINDOW_SCALING)
 
         global DASHBOARD_ROOT
         self.root = ctk.CTk()
         DASHBOARD_ROOT = self.root
         self.root.title("KiloBuddy")
-        self.root.geometry("1000x800")
-        self.root.minsize(900, 650)
+        scaled_w, scaled_h = int(1000 * WINDOW_SCALING), int(800 * WINDOW_SCALING)
+        self.root.geometry(f"{scaled_w}x{scaled_h}")
+        scaled_min_w, scaled_min_h = int(900 * WINDOW_SCALING), int(650 * WINDOW_SCALING)
+        self.root.minsize(scaled_min_w, scaled_min_h)
         self.root.resizable(True, True)
         self.root.configure(fg_color=self.background_color)
         self.root.protocol("WM_DELETE_WINDOW", self.close_dashboard)
@@ -1302,52 +1307,52 @@ class KiloBuddyDashboard:
         
     def setup_ui(self):
         button_frame = ctk.CTkFrame(self.root, fg_color="transparent")
-        button_frame.pack(fill="x", padx=20, pady=20)
+        button_frame.pack(fill="x", padx=int(20 * WINDOW_SCALING), pady=int(20 * WINDOW_SCALING))
 
         status_frame = ctk.CTkFrame(button_frame, fg_color="transparent")
         status_frame.pack(side="left")
 
         self.status_label = ctk.CTkLabel(status_frame, text="Status:", text_color="white", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.status_font_size))
-        self.status_label.pack(side="left", padx=(0, 10))
+        self.status_label.pack(side="left", padx=(0, int(10 * WINDOW_SCALING)))
 
-        self.status_canvas = tk.Canvas(status_frame, width=130, height=34, bg=self.background_color, highlightthickness=0, bd=0)
+        self.status_canvas = tk.Canvas(status_frame, width=int(130 * WINDOW_SCALING), height=int(34 * WINDOW_SCALING), bg=self.background_color, highlightthickness=0, bd=0)
         self.status_canvas.pack(side="left")
 
         self.status_lights = {
-            "green": self.status_canvas.create_oval(6, 6, 30, 30, fill="#2E7D32", outline=""),
-            "yellow": self.status_canvas.create_oval(46, 6, 70, 30, fill="#F9A825", outline=""),
-            "red": self.status_canvas.create_oval(86, 6, 110, 30, fill="#C62828", outline="")
+            "green": self.status_canvas.create_oval(int(6 * WINDOW_SCALING), int(6 * WINDOW_SCALING), int(30 * WINDOW_SCALING), int(30 * WINDOW_SCALING), fill="#2E7D32", outline=""),
+            "yellow": self.status_canvas.create_oval(int(46 * WINDOW_SCALING), int(6 * WINDOW_SCALING), int(70 * WINDOW_SCALING), int(30 * WINDOW_SCALING), fill="#F9A825", outline=""),
+            "red": self.status_canvas.create_oval(int(86 * WINDOW_SCALING), int(6 * WINDOW_SCALING), int(110 * WINDOW_SCALING), int(30 * WINDOW_SCALING), fill="#C62828", outline="")
         }
 
         self.set_status_lights("waiting")
 
-        quit_btn = ctk.CTkButton(button_frame, text="Stop KB", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=100, height=35)
+        quit_btn = ctk.CTkButton(button_frame, text="Stop KB", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=int(100 * WINDOW_SCALING), height=int(35 * WINDOW_SCALING))
         quit_btn.pack(side="right")
 
-        settings_btn = ctk.CTkButton(button_frame, text="Settings", command=self.open_settings_window, fg_color="#607d8b", hover_color="#546e7a", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=120, height=35)
-        settings_btn.pack(side="right", padx=(0, 10))
+        settings_btn = ctk.CTkButton(button_frame, text="Settings", command=self.open_settings_window, fg_color="#607d8b", hover_color="#546e7a", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=int(120 * WINDOW_SCALING), height=int(35 * WINDOW_SCALING))
+        settings_btn.pack(side="right", padx=(0, int(10 * WINDOW_SCALING)))
 
         output_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
-        output_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        output_frame.pack(fill="both", expand=True, padx=int(20 * WINDOW_SCALING), pady=int(10 * WINDOW_SCALING))
 
         text_frame = ctk.CTkFrame(output_frame, fg_color="transparent")
-        text_frame.pack(fill="both", expand=True, padx=15, pady=15)
-        
-        self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=10, height=300)
+        text_frame.pack(fill="both", expand=True, padx=int(15 * WINDOW_SCALING), pady=int(15 * WINDOW_SCALING))
+
+        self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=int(10 * WINDOW_SCALING), height=int(300 * WINDOW_SCALING))
         self.output_text.pack(fill="both", expand=True)
 
         self.update_output_display()
 
         input_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
-        input_frame.pack(fill="x", padx=20, pady=10)
-        
+        input_frame.pack(fill="x", padx=int(20 * WINDOW_SCALING), pady=int(10 * WINDOW_SCALING))
+
         input_container = ctk.CTkFrame(input_frame, fg_color="transparent")
-        input_container.pack(fill="x", padx=15, pady=15)
+        input_container.pack(fill="x", padx=int(15 * WINDOW_SCALING), pady=int(15 * WINDOW_SCALING))
 
-        self.command_entry = ctk.CTkEntry(input_container, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), fg_color=self.background_color, text_color="white", placeholder_text="Enter Command...", placeholder_text_color="#888888", corner_radius=10, height=40)
-        self.command_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.command_entry = ctk.CTkEntry(input_container, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), fg_color=self.background_color, text_color="white", placeholder_text="Enter Command...", placeholder_text_color="#888888", corner_radius=int(10 * WINDOW_SCALING), height=int(40 * WINDOW_SCALING))
+        self.command_entry.pack(side="left", fill="x", expand=True, padx=(0, int(10 * WINDOW_SCALING)))
 
-        send_btn = ctk.CTkButton(input_container, text="Send", command=self.send_command, fg_color="#2196F3", hover_color="#1976D2", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), width=100, height=40, corner_radius=10)
+        send_btn = ctk.CTkButton(input_container, text="Send", command=self.send_command, fg_color="#2196F3", hover_color="#1976D2", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), width=int(100 * WINDOW_SCALING), height=int(40 * WINDOW_SCALING), corner_radius=int(10 * WINDOW_SCALING))
         send_btn.pack(side="right")
         
         self.command_entry.bind('<Return>', lambda event: self.send_command())
@@ -1364,8 +1369,8 @@ class KiloBuddyDashboard:
             if self.tooltip_window is not None:
                 return
             
-            x = self.widget.winfo_rootx() + 40
-            y = self.widget.winfo_rooty() + 40
+            x = self.widget.winfo_rootx() + int(40 * WINDOW_SCALING)
+            y = self.widget.winfo_rooty() + int(40 * WINDOW_SCALING)
 
             self.tooltip_window = tw = ctk.CTkToplevel(self.widget)
             tw.wm_overrideredirect(True)
@@ -1375,7 +1380,7 @@ class KiloBuddyDashboard:
             label = ctk.CTkLabel(
                 tw,
                 text=self.text,
-                font=ctk.CTkFont(family="StackSans Text Light", size=20),
+                font=ctk.CTkFont(family="StackSans Text Light", size=int(20 * WINDOW_SCALING)),
                 text_color="white",
                 justify="left",
                 wraplength=300
@@ -1389,78 +1394,80 @@ class KiloBuddyDashboard:
 
     def open_settings_window(self):
         try:
+            global WINDOW_SCALING
             settings_window = ctk.CTkToplevel(self.root)
             settings_window.title("KiloBuddy Settings")
-            settings_window.geometry("620x930")
+            scaled_w, scaled_h = int(620 * WINDOW_SCALING), int(930 * WINDOW_SCALING)
+            settings_window.geometry(f"{scaled_w}x{scaled_h}")
             settings_window.configure(fg_color="#0B3147")
             settings_window.transient(self.root)
             settings_window.lift()
             settings_window.update_idletasks()
 
-            header = ctk.CTkLabel(settings_window, text="Settings", font=ctk.CTkFont(family=self.stacksans_medium_family, size=28), text_color="white")
-            header.pack(padx=20, pady=(20, 10), anchor="w")
+            header = ctk.CTkLabel(settings_window, text="Settings", font=ctk.CTkFont(family=self.stacksans_medium_family, size=int(28 * WINDOW_SCALING)), text_color="white")
+            header.pack(padx=int(20 * WINDOW_SCALING), pady=(int(20 * WINDOW_SCALING), int(10 * WINDOW_SCALING)), anchor="w")
 
-            form_frame = ctk.CTkFrame(settings_window, fg_color="#142A44", corner_radius=15)
-            form_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+            form_frame = ctk.CTkFrame(settings_window, fg_color="#142A44", corner_radius=int(15 * WINDOW_SCALING))
+            form_frame.pack(fill="both", expand=True, padx=int(20 * WINDOW_SCALING), pady=(0, int(20 * WINDOW_SCALING)))
 
             def make_label(entry_text):
-                return ctk.CTkLabel(form_frame, text=entry_text, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), text_color="white")
+                return ctk.CTkLabel(form_frame, text=entry_text, font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="white")
 
             pref_label = make_label("AI Provider Preference")
-            pref_label.pack(anchor="w", padx=20, pady=(20, 4))
-            pref_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
+            pref_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(20 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            pref_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
             pref_entry.insert(0, AI_PREFERENCE)
-            pref_entry.pack(padx=20, pady=(0, 10))
+            pref_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 pref_entry,
                 "Enter the order of your preferred AI providers, separated by commas.\nEx: gemini, chatgpt, claude\n\nFor Ollama models, enter the model name as it appears in the Ollama list.\nEx: llama3.18B, phi3:mini"
             )
 
             wake_label = make_label("Wake Word")
-            wake_label.pack(anchor="w", padx=20, pady=(10, 4))
-            wake_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="computer")
+            wake_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            wake_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="computer")
             wake_entry.insert(0, WAKE_WORD)
-            wake_entry.pack(padx=20, pady=(0, 10))
+            wake_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 wake_entry,
                 "Enter the wake word that KiloBuddy will listen for to activate.\n\nMust be lowercase."
             )
 
             timeout_label = make_label("API Timeout (seconds)")
-            timeout_label.pack(anchor="w", padx=20, pady=(10, 4))
-            timeout_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="15")
+            timeout_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            timeout_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="15")
             timeout_entry.insert(0, str(API_TIMEOUT))
-            timeout_entry.pack(padx=20, pady=(0, 10))
+            timeout_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 timeout_entry,
                 "Enter the maximum time (in seconds) to wait for an AI provider to respond.\n\nIf your models keep timing out, increase this value.\n\nMust be an integer between 5 and 120 (no decimals)."
             )
 
             gemini_label = make_label("Gemini API Key")
-            gemini_label.pack(anchor="w", padx=20, pady=(10, 4))
-            gemini_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
+            gemini_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            gemini_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
             gemini_entry.insert(0, GEMINI_API_KEY)
-            gemini_entry.pack(padx=20, pady=(0, 10))
+            gemini_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 gemini_entry,
                 "Enter your Gemini API key.\n\nThis key allows the app to interact with Google/Gemini and generate responses."
             )
 
             chatgpt_label = make_label("ChatGPT API Key")
-            chatgpt_label.pack(anchor="w", padx=20, pady=(10, 4))
-            chatgpt_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
+            chatgpt_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            chatgpt_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
             chatgpt_entry.insert(0, CHATGPT_API_KEY)
-            chatgpt_entry.pack(padx=20, pady=(0, 10))
+            chatgpt_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 chatgpt_entry,
                 "Enter your ChatGPT API key.\n\nThis key allows the app to interact with OpenAI/ChatGPT and generate responses."
             )
 
             claude_label = make_label("Claude API Key")
-            claude_label.pack(anchor="w", padx=20, pady=(10, 4))
-            claude_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
+            claude_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            claude_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
             claude_entry.insert(0, CLAUDE_API_KEY)
-            claude_entry.pack(padx=20, pady=(0, 10))
+            claude_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 claude_entry,
                 "Enter your Claude API key.\n\nThis key allows the app to interact with Anthropic/Claude and generate responses."
@@ -1468,16 +1475,16 @@ class KiloBuddyDashboard:
 
             manage_ollama_var = ctk.BooleanVar(value=MANAGE_OLLAMA)
             manage_ollama_label = make_label("Manage Ollama")
-            manage_ollama_label.pack(anchor="w", padx=20, pady=(10, 4))
-            manage_ollama_checkbox = ctk.CTkCheckBox(form_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = 24), text_color="white")
-            manage_ollama_checkbox.pack(anchor="w", padx=20, pady=(0, 10))
+            manage_ollama_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            manage_ollama_checkbox = ctk.CTkCheckBox(form_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = int(24 * WINDOW_SCALING)), text_color="white")
+            manage_ollama_checkbox.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 manage_ollama_checkbox,
                 "When enabled, KiloBuddy will manage startup and shutdown of Ollama when it is not already running.\n\nWhen disabled, KiloBuddy will not manage Ollama and will assume it is already running.\n\nIgnore this setting if you are not using local models."
             )
 
-            status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=28), text_color="#FFEE58")
-            status_label.pack(anchor="w", padx=20, pady=(10, 0))
+            status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
+            status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), 0))
 
             def save_and_close():
                 preference_value = pref_entry.get().strip().lower()
@@ -1533,14 +1540,14 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Failed to save settings.", text_color="#EF9A9A")
 
             button_row = ctk.CTkFrame(settings_window, fg_color="transparent")
-            button_row.pack(fill="x", padx=20, pady=(0, 20))
+            button_row.pack(fill="x", padx=int(20 * WINDOW_SCALING), pady=(0, int(20 * WINDOW_SCALING)))
 
-            button_font = ("StackSans Text Light", 28)
+            button_font = ("StackSans Text Light", int(28 * WINDOW_SCALING))
 
-            save_btn = ctk.CTkButton(button_row, text="Save", command=save_and_close, fg_color="#4CAF50", hover_color="#43A047", width=120, height=40, font=button_font)
-            save_btn.pack(side="right", padx=(0, 10))
+            save_btn = ctk.CTkButton(button_row, text="Save", command=save_and_close, fg_color="#4CAF50", hover_color="#43A047", width=int(120 * WINDOW_SCALING), height=int(40 * WINDOW_SCALING), font=button_font)
+            save_btn.pack(side="right", padx=(0, int(10 * WINDOW_SCALING)))
 
-            close_btn = ctk.CTkButton(button_row, text="Close", command=settings_window.destroy, fg_color="#666666", hover_color="#555555", width=120, height=40, font=button_font)
+            close_btn = ctk.CTkButton(button_row, text="Close", command=settings_window.destroy, fg_color="#666666", hover_color="#555555", width=int(120 * WINDOW_SCALING), height=int(40 * WINDOW_SCALING), font=button_font)
             close_btn.pack(side="right")
 
             settings_window.grab_set()
@@ -2056,6 +2063,22 @@ def start_voice_listening():
     VOICE_THREAD.start()
     return VOICE_THREAD
 
+# Retrieves the system scaling and returns a scaling factor
+def populate_scaling():
+    global WINDOW_SCALING
+    try:
+        from PyQt5.QtWidgets import QApplication
+        app = QApplication([])
+        screen = app.primaryScreen()
+        logical_dpi = screen.logicalDotsPerInch()
+        app.quit()
+        base_dpi = 192.0 # Logical DPI the interface was designed for
+        WINDOW_SCALING = logical_dpi / base_dpi
+        print(f"INFO: Scaling factor applied: {WINDOW_SCALING:.2f} (Logical DPI: {logical_dpi})")
+    except Exception as e:
+        print(f"WARNING: Failed to retrieve system scaling: {e}\nWARN 316")
+        WINDOW_SCALING = 1.0
+
 if __name__ == "__main__":
     if is_kilobuddy_running():
         print("INFO: Opening dashboard...")
@@ -2065,6 +2088,9 @@ if __name__ == "__main__":
         create_lock_file()
         
         signal.signal(signal.SIGINT, handle_signal)
+
+        # Detect scaling used for windows
+        populate_scaling()
         
         # Start voice listening in background thread
         print("INFO: Starting voice assistant in background...")
