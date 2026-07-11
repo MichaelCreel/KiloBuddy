@@ -25,6 +25,9 @@ import requests
 import shlex
 from pathlib import Path
 
+LOG_PATH = os.path.join(tempfile.gettempdir(), "kilobuddy.log") # Path to log file
+MAX_LOG_SIZE = 1 * 1024 * 1024
+
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 CHATGPT_API_KEY = "" # API Key for calling ChatGPT API, loaded from chatgpt_api_key file
@@ -2079,11 +2082,30 @@ def populate_scaling():
         print(f"WARNING: Failed to retrieve system scaling: {e}\nWARN 316")
         WINDOW_SCALING = 1.0
 
+class LogRedirector:
+    def __init__(self, path):
+        self.path = path
+    
+    def write(self, message):
+        if message.strip():
+            with open(self.path, "a", encoding="utf-8") as f:
+                f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+
+    def flush(self):
+        pass
+
+    def rotate_if_needed(self):
+        if os.path.exists(self.path) and os.path.getsize(self.path) > MAX_LOG_SIZE:
+            os.rename(self.path, self.path + ".old")
+
 if __name__ == "__main__":
     if is_kilobuddy_running():
         print("INFO: Opening dashboard...")
         show_dashboard()
     else:
+        sys.stdout = LogRedirector(LOG_PATH)
+        sys.stderr = LogRedirector(LOG_PATH)
+
         print("INFO: Launching KiloBuddy...")
         create_lock_file()
         
