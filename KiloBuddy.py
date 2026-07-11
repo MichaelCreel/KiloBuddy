@@ -1711,7 +1711,6 @@ def stop_remote_kilobuddy(pid):
     except Exception:
         return False
 
-
 def request_kilobuddy_stop():
     pid = get_kilobuddy_pid()
     if pid and pid != os.getpid():
@@ -1724,29 +1723,19 @@ def request_kilobuddy_stop():
     stop_ollama()
     cleanup_lock_file()
     global audio_stream, VOICE_THREAD
-    if audio_stream:
-        try:
-            if hasattr(audio_stream, 'abort_stream'):
-                audio_stream.abort_stream()
-        except:
-            pass
-        try:
-            audio_stream.stop()
-        except:
-            pass
-        try:
-            audio_stream.close()
-        except:
-            pass
-
     if VOICE_THREAD is not None and VOICE_THREAD.is_alive():
         print("INFO: Waiting for voice thread to exit...")
         VOICE_THREAD.join(timeout=3)
         if VOICE_THREAD.is_alive():
             print("INFO: Voice thread did not exit cleanly, forcing process termination.")
             os._exit(0)
+    if audio_stream:
+        try:
+            audio_stream.stop()
+            audio_stream.close()
+        except Exception as e:
+            print(f"ERROR: Failed to stop audio stream: {e} \nERROR 117")
     return True
-
 
 def create_lock_file():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
