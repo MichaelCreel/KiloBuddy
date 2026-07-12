@@ -9,7 +9,7 @@
 2 - Failed to initialize KiloBuddy.
     This means that the script experienced an error while initializing necessary assets for the app. The app will quit.
 
-# ERRORS (101-300 : MISS 117, 120, 123)
+# ERRORS (101-300 : MISS 120, 123)
 
 101 - Invalid update type in file.
     This means that the script read a string from 'updates' that was not 'release' or 'pre-release'. The app will fallback to the type 'release' and will not fail. The file contains a string that is incorrectly formatted.
@@ -58,6 +58,9 @@
 
 116 - Failed to parse Gemini API key.
     This means that the script had an unknown error reading the Gemini API key from 'settings'. The app will not fail, but will be unable to use Gemini.
+
+117 - Failed to stop audio stream.
+    This means that the script had an unknown error while trying to stop the audio stream used for voice recognition.
 
 118 - Invalid ChatGPT API key format.
     This means that the script read a string from 'settings' that was not a valid API key for ChatGPT. The app will not fail, but will be unable to use ChatGPT.
@@ -196,3 +199,6 @@
 
 315 - Failed to start Ollama.
     This means that the script failed to start Ollama for local model generation. The app will not fail and may continue. Ollama may not be installed.
+
+316 - Failed to retrieve system scaling.
+    This means that the app failed to retrieve the scaling setting from the system. The app will not fail, but windows and window content may be scaled incorrectly.

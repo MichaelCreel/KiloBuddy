@@ -3,13 +3,13 @@
 import psutil
 from vosk import Model, KaldiRecognizer
 import json
-import pyaudio
+import sounddevice as sd
 import re
 import os
 import sys
 import platform
 import signal
-import google.generativeai as genai
+import google.genai as genai
 import threading
 import time
 import subprocess
@@ -23,6 +23,16 @@ import openai
 import anthropic
 import requests
 import shlex
+from pathlib import Path
+
+# Redefine app identification
+if platform.system() == "Windows":
+    import ctypes
+    myappid = 'mc.kilobuddy.app'
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+LOG_PATH = os.path.join(tempfile.gettempdir(), "kilobuddy.log") # Path to log file
+MAX_LOG_SIZE = 1 * 1024 * 1024
 
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
@@ -39,6 +49,7 @@ VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
 MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
 OLLAMA_THREAD = None # Thread to track Ollama process if managed
+WINDOW_SCALING = 1.0 # Scaling for the windows to match system scaling
 DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
 
 # Vosk Speech Recognition Variables
@@ -47,10 +58,15 @@ vosk_rec = None
 audio_stream = None
 STOP_EVENT = threading.Event()
 VOICE_THREAD = None
+
+# Interface Variables
 DASHBOARD_ROOT = None
 ACTIVE_OVERLAY = {
-    "popup": None,
-    "lock": threading.Lock()
+    "lock": threading.Lock(),
+    "is_active": False,
+    "request_stop": False,
+    "text": "Listening",
+    "color": "#4FA4FF",
 }
 
 def get_kilobuddy_pid():
@@ -91,8 +107,14 @@ def init_vosk():
             return False
         vosk_model = Model(model_path)
         vosk_rec = KaldiRecognizer(vosk_model, 16000)
-        p = pyaudio.PyAudio()
-        audio_stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8192)
+
+        audio_stream = sd.RawInputStream(
+            samplerate = 16000,
+            channels = 1,
+            dtype = "int16",
+            blocksize = 4096
+        )
+        audio_stream.start()
         return True
     except Exception as e:
         print(f"ERROR: Failed to initialize Vosk: {e}")
@@ -732,10 +754,15 @@ def gemini_generate(input_prompt):
         if timeout_triggered.is_set():
             return
         try:
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            response = model.generate_content(input_prompt)
-            if not timeout_triggered.is_set() and response.text:
-                result["text"] = response.text.strip()
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            interaction = client.interactions.create(
+                model="gemini-3.5-flash",
+                input=input_prompt,
+            )
+            response = interaction.output_text
+
+            if not timeout_triggered.is_set() and response:
+                result["text"] = response.strip()
         except Exception as e:
             if not timeout_triggered.is_set():
                 print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
@@ -770,16 +797,10 @@ def listen_for_wake_word():
     
     print(f"INFO: Listening for wake word ('{WAKE_WORD}')...")
 
-    last_heartbeat = time.time()
     while not STOP_EVENT.is_set():
         try:
-            current_time = time.time()
-            if current_time - last_heartbeat >= 5:
-                print("INFO: Voice thread running and listening")
-                last_heartbeat = current_time
-
-            data = audio_stream.read(4096, exception_on_overflow=False)
-            if vosk_rec.AcceptWaveform(data):
+            data, overflow = audio_stream.read(4096)
+            if vosk_rec.AcceptWaveform(bytes(data)):
                 result = json.loads(vosk_rec.Result())
                 text = result.get('text', '').lower()
                 if text:
@@ -805,26 +826,34 @@ def listen_for_command():
     global vosk_rec, audio_stream
     
     print(f"INFO: Listening for command...")
-    show_activation_indicator(0)
+    show_status_indicator("Listening")
     try:
         vosk_rec.Reset()
         timeout_start = time.time()
-        timeout_duration = 10
-        
-        while time.time() - timeout_start < timeout_duration and not STOP_EVENT.is_set():
-            data = audio_stream.read(4096, exception_on_overflow=False)
-            if vosk_rec.AcceptWaveform(data):
-                result = json.loads(vosk_rec.Result())
-                command = result.get('text', '')
-                if command.strip():
-                    print(f"INFO: Command received: {command}")
-                    return command
+        timeout_duration = 3.5
+        last_speech_time = time.time()
+        accepted_text = ""
+        full_command = ""
+
+        while time.time() - last_speech_time < timeout_duration:
+            data, overflow = audio_stream.read(4096)
+            if vosk_rec.AcceptWaveform(bytes(data)):
+                result = json.loads(vosk_rec.Result()).get('text', '')
+                if result:
+                    accepted_text = result.strip()
+                    full_command += " " + accepted_text
+                    last_speech_time = time.time()
+            else:
+                partial = json.loads(vosk_rec.PartialResult()).get("partial", "")
+                new_speech = partial[len(accepted_text):].strip() if partial.startswith(accepted_text) else partial
+                # Only treat partial as speech if it contains alphabetic characters
+                if any(c.isalpha() for c in partial):
+                    last_speech_time = time.time()
         
         if STOP_EVENT.is_set():
             return None
 
-        final_result = json.loads(vosk_rec.FinalResult())
-        command = final_result.get('text', '')
+        command = full_command
         if command.strip():
             print(f"INFO: Command received: {command}")
             return command
@@ -838,7 +867,7 @@ def listen_for_command():
         print(f"ERROR: Failed to listen for command: {e}\nERROR 135")
         return None
     finally:
-        hide_activation_indicator()
+        hide_status_indicator()
 
 # Process Command
 def process_command(command):
@@ -846,15 +875,17 @@ def process_command(command):
         print("INFO: No command to process.")
         return
     
-    global INITIAL_PROMPT
-    global OS_VERSION
-    combined_prompt = f"OS: {OS_VERSION}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
+    global INITIAL_PROMPT, OS_VERSION
+    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
 
     print("INFO: Generating response...")
+    show_status_indicator("Processing", "#00FF22")
     response = generate_text(combined_prompt)
     if response:
+        hide_status_indicator()
         process_response(response)
     else:
+        hide_status_indicator()
         print("ERROR: No response generated.\nERROR 136")
 
 def process_response(response):
@@ -871,7 +902,6 @@ def process_response(response):
     if user_output:
         # Store the output in the global variable
         LAST_OUTPUT = user_output
-        print(f"\n=== KiloBuddy Output ===\n{user_output}\n========================\n")
         show_overlay(user_output)
     
     if todo_list:
@@ -932,6 +962,8 @@ def update_status(todo_list, current_step):
 def user_call(command):
     global PREVIOUS_COMMAND_OUTPUT, LAST_OUTPUT, OS_VERSION
     
+    show_status_indicator("Executing", "#00FF22")
+
     # Replace $LAST_OUTPUT with the actual Gemini output
     if "$LAST_OUTPUT" in command:
         command = command.replace("$LAST_OUTPUT", LAST_OUTPUT)
@@ -940,7 +972,8 @@ def user_call(command):
     # Check for dangerous commands
     tokens = shlex.split(command)
     exe = os.path.basename(tokens[0])
-    print(f"Command found: {exe}")
+    print(f"INFO: Command found: {exe}")
+    print(f"INFO: Attempting command: {command}")
     if exe.lower() in DANGEROUS_COMMANDS:
         print("WARNING: Dangerous command detected. Prompting for administrator confirmation.")
         
@@ -957,17 +990,21 @@ def user_call(command):
                 
                 result = subprocess.run(["pkexec", "bash", "-c", expanded_command], capture_output=True, text=True, timeout=45)
                 if result.returncode == 0:
+                    hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
                 else:
+                    hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
                 return
             except subprocess.TimeoutExpired:
+                hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
                 return
             except Exception as e:
+                hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}\nERROR 141")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
                 return
@@ -985,17 +1022,21 @@ def user_call(command):
                 
                 result = subprocess.run(["sudo", "bash", "-c", expanded_command], capture_output=True, text=True, timeout=45)
                 if result.returncode == 0:
+                    hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
                 else:
+                    hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
                 return
             except subprocess.TimeoutExpired:
+                hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
                 return
             except Exception as e:
+                hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
                 return
@@ -1014,26 +1055,32 @@ def user_call(command):
                 ps_command = f'Start-Process -FilePath "cmd" -ArgumentList "/c {expanded_command}" -Verb RunAs -Wait -PassThru'
                 result = subprocess.run(["powershell", "-Command", ps_command], capture_output=True, text=True, timeout=45)
                 if result.returncode == 0:
+                    hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
                 else:
+                    hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
                 return
             except subprocess.TimeoutExpired:
+                hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
                 return
             except Exception as e:
+                hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
                 return
         
         else:
+            hide_status_indicator()
             print("WARNING: Unknown operating system. Running dangerous command without elevation.")
     
     print(f"INFO: Running USER command: {command}")
     result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
+    hide_status_indicator()
     PREVIOUS_COMMAND_OUTPUT = result.stdout
 
 # AI Call Method
@@ -1064,11 +1111,11 @@ def show_overlay(text):
             light_font_path = os.path.join(base_dir, "StackSansText-Light.ttf")
             
             if os.path.exists(light_font_path):
-                overlay_font = ("StackSans Text Light", 14)
+                overlay_font = ("StackSans Text Light", int(14 * WINDOW_SCALING))
             else:
-                overlay_font = ("Helvetica", 14)
+                overlay_font = ("Helvetica", int(14 * WINDOW_SCALING))
         except Exception:
-            overlay_font = ("Helvetica", 14)
+            overlay_font = ("Helvetica", int(14 * WINDOW_SCALING))
         
         # Set window icon if icon.png exists
         if os.path.exists("icon.png"):
@@ -1083,11 +1130,11 @@ def show_overlay(text):
         root.lift()
         root.attributes("-alpha", 0.85)
         
-        char_width = 24
-        line_height = 40
-        max_width = 800
-        max_height = 600
-        padding = 20
+        char_width = int(24 * WINDOW_SCALING)
+        line_height = int(40 * WINDOW_SCALING)
+        max_width = int(800 * WINDOW_SCALING)
+        max_height = int(600 * WINDOW_SCALING)
+        padding = int(20 * WINDOW_SCALING)
 
         max_line_chars = max(len(line) for line in text.split("\n"))
         ideal_width = min(max_line_chars * char_width + padding, max_width)
@@ -1095,11 +1142,11 @@ def show_overlay(text):
         total_lines = sum(max(1, (len(line) + chars_per_line - 1) // chars_per_line) for line in text.split("\n"))
         ideal_height = min(total_lines * line_height + padding, max_height)
         
-        root.geometry(f"{int(ideal_width)}x{int(ideal_height)}+100+100")
+        root.geometry(f"{int(ideal_width)}x{int(ideal_height)}+{int(100 * WINDOW_SCALING)}+{int(100 * WINDOW_SCALING)}")
         
         frame = tk.Frame(root, bg="#131313", relief=tk.FLAT, borderwidth=0)
-        frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+        frame.pack(fill=tk.BOTH, expand=True, padx=int(5 * WINDOW_SCALING), pady=int(5 * WINDOW_SCALING))
+
         text_widget = tk.Text(frame, 
                              font=overlay_font, 
                              fg="white", 
@@ -1139,74 +1186,121 @@ def show_overlay(text):
 
     threading.Thread(target=open_overlay).start()
 
+def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
+    with ACTIVE_OVERLAY["lock"]:
+        # Update the target state
+        ACTIVE_OVERLAY["text"] = text
+        ACTIVE_OVERLAY["color"] = dot_color
+        ACTIVE_OVERLAY["request_stop"] = False
 
-ACTIVE_OVERLAY = {
-    "window": None,
-    "lock": threading.Lock()
-}
-
-
-def show_activation_indicator(duration=2600):
-    if DASHBOARD_ROOT is None:
-        return
+        # If the window is already running, we just let it pick up the new text/color
+        if ACTIVE_OVERLAY["is_active"]:
+            return
+        
+        # Otherwise, mark it active and start the thread
+        ACTIVE_OVERLAY["is_active"] = True
 
     def create_indicator():
-        with ACTIVE_OVERLAY["lock"]:
-            if ACTIVE_OVERLAY["window"] is not None:
-                return
+        # Notice we removed Toplevel and withdraw(); this exactly mimics your stable show_overlay logic
+        root = tk.Tk()
+        root.title("KB Status")
+        root.overrideredirect(True)
+        root.attributes("-topmost", True)
+        root.attributes("-alpha", 0.86)
+        root.configure(bg="#131313")
+        root.lift()
 
-        overlay = tk.Toplevel(DASHBOARD_ROOT)
-        overlay.overrideredirect(True)
-        overlay.attributes("-topmost", True)
-        overlay.attributes("-alpha", 0.86)
+        font_obj = tkFont.Font(
+            root=root,
+            family="Helvetica",
+            size=int(12 * WINDOW_SCALING),
+            weight="bold"
+        )
+        
+        frame = tk.Frame(root, bg="#131313")
+        frame.pack(fill="both", expand=True)
 
-        width = 290
-        height = 70
-        overlay.geometry(f"{width}x{height}+18+18")
-        overlay.configure(bg="#131313")
-
-        frame = tk.Frame(overlay, bg="#131313", relief=tk.FLAT, borderwidth=0)
-        frame.pack(fill="both", expand=True, padx=5, pady=5)
-
-        canvas = tk.Canvas(frame, width=width - 10, height=height - 10, bg="#131313", highlightthickness=0, bd=0)
+        canvas = tk.Canvas(frame, bg="#131313", highlightthickness=0)
         canvas.pack(fill="both", expand=True)
 
-        canvas.create_text(14, 18, anchor="nw", text="Listening", fill="#FFFFFF", font=("Helvetica", 12, "bold"))
+        # Initialize empty canvas items
+        text_id = canvas.create_text(
+            int(14 * WINDOW_SCALING),
+            int(18 * WINDOW_SCALING),
+            anchor="nw",
+            text="",
+            fill="#FFFFFF",
+            font=font_obj
+        )
 
-        dot_centers = [width - 100, width - 72, width - 44]
-        for cx in dot_centers:
-            canvas.create_oval(cx - 7, height // 2 - 12, cx + 7, height // 2 + 6, fill="#4FA4FF", outline="")
+        dot_ids = []
+        for _ in range(3):
+            dot = canvas.create_oval(0, 0, 0, 0, fill="#FFFFFF", outline="")
+            dot_ids.append(dot)
 
-        def close_indicator(event=None):
-            hide_activation_indicator()
+        def update_loop():
+            with ACTIVE_OVERLAY["lock"]:
+                should_stop = ACTIVE_OVERLAY["request_stop"]
+                
+                # If we are stopping, immediately mark the thread as dead before releasing the lock
+                # This prevents race conditions if show() is called a millisecond later
+                if should_stop:
+                    ACTIVE_OVERLAY["is_active"] = False
+                else:
+                    current_text = ACTIVE_OVERLAY["text"]
+                    current_color = ACTIVE_OVERLAY["color"]
 
-        overlay.bind("<Button-1>", close_indicator)
-        overlay.bind("<Escape>", close_indicator)
-
-        with ACTIVE_OVERLAY["lock"]:
-            ACTIVE_OVERLAY["window"] = overlay
-
-        if duration > 0:
-            overlay.after(duration, hide_activation_indicator)
-
-    DASHBOARD_ROOT.after(0, create_indicator)
-
-
-def hide_activation_indicator():
-    if DASHBOARD_ROOT is None:
-        return
-
-    def destroy_indicator():
-        with ACTIVE_OVERLAY["lock"]:
-            window = ACTIVE_OVERLAY.get("window")
-            if window is not None and window.winfo_exists():
+            if should_stop:
                 try:
-                    window.destroy()
-                except:
+                    root.destroy()
+                except Exception:
                     pass
-            ACTIVE_OVERLAY["window"] = None
+                return
 
-    DASHBOARD_ROOT.after(0, destroy_indicator)
+            # Dynamically measure and calculate sizes based on current text
+            text_width = font_obj.measure(current_text)
+            padding = int(40 * WINDOW_SCALING)
+            dot_cluster_width = int(90 * WINDOW_SCALING)
+            min_width = int(290 * WINDOW_SCALING)
+            width = max(min_width, text_width + padding + dot_cluster_width)
+            height = int(70 * WINDOW_SCALING)
+
+            # Instantly snap the window to the new correct size
+            root.geometry(f"{width}x{height}+{int(18 * WINDOW_SCALING)}+{int(18 * WINDOW_SCALING)}")
+            canvas.config(width=width, height=height)
+
+            # Update the text widget
+            canvas.itemconfig(text_id, text=current_text)
+
+            # Update the dot placements and colors
+            dot_centers = [
+                width - int(100 * WINDOW_SCALING),
+                width - int(72 * WINDOW_SCALING),
+                width - int(44 * WINDOW_SCALING)
+            ]
+
+            for i, cx in enumerate(dot_centers):
+                canvas.coords(
+                    dot_ids[i],
+                    cx - int(7 * WINDOW_SCALING),
+                    height // 2 - int(12 * WINDOW_SCALING),
+                    cx + int(7 * WINDOW_SCALING),
+                    height // 2 + int(6 * WINDOW_SCALING)
+                )
+                canvas.itemconfig(dot_ids[i], fill=current_color)
+
+            # Loop every 50ms to check for state changes
+            root.after(50, update_loop)
+
+        # Call the update loop immediately to build the initial layout
+        update_loop()
+        root.mainloop()
+
+    threading.Thread(target=create_indicator, daemon=True).start()
+
+def hide_status_indicator():
+    with ACTIVE_OVERLAY["lock"]:
+        ACTIVE_OVERLAY["request_stop"] = True
 
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
@@ -1221,22 +1315,44 @@ class KiloBuddyDashboard:
         # Load StackSans fonts
         self.load_custom_fonts()
         
+        global WINDOW_SCALING
+
         # Font size variables
-        self.status_font_size = 28
-        self.button_font_size = 28
-        self.header_font_size = 38
-        self.text_font_size = 28
-        self.input_font_size = 28
+        self.status_font_size = int(28 * WINDOW_SCALING)
+        self.button_font_size = int(28 * WINDOW_SCALING)
+        self.header_font_size = int(38 * WINDOW_SCALING)
+        self.text_font_size = int(28 * WINDOW_SCALING)
+        self.input_font_size = int(28 * WINDOW_SCALING)
 
         global DASHBOARD_ROOT
         self.root = ctk.CTk()
         DASHBOARD_ROOT = self.root
         self.root.title("KiloBuddy")
-        self.root.geometry("1000x800")
-        self.root.minsize(900, 650)
+        scaled_w, scaled_h = int(1000 * WINDOW_SCALING), int(800 * WINDOW_SCALING)
+        self.root.geometry(f"{scaled_w}x{scaled_h}")
+        scaled_min_w, scaled_min_h = int(900 * WINDOW_SCALING), int(650 * WINDOW_SCALING)
+        self.root.minsize(scaled_min_w, scaled_min_h)
         self.root.resizable(True, True)
         self.root.configure(fg_color=self.background_color)
         self.root.protocol("WM_DELETE_WINDOW", self.close_dashboard)
+
+        def apply_taskbar_icon():
+            ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
+            if os.path.exists(ico_path):
+                try:
+                    self.root.iconbitmap(ico_path)
+                except Exception as e:
+                    print(f"Window error: {e}")
+                    pass
+
+        self.root.after(0, apply_taskbar_icon)
+
+        ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
+        if os.path.exists(ico_path):
+            try:
+                self.root.iconbitmap(ico_path)
+            except Exception:
+                pass
 
         if os.path.exists("icon.png"):
             try:
@@ -1272,52 +1388,52 @@ class KiloBuddyDashboard:
         
     def setup_ui(self):
         button_frame = ctk.CTkFrame(self.root, fg_color="transparent")
-        button_frame.pack(fill="x", padx=20, pady=20)
+        button_frame.pack(fill="x", padx=int(20 * WINDOW_SCALING), pady=int(20 * WINDOW_SCALING))
 
         status_frame = ctk.CTkFrame(button_frame, fg_color="transparent")
         status_frame.pack(side="left")
 
         self.status_label = ctk.CTkLabel(status_frame, text="Status:", text_color="white", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.status_font_size))
-        self.status_label.pack(side="left", padx=(0, 10))
+        self.status_label.pack(side="left", padx=(0, int(10 * WINDOW_SCALING)))
 
-        self.status_canvas = tk.Canvas(status_frame, width=130, height=34, bg=self.background_color, highlightthickness=0, bd=0)
+        self.status_canvas = tk.Canvas(status_frame, width=int(130 * WINDOW_SCALING), height=int(34 * WINDOW_SCALING), bg=self.background_color, highlightthickness=0, bd=0)
         self.status_canvas.pack(side="left")
 
         self.status_lights = {
-            "green": self.status_canvas.create_oval(6, 6, 30, 30, fill="#2E7D32", outline=""),
-            "yellow": self.status_canvas.create_oval(46, 6, 70, 30, fill="#F9A825", outline=""),
-            "red": self.status_canvas.create_oval(86, 6, 110, 30, fill="#C62828", outline="")
+            "green": self.status_canvas.create_oval(int(6 * WINDOW_SCALING), int(6 * WINDOW_SCALING), int(30 * WINDOW_SCALING), int(30 * WINDOW_SCALING), fill="#2E7D32", outline=""),
+            "yellow": self.status_canvas.create_oval(int(46 * WINDOW_SCALING), int(6 * WINDOW_SCALING), int(70 * WINDOW_SCALING), int(30 * WINDOW_SCALING), fill="#F9A825", outline=""),
+            "red": self.status_canvas.create_oval(int(86 * WINDOW_SCALING), int(6 * WINDOW_SCALING), int(110 * WINDOW_SCALING), int(30 * WINDOW_SCALING), fill="#C62828", outline="")
         }
 
         self.set_status_lights("waiting")
 
-        quit_btn = ctk.CTkButton(button_frame, text="Stop KB", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=100, height=35)
+        quit_btn = ctk.CTkButton(button_frame, text="Stop KB", command=self.quit_kilobuddy, fg_color="#f44336", hover_color="#d32f2f", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=int(100 * WINDOW_SCALING), height=int(35 * WINDOW_SCALING))
         quit_btn.pack(side="right")
 
-        settings_btn = ctk.CTkButton(button_frame, text="Settings", command=self.open_settings_window, fg_color="#607d8b", hover_color="#546e7a", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=120, height=35)
-        settings_btn.pack(side="right", padx=(0, 10))
+        settings_btn = ctk.CTkButton(button_frame, text="Settings", command=self.open_settings_window, fg_color="#607d8b", hover_color="#546e7a", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.button_font_size), width=int(120 * WINDOW_SCALING), height=int(35 * WINDOW_SCALING))
+        settings_btn.pack(side="right", padx=(0, int(10 * WINDOW_SCALING)))
 
         output_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
-        output_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        output_frame.pack(fill="both", expand=True, padx=int(20 * WINDOW_SCALING), pady=int(10 * WINDOW_SCALING))
 
         text_frame = ctk.CTkFrame(output_frame, fg_color="transparent")
-        text_frame.pack(fill="both", expand=True, padx=15, pady=15)
-        
-        self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=10, height=300)
+        text_frame.pack(fill="both", expand=True, padx=int(15 * WINDOW_SCALING), pady=int(15 * WINDOW_SCALING))
+
+        self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=int(10 * WINDOW_SCALING), height=int(300 * WINDOW_SCALING))
         self.output_text.pack(fill="both", expand=True)
 
         self.update_output_display()
 
         input_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
-        input_frame.pack(fill="x", padx=20, pady=10)
-        
+        input_frame.pack(fill="x", padx=int(20 * WINDOW_SCALING), pady=int(10 * WINDOW_SCALING))
+
         input_container = ctk.CTkFrame(input_frame, fg_color="transparent")
-        input_container.pack(fill="x", padx=15, pady=15)
+        input_container.pack(fill="x", padx=int(15 * WINDOW_SCALING), pady=int(15 * WINDOW_SCALING))
 
-        self.command_entry = ctk.CTkEntry(input_container, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), fg_color=self.background_color, text_color="white", placeholder_text="Enter Command...", placeholder_text_color="#888888", corner_radius=10, height=40)
-        self.command_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.command_entry = ctk.CTkEntry(input_container, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), fg_color=self.background_color, text_color="white", placeholder_text="Enter Command...", placeholder_text_color="#888888", corner_radius=int(10 * WINDOW_SCALING), height=int(40 * WINDOW_SCALING))
+        self.command_entry.pack(side="left", fill="x", expand=True, padx=(0, int(10 * WINDOW_SCALING)))
 
-        send_btn = ctk.CTkButton(input_container, text="Send", command=self.send_command, fg_color="#2196F3", hover_color="#1976D2", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), width=100, height=40, corner_radius=10)
+        send_btn = ctk.CTkButton(input_container, text="Send", command=self.send_command, fg_color="#2196F3", hover_color="#1976D2", font=ctk.CTkFont(family=self.stacksans_light_family, size=self.input_font_size), width=int(100 * WINDOW_SCALING), height=int(40 * WINDOW_SCALING), corner_radius=int(10 * WINDOW_SCALING))
         send_btn.pack(side="right")
         
         self.command_entry.bind('<Return>', lambda event: self.send_command())
@@ -1334,8 +1450,8 @@ class KiloBuddyDashboard:
             if self.tooltip_window is not None:
                 return
             
-            x = self.widget.winfo_rootx() + 40
-            y = self.widget.winfo_rooty() + 40
+            x = self.widget.winfo_rootx() + int(40 * WINDOW_SCALING)
+            y = self.widget.winfo_rooty() + int(40 * WINDOW_SCALING)
 
             self.tooltip_window = tw = ctk.CTkToplevel(self.widget)
             tw.wm_overrideredirect(True)
@@ -1345,7 +1461,7 @@ class KiloBuddyDashboard:
             label = ctk.CTkLabel(
                 tw,
                 text=self.text,
-                font=ctk.CTkFont(family="StackSans Text Light", size=20),
+                font=ctk.CTkFont(family="StackSans Text Light", size=int(20 * WINDOW_SCALING)),
                 text_color="white",
                 justify="left",
                 wraplength=300
@@ -1359,78 +1475,80 @@ class KiloBuddyDashboard:
 
     def open_settings_window(self):
         try:
+            global WINDOW_SCALING
             settings_window = ctk.CTkToplevel(self.root)
             settings_window.title("KiloBuddy Settings")
-            settings_window.geometry("620x930")
+            scaled_w, scaled_h = int(620 * WINDOW_SCALING), int(930 * WINDOW_SCALING)
+            settings_window.geometry(f"{scaled_w}x{scaled_h}")
             settings_window.configure(fg_color="#0B3147")
             settings_window.transient(self.root)
             settings_window.lift()
             settings_window.update_idletasks()
 
-            header = ctk.CTkLabel(settings_window, text="Settings", font=ctk.CTkFont(family=self.stacksans_medium_family, size=28), text_color="white")
-            header.pack(padx=20, pady=(20, 10), anchor="w")
+            header = ctk.CTkLabel(settings_window, text="Settings", font=ctk.CTkFont(family=self.stacksans_medium_family, size=int(28 * WINDOW_SCALING)), text_color="white")
+            header.pack(padx=int(20 * WINDOW_SCALING), pady=(int(20 * WINDOW_SCALING), int(10 * WINDOW_SCALING)), anchor="w")
 
-            form_frame = ctk.CTkFrame(settings_window, fg_color="#142A44", corner_radius=15)
-            form_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+            form_frame = ctk.CTkFrame(settings_window, fg_color="#142A44", corner_radius=int(15 * WINDOW_SCALING))
+            form_frame.pack(fill="both", expand=True, padx=int(20 * WINDOW_SCALING), pady=(0, int(20 * WINDOW_SCALING)))
 
             def make_label(entry_text):
-                return ctk.CTkLabel(form_frame, text=entry_text, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), text_color="white")
+                return ctk.CTkLabel(form_frame, text=entry_text, font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="white")
 
             pref_label = make_label("AI Provider Preference")
-            pref_label.pack(anchor="w", padx=20, pady=(20, 4))
-            pref_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
+            pref_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(20 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            pref_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
             pref_entry.insert(0, AI_PREFERENCE)
-            pref_entry.pack(padx=20, pady=(0, 10))
+            pref_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 pref_entry,
                 "Enter the order of your preferred AI providers, separated by commas.\nEx: gemini, chatgpt, claude\n\nFor Ollama models, enter the model name as it appears in the Ollama list.\nEx: llama3.18B, phi3:mini"
             )
 
             wake_label = make_label("Wake Word")
-            wake_label.pack(anchor="w", padx=20, pady=(10, 4))
-            wake_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="computer")
+            wake_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            wake_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="computer")
             wake_entry.insert(0, WAKE_WORD)
-            wake_entry.pack(padx=20, pady=(0, 10))
+            wake_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 wake_entry,
                 "Enter the wake word that KiloBuddy will listen for to activate.\n\nMust be lowercase."
             )
 
             timeout_label = make_label("API Timeout (seconds)")
-            timeout_label.pack(anchor="w", padx=20, pady=(10, 4))
-            timeout_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="15")
+            timeout_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            timeout_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="15")
             timeout_entry.insert(0, str(API_TIMEOUT))
-            timeout_entry.pack(padx=20, pady=(0, 10))
+            timeout_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 timeout_entry,
                 "Enter the maximum time (in seconds) to wait for an AI provider to respond.\n\nIf your models keep timing out, increase this value.\n\nMust be an integer between 5 and 120 (no decimals)."
             )
 
             gemini_label = make_label("Gemini API Key")
-            gemini_label.pack(anchor="w", padx=20, pady=(10, 4))
-            gemini_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
+            gemini_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            gemini_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
             gemini_entry.insert(0, GEMINI_API_KEY)
-            gemini_entry.pack(padx=20, pady=(0, 10))
+            gemini_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 gemini_entry,
                 "Enter your Gemini API key.\n\nThis key allows the app to interact with Google/Gemini and generate responses."
             )
 
             chatgpt_label = make_label("ChatGPT API Key")
-            chatgpt_label.pack(anchor="w", padx=20, pady=(10, 4))
-            chatgpt_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
+            chatgpt_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            chatgpt_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
             chatgpt_entry.insert(0, CHATGPT_API_KEY)
-            chatgpt_entry.pack(padx=20, pady=(0, 10))
+            chatgpt_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 chatgpt_entry,
                 "Enter your ChatGPT API key.\n\nThis key allows the app to interact with OpenAI/ChatGPT and generate responses."
             )
 
             claude_label = make_label("Claude API Key")
-            claude_label.pack(anchor="w", padx=20, pady=(10, 4))
-            claude_entry = ctk.CTkEntry(form_frame, width=560, font=ctk.CTkFont(family=self.stacksans_light_family, size=28), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
+            claude_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            claude_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
             claude_entry.insert(0, CLAUDE_API_KEY)
-            claude_entry.pack(padx=20, pady=(0, 10))
+            claude_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 claude_entry,
                 "Enter your Claude API key.\n\nThis key allows the app to interact with Anthropic/Claude and generate responses."
@@ -1438,16 +1556,16 @@ class KiloBuddyDashboard:
 
             manage_ollama_var = ctk.BooleanVar(value=MANAGE_OLLAMA)
             manage_ollama_label = make_label("Manage Ollama")
-            manage_ollama_label.pack(anchor="w", padx=20, pady=(10, 4))
-            manage_ollama_checkbox = ctk.CTkCheckBox(form_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = 24), text_color="white")
-            manage_ollama_checkbox.pack(anchor="w", padx=20, pady=(0, 10))
+            manage_ollama_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            manage_ollama_checkbox = ctk.CTkCheckBox(form_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = int(24 * WINDOW_SCALING)), text_color="white")
+            manage_ollama_checkbox.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 manage_ollama_checkbox,
                 "When enabled, KiloBuddy will manage startup and shutdown of Ollama when it is not already running.\n\nWhen disabled, KiloBuddy will not manage Ollama and will assume it is already running.\n\nIgnore this setting if you are not using local models."
             )
 
-            status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=28), text_color="#FFEE58")
-            status_label.pack(anchor="w", padx=20, pady=(10, 0))
+            status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
+            status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), 0))
 
             def save_and_close():
                 preference_value = pref_entry.get().strip().lower()
@@ -1503,14 +1621,14 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Failed to save settings.", text_color="#EF9A9A")
 
             button_row = ctk.CTkFrame(settings_window, fg_color="transparent")
-            button_row.pack(fill="x", padx=20, pady=(0, 20))
+            button_row.pack(fill="x", padx=int(20 * WINDOW_SCALING), pady=(0, int(20 * WINDOW_SCALING)))
 
-            button_font = ("StackSans Text Light", 28)
+            button_font = ("StackSans Text Light", int(28 * WINDOW_SCALING))
 
-            save_btn = ctk.CTkButton(button_row, text="Save", command=save_and_close, fg_color="#4CAF50", hover_color="#43A047", width=120, height=40, font=button_font)
-            save_btn.pack(side="right", padx=(0, 10))
+            save_btn = ctk.CTkButton(button_row, text="Save", command=save_and_close, fg_color="#4CAF50", hover_color="#43A047", width=int(120 * WINDOW_SCALING), height=int(40 * WINDOW_SCALING), font=button_font)
+            save_btn.pack(side="right", padx=(0, int(10 * WINDOW_SCALING)))
 
-            close_btn = ctk.CTkButton(button_row, text="Close", command=settings_window.destroy, fg_color="#666666", hover_color="#555555", width=120, height=40, font=button_font)
+            close_btn = ctk.CTkButton(button_row, text="Close", command=settings_window.destroy, fg_color="#666666", hover_color="#555555", width=int(120 * WINDOW_SCALING), height=int(40 * WINDOW_SCALING), font=button_font)
             close_btn.pack(side="right")
 
             settings_window.grab_set()
@@ -1675,7 +1793,6 @@ def stop_remote_kilobuddy(pid):
     except Exception:
         return False
 
-
 def request_kilobuddy_stop():
     pid = get_kilobuddy_pid()
     if pid and pid != os.getpid():
@@ -1688,29 +1805,19 @@ def request_kilobuddy_stop():
     stop_ollama()
     cleanup_lock_file()
     global audio_stream, VOICE_THREAD
-    if audio_stream:
-        try:
-            if hasattr(audio_stream, 'abort_stream'):
-                audio_stream.abort_stream()
-        except:
-            pass
-        try:
-            audio_stream.stop_stream()
-        except:
-            pass
-        try:
-            audio_stream.close()
-        except:
-            pass
-
     if VOICE_THREAD is not None and VOICE_THREAD.is_alive():
         print("INFO: Waiting for voice thread to exit...")
         VOICE_THREAD.join(timeout=3)
         if VOICE_THREAD.is_alive():
             print("INFO: Voice thread did not exit cleanly, forcing process termination.")
             os._exit(0)
+    if audio_stream:
+        try:
+            audio_stream.stop()
+            audio_stream.close()
+        except Exception as e:
+            print(f"ERROR: Failed to stop audio stream: {e} \nERROR 117")
     return True
-
 
 def create_lock_file():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
@@ -2015,7 +2122,7 @@ def main():
         print("\nINFO: KiloBuddy Shutting Down...")
     finally:
         if audio_stream:
-            audio_stream.stop_stream()
+            audio_stream.stop()
             audio_stream.close()
         cleanup_lock_file()
 
@@ -2026,15 +2133,53 @@ def start_voice_listening():
     VOICE_THREAD.start()
     return VOICE_THREAD
 
+# Retrieves the system scaling and returns a scaling factor
+def populate_scaling():
+    global WINDOW_SCALING
+    try:
+        from PyQt5.QtWidgets import QApplication
+        app = QApplication([])
+        screen = app.primaryScreen()
+        logical_dpi = screen.logicalDotsPerInch()
+        app.quit()
+        base_dpi = 192.0 # Logical DPI the interface was designed for
+        WINDOW_SCALING = logical_dpi / base_dpi
+        print(f"INFO: Scaling factor applied: {WINDOW_SCALING:.2f} (Logical DPI: {logical_dpi})")
+    except Exception as e:
+        print(f"WARNING: Failed to retrieve system scaling: {e}\nWARN 316")
+        WINDOW_SCALING = 1.0
+
+class LogRedirector:
+    def __init__(self, path):
+        self.path = path
+    
+    def write(self, message):
+        if message.strip():
+            with open(self.path, "a", encoding="utf-8") as f:
+                f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+
+    def flush(self):
+        pass
+
+    def rotate_if_needed(self):
+        if os.path.exists(self.path) and os.path.getsize(self.path) > MAX_LOG_SIZE:
+            os.rename(self.path, self.path + ".old")
+
 if __name__ == "__main__":
     if is_kilobuddy_running():
         print("INFO: Opening dashboard...")
         show_dashboard()
     else:
+        sys.stdout = LogRedirector(LOG_PATH)
+        sys.stderr = LogRedirector(LOG_PATH)
+
         print("INFO: Launching KiloBuddy...")
         create_lock_file()
         
         signal.signal(signal.SIGINT, handle_signal)
+
+        # Detect scaling used for windows
+        populate_scaling()
         
         # Start voice listening in background thread
         print("INFO: Starting voice assistant in background...")
