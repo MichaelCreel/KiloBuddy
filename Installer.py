@@ -12,7 +12,7 @@ import hashlib
 
 REQUIRED_PACKAGES = ["google-generativeai", "openai", "anthropic", "sounddevice", "tk", "requests", "customtkinter", "vosk", "psutil", "PyQt5"]
 
-WINDOWS_PACKAGES = ["pywin32", "winshell"]
+WINDOWS_PACKAGES = []
 MACOS_PACKAGES = []
 LINUX_PACKAGES = []
 
@@ -84,8 +84,8 @@ def setup_install_directory():
         os.makedirs(install_dir, exist_ok=True)
     
     # Copy current files to install directory for all systems
-    current_files = ['KiloBuddy.py', 'initial_prompt', 'prompt', 'os_version', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
-    windows_current_files = ['icon.ico', 'launch_kilobuddy.exe', '_internal']
+    current_files = ['KiloBuddy.py', 'initial_prompt', 'prompt', 'os_version', 'version', 'StackSansText-ExtraLight.ttf', 'StackSansText-Light.ttf', 'StackSansText-Medium.ttf']
+    windows_current_files = ['icon.ico']
     macos_current_files = ['icon.png']
     linux_current_files = ['icon.png']
     # Files that should always be updated (core application files)
@@ -674,13 +674,13 @@ def launch_app(install_dir):
     subprocess.run([python_path, kilobuddy_script], cwd=install_dir)
 
 # Create shortcuts for the app
-def create_system_shortcuts(install_dir):
+def create_system_shortcuts(install_dir, venv_path=None):
     system = platform.system()
     
     if system == "Linux":
         create_linux_shortcuts(install_dir)
     elif system == "Windows":
-        create_windows_shortcuts(install_dir)
+        create_windows_shortcuts(install_dir, venv_path)
     elif system == "Darwin":  # macOS
         create_macos_shortcuts(install_dir)
 
@@ -756,47 +756,48 @@ NoDisplay=false
                 print("Desktop directory not found")
 
 # Windows Shortcuts
-def create_windows_shortcuts(install_dir):
+def create_windows_shortcuts(install_dir, venv_path):
+    target_path = os.path.join(venv_path, 'Scripts', 'pythonw.exe')
+    arguments = os.path.join(install_dir, 'KiloBuddy.py')
+    icon_path = os.path.join(install_dir, 'icon.ico')
+
+    # Create start menu and desktop shortcut
+    ps_script = f"""
+    $WshShell = New-Object -ComObject WScript.Shell
+    
+    # Desktop Shortcut
+    $DesktopPath = [Environment]::GetFolderPath('Desktop')
+    $DesktopShortcutPath = Join-Path $DesktopPath 'KiloBuddy.lnk'
+    $DesktopShortcut = $WshShell.CreateShortcut($DesktopShortcutPath)
+    $DesktopShortcut.TargetPath = '{target_path}'
+    $DesktopShortcut.Arguments = '{arguments}'
+    $DesktopShortcut.WorkingDirectory = '{install_dir}'
+    $DesktopShortcut.IconLocation = '{icon_path}'
+    $DesktopShortcut.Save()
+    
+    # Start Menu Shortcut
+    $StartMenuPath = [Environment]::GetFolderPath('Programs')
+    $StartMenuDir = Join-Path $StartMenuPath 'KiloBuddy'
+    
+    # Create a dedicated folder in the Start Menu for KiloBuddy
+    if (-not (Test-Path $StartMenuDir)) {{
+        New-Item -ItemType Directory -Force -Path $StartMenuDir | Out-Null
+    }}
+    
+    $StartMenuShortcutPath = Join-Path $StartMenuDir 'KiloBuddy.lnk'
+    $StartMenuShortcut = $WshShell.CreateShortcut($StartMenuShortcutPath)
+    $StartMenuShortcut.TargetPath = '{target_path}'
+    $StartMenuShortcut.Arguments = '{arguments}'
+    $StartMenuShortcut.WorkingDirectory = '{install_dir}'
+    $StartMenuShortcut.IconLocation = '{icon_path}'
+    $StartMenuShortcut.Save()
+    """
+
     try:
-        import winshell
-        from win32com.client import Dispatch
-
-        launcher_path = os.path.join(install_dir, "launch_kilobuddy.exe")
-        icon_path = os.path.join(install_dir, "icon.ico")
-
-        if not os.path.exists(icon_path):
-            icon_path = launcher_path
-
-        shell = Dispatch("WScript.Shell")
-
-        # Start Menu shortcut
-        start_menu = winshell.start_menu()
-        shortcut_path = os.path.join(start_menu, "KiloBuddy.lnk")
-
-        shortcut = shell.CreateShortCut(shortcut_path)
-        shortcut.Targetpath = launcher_path
-        shortcut.Arguments = ""
-        shortcut.WorkingDirectory = install_dir
-        shortcut.IconLocation = icon_path
-        shortcut.save()
-        print("Added KiloBuddy to Start Menu")
-
-        # Desktop shortcut
-        desktop = winshell.desktop()
-        if os.path.exists(desktop):
-            desktop_shortcut_path = os.path.join(desktop, "KiloBuddy.lnk")
-            desktop_shortcut = shell.CreateShortCut(desktop_shortcut_path)
-            desktop_shortcut.Targetpath = launcher_path
-            desktop_shortcut.Arguments = ""
-            desktop_shortcut.WorkingDirectory = install_dir
-            desktop_shortcut.IconLocation = icon_path
-            desktop_shortcut.save()
-            print("Desktop shortcut created")
-        else:
-            print("Desktop directory not found, skipping desktop shortcut.")
-
-    except ImportError:
-        print("Windows shortcut creation requires pywin32 and winshell.")
+        subprocess.check_call(["powershell", "-NoProfile", "-Command", ps_script])
+        print("Shortcuts created successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to create shortcuts: {e}")
 
 # MacOS Shortcuts
 def create_macos_shortcuts(install_dir):
@@ -1097,12 +1098,11 @@ def run_gui_installer():
                         print(f"Installing Windows-specific package {package}...")
                         subprocess.check_call([python_path, "-m", "pip", "install", package])
 
-
                 # Create system shortcuts
                 try:
                     # Mark as GUI mode for shortcut creation
                     create_linux_shortcuts._gui_mode = True
-                    create_system_shortcuts(install_dir)
+                    create_system_shortcuts(install_dir, venv_path)
                 except Exception as e:
                     print(f"Could not create shortcuts: {e}")
                 
