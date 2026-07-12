@@ -25,6 +25,12 @@ import requests
 import shlex
 from pathlib import Path
 
+# Redefine app identification
+if platform.system() == "Windows":
+    import ctypes
+    myappid = 'mc.kilobuddy.app'
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
 LOG_PATH = os.path.join(tempfile.gettempdir(), "kilobuddy.log") # Path to log file
 MAX_LOG_SIZE = 1 * 1024 * 1024
 
