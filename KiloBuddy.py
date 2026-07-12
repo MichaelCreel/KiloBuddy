@@ -58,10 +58,15 @@ vosk_rec = None
 audio_stream = None
 STOP_EVENT = threading.Event()
 VOICE_THREAD = None
+
+# Interface Variables
 DASHBOARD_ROOT = None
 ACTIVE_OVERLAY = {
-    "popup": None,
-    "lock": threading.Lock()
+    "lock": threading.Lock(),
+    "is_active": False,
+    "request_stop": False,
+    "text": "Listening",
+    "color": "#4FA4FF",
 }
 
 def get_kilobuddy_pid():
@@ -821,7 +826,7 @@ def listen_for_command():
     global vosk_rec, audio_stream
     
     print(f"INFO: Listening for command...")
-    show_activation_indicator(0)
+    show_status_indicator("Listening")
     try:
         vosk_rec.Reset()
         timeout_start = time.time()
@@ -862,7 +867,7 @@ def listen_for_command():
         print(f"ERROR: Failed to listen for command: {e}\nERROR 135")
         return None
     finally:
-        hide_activation_indicator()
+        hide_status_indicator()
 
 # Process Command
 def process_command(command):
@@ -874,10 +879,13 @@ def process_command(command):
     combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
 
     print("INFO: Generating response...")
+    show_status_indicator("Processing", "#00FF22")
     response = generate_text(combined_prompt)
     if response:
+        hide_status_indicator()
         process_response(response)
     else:
+        hide_status_indicator()
         print("ERROR: No response generated.\nERROR 136")
 
 def process_response(response):
@@ -954,6 +962,8 @@ def update_status(todo_list, current_step):
 def user_call(command):
     global PREVIOUS_COMMAND_OUTPUT, LAST_OUTPUT, OS_VERSION
     
+    show_status_indicator("Executing", "#00FF22")
+
     # Replace $LAST_OUTPUT with the actual Gemini output
     if "$LAST_OUTPUT" in command:
         command = command.replace("$LAST_OUTPUT", LAST_OUTPUT)
@@ -980,17 +990,21 @@ def user_call(command):
                 
                 result = subprocess.run(["pkexec", "bash", "-c", expanded_command], capture_output=True, text=True, timeout=45)
                 if result.returncode == 0:
+                    hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
                 else:
+                    hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
                 return
             except subprocess.TimeoutExpired:
+                hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
                 return
             except Exception as e:
+                hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}\nERROR 141")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
                 return
@@ -1008,17 +1022,21 @@ def user_call(command):
                 
                 result = subprocess.run(["sudo", "bash", "-c", expanded_command], capture_output=True, text=True, timeout=45)
                 if result.returncode == 0:
+                    hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
                 else:
+                    hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
                 return
             except subprocess.TimeoutExpired:
+                hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
                 return
             except Exception as e:
+                hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
                 return
@@ -1037,26 +1055,32 @@ def user_call(command):
                 ps_command = f'Start-Process -FilePath "cmd" -ArgumentList "/c {expanded_command}" -Verb RunAs -Wait -PassThru'
                 result = subprocess.run(["powershell", "-Command", ps_command], capture_output=True, text=True, timeout=45)
                 if result.returncode == 0:
+                    hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
                 else:
+                    hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
                 return
             except subprocess.TimeoutExpired:
+                hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
                 return
             except Exception as e:
+                hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
                 return
         
         else:
+            hide_status_indicator()
             print("WARNING: Unknown operating system. Running dangerous command without elevation.")
     
     print(f"INFO: Running USER command: {command}")
     result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
+    hide_status_indicator()
     PREVIOUS_COMMAND_OUTPUT = result.stdout
 
 # AI Call Method
@@ -1162,74 +1186,121 @@ def show_overlay(text):
 
     threading.Thread(target=open_overlay).start()
 
+def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
+    with ACTIVE_OVERLAY["lock"]:
+        # Update the target state
+        ACTIVE_OVERLAY["text"] = text
+        ACTIVE_OVERLAY["color"] = dot_color
+        ACTIVE_OVERLAY["request_stop"] = False
 
-ACTIVE_OVERLAY = {
-    "window": None,
-    "lock": threading.Lock()
-}
-
-
-def show_activation_indicator(duration=2600):
-    if DASHBOARD_ROOT is None:
-        return
+        # If the window is already running, we just let it pick up the new text/color
+        if ACTIVE_OVERLAY["is_active"]:
+            return
+        
+        # Otherwise, mark it active and start the thread
+        ACTIVE_OVERLAY["is_active"] = True
 
     def create_indicator():
-        with ACTIVE_OVERLAY["lock"]:
-            if ACTIVE_OVERLAY["window"] is not None:
-                return
+        # Notice we removed Toplevel and withdraw(); this exactly mimics your stable show_overlay logic
+        root = tk.Tk()
+        root.title("KB Status")
+        root.overrideredirect(True)
+        root.attributes("-topmost", True)
+        root.attributes("-alpha", 0.86)
+        root.configure(bg="#131313")
+        root.lift()
 
-        overlay = tk.Toplevel(DASHBOARD_ROOT)
-        overlay.overrideredirect(True)
-        overlay.attributes("-topmost", True)
-        overlay.attributes("-alpha", 0.86)
+        font_obj = tkFont.Font(
+            root=root,
+            family="Helvetica",
+            size=int(12 * WINDOW_SCALING),
+            weight="bold"
+        )
+        
+        frame = tk.Frame(root, bg="#131313")
+        frame.pack(fill="both", expand=True)
 
-        width = int(290 * WINDOW_SCALING)
-        height = int(70 * WINDOW_SCALING)
-        overlay.geometry(f"{width}x{height}+{int(18 * WINDOW_SCALING)}+{int(18 * WINDOW_SCALING)}")
-        overlay.configure(bg="#131313")
-
-        frame = tk.Frame(overlay, bg="#131313", relief=tk.FLAT, borderwidth=0)
-        frame.pack(fill="both", expand=True, padx=int(5 * WINDOW_SCALING), pady=int(5 * WINDOW_SCALING))
-
-        canvas = tk.Canvas(frame, width=width - int(10 * WINDOW_SCALING), height=height - int(10 * WINDOW_SCALING), bg="#131313", highlightthickness=0, bd=0)
+        canvas = tk.Canvas(frame, bg="#131313", highlightthickness=0)
         canvas.pack(fill="both", expand=True)
 
-        canvas.create_text(int(14 * WINDOW_SCALING), int(18 * WINDOW_SCALING), anchor="nw", text="Listening", fill="#FFFFFF", font=("Helvetica", int(12 * WINDOW_SCALING), "bold"))
+        # Initialize empty canvas items
+        text_id = canvas.create_text(
+            int(14 * WINDOW_SCALING),
+            int(18 * WINDOW_SCALING),
+            anchor="nw",
+            text="",
+            fill="#FFFFFF",
+            font=font_obj
+        )
 
-        dot_centers = [width - int(100 * WINDOW_SCALING), width - int(72 * WINDOW_SCALING), width - int(44 * WINDOW_SCALING)]
-        for cx in dot_centers:
-            canvas.create_oval(cx - int(7 * WINDOW_SCALING), height // 2 - int(12 * WINDOW_SCALING), cx + int(7 * WINDOW_SCALING), height // 2 + int(6 * WINDOW_SCALING), fill="#4FA4FF", outline="")
+        dot_ids = []
+        for _ in range(3):
+            dot = canvas.create_oval(0, 0, 0, 0, fill="#FFFFFF", outline="")
+            dot_ids.append(dot)
 
-        def close_indicator(event=None):
-            hide_activation_indicator()
+        def update_loop():
+            with ACTIVE_OVERLAY["lock"]:
+                should_stop = ACTIVE_OVERLAY["request_stop"]
+                
+                # If we are stopping, immediately mark the thread as dead before releasing the lock
+                # This prevents race conditions if show() is called a millisecond later
+                if should_stop:
+                    ACTIVE_OVERLAY["is_active"] = False
+                else:
+                    current_text = ACTIVE_OVERLAY["text"]
+                    current_color = ACTIVE_OVERLAY["color"]
 
-        overlay.bind("<Button-1>", close_indicator)
-        overlay.bind("<Escape>", close_indicator)
-
-        with ACTIVE_OVERLAY["lock"]:
-            ACTIVE_OVERLAY["window"] = overlay
-
-        if duration > 0:
-            overlay.after(duration, hide_activation_indicator)
-
-    DASHBOARD_ROOT.after(0, create_indicator)
-
-
-def hide_activation_indicator():
-    if DASHBOARD_ROOT is None:
-        return
-
-    def destroy_indicator():
-        with ACTIVE_OVERLAY["lock"]:
-            window = ACTIVE_OVERLAY.get("window")
-            if window is not None and window.winfo_exists():
+            if should_stop:
                 try:
-                    window.destroy()
-                except:
+                    root.destroy()
+                except Exception:
                     pass
-            ACTIVE_OVERLAY["window"] = None
+                return
 
-    DASHBOARD_ROOT.after(0, destroy_indicator)
+            # Dynamically measure and calculate sizes based on current text
+            text_width = font_obj.measure(current_text)
+            padding = int(40 * WINDOW_SCALING)
+            dot_cluster_width = int(90 * WINDOW_SCALING)
+            min_width = int(290 * WINDOW_SCALING)
+            width = max(min_width, text_width + padding + dot_cluster_width)
+            height = int(70 * WINDOW_SCALING)
+
+            # Instantly snap the window to the new correct size
+            root.geometry(f"{width}x{height}+{int(18 * WINDOW_SCALING)}+{int(18 * WINDOW_SCALING)}")
+            canvas.config(width=width, height=height)
+
+            # Update the text widget
+            canvas.itemconfig(text_id, text=current_text)
+
+            # Update the dot placements and colors
+            dot_centers = [
+                width - int(100 * WINDOW_SCALING),
+                width - int(72 * WINDOW_SCALING),
+                width - int(44 * WINDOW_SCALING)
+            ]
+
+            for i, cx in enumerate(dot_centers):
+                canvas.coords(
+                    dot_ids[i],
+                    cx - int(7 * WINDOW_SCALING),
+                    height // 2 - int(12 * WINDOW_SCALING),
+                    cx + int(7 * WINDOW_SCALING),
+                    height // 2 + int(6 * WINDOW_SCALING)
+                )
+                canvas.itemconfig(dot_ids[i], fill=current_color)
+
+            # Loop every 50ms to check for state changes
+            root.after(50, update_loop)
+
+        # Call the update loop immediately to build the initial layout
+        update_loop()
+        root.mainloop()
+
+    threading.Thread(target=create_indicator, daemon=True).start()
+
+def hide_status_indicator():
+    with ACTIVE_OVERLAY["lock"]:
+        ACTIVE_OVERLAY["request_stop"] = True
 
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
