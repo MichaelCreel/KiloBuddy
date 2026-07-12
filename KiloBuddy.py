@@ -9,7 +9,7 @@ import os
 import sys
 import platform
 import signal
-import google.generativeai as genai
+import google.genai as genai
 import threading
 import time
 import subprocess
@@ -749,10 +749,15 @@ def gemini_generate(input_prompt):
         if timeout_triggered.is_set():
             return
         try:
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            response = model.generate_content(input_prompt)
-            if not timeout_triggered.is_set() and response.text:
-                result["text"] = response.text.strip()
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            interaction = client.interactions.create(
+                model="gemini-3.5-flash",
+                input=input_prompt,
+            )
+            response = interaction.output_text
+
+            if not timeout_triggered.is_set() and response:
+                result["text"] = response.strip()
         except Exception as e:
             if not timeout_triggered.is_set():
                 print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
