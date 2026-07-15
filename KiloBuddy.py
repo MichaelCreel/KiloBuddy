@@ -845,7 +845,6 @@ def listen_for_command():
                     last_speech_time = time.time()
             else:
                 partial = json.loads(vosk_rec.PartialResult()).get("partial", "")
-                new_speech = partial[len(accepted_text):].strip() if partial.startswith(accepted_text) else partial
                 # Only treat partial as speech if it contains alphabetic characters
                 if any(c.isalpha() for c in partial):
                     last_speech_time = time.time()
