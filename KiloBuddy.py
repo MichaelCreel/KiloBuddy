@@ -61,13 +61,10 @@ VOICE_THREAD = None
 
 # Interface Variables
 DASHBOARD_ROOT = None
-ACTIVE_OVERLAY = {
-    "lock": threading.Lock(),
-    "is_active": False,
-    "request_stop": False,
-    "text": "Listening",
-    "color": "#4FA4FF",
-}
+STATUS_INDICATOR_WINDOW = None
+STATUS_CANVAS = None
+STATUS_TEXT_ID = None
+STATUS_DOT_IDS = []
 
 def get_kilobuddy_pid():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
@@ -1187,120 +1184,85 @@ def show_overlay(text):
     threading.Thread(target=open_overlay).start()
 
 def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
-    with ACTIVE_OVERLAY["lock"]:
-        # Update the target state
-        ACTIVE_OVERLAY["text"] = text
-        ACTIVE_OVERLAY["color"] = dot_color
-        ACTIVE_OVERLAY["request_stop"] = False
+    if DASHBOARD_ROOT is None:
+        return
 
-        # If the window is already running, we just let it pick up the new text/color
-        if ACTIVE_OVERLAY["is_active"]:
-            return
+    def _update_or_create():
+        global STATUS_INDICATOR_WINDOW, STATUS_CANVAS, STATUS_TEXT_ID, STATUS_DOT_IDS
         
-        # Otherwise, mark it active and start the thread
-        ACTIVE_OVERLAY["is_active"] = True
+        # If the window doesn't exist or was destroyed, create it
+        if STATUS_INDICATOR_WINDOW is None or not STATUS_INDICATOR_WINDOW.winfo_exists():
+            STATUS_INDICATOR_WINDOW = tk.Toplevel(DASHBOARD_ROOT)
+            STATUS_INDICATOR_WINDOW.title("KB Status")
+            STATUS_INDICATOR_WINDOW.overrideredirect(True)
+            STATUS_INDICATOR_WINDOW.attributes("-topmost", True)
+            STATUS_INDICATOR_WINDOW.attributes("-alpha", 0.86)
+            STATUS_INDICATOR_WINDOW.configure(bg="#131313")
+            
+            font_obj = tkFont.Font(
+                root=STATUS_INDICATOR_WINDOW,
+                family="Helvetica",
+                size=int(12 * WINDOW_SCALING),
+                weight="bold"
+            )
+            
+            STATUS_CANVAS = tk.Canvas(STATUS_INDICATOR_WINDOW, bg="#131313", highlightthickness=0)
+            STATUS_CANVAS.pack(fill="both", expand=True)
+            
+            STATUS_TEXT_ID = STATUS_CANVAS.create_text(
+                int(14 * WINDOW_SCALING), int(18 * WINDOW_SCALING),
+                anchor="nw", text="", fill="#FFFFFF", font=font_obj
+            )
+            
+            STATUS_DOT_IDS = [STATUS_CANVAS.create_oval(0, 0, 0, 0, fill="#FFFFFF", outline="") for _ in range(3)]
 
-    def create_indicator():
-        # Notice we removed Toplevel and withdraw(); this exactly mimics your stable show_overlay logic
-        root = tk.Tk()
-        root.title("KB Status")
-        root.overrideredirect(True)
-        root.attributes("-topmost", True)
-        root.attributes("-alpha", 0.86)
-        root.configure(bg="#131313")
-        root.lift()
-
-        font_obj = tkFont.Font(
-            root=root,
-            family="Helvetica",
-            size=int(12 * WINDOW_SCALING),
-            weight="bold"
-        )
+        font_obj = tkFont.Font(family="Helvetica", size=int(12 * WINDOW_SCALING), weight="bold")
+        text_width = font_obj.measure(text)
+        padding = int(40 * WINDOW_SCALING)
+        dot_cluster_width = int(90 * WINDOW_SCALING)
+        min_width = int(290 * WINDOW_SCALING)
         
-        frame = tk.Frame(root, bg="#131313")
-        frame.pack(fill="both", expand=True)
+        width = max(min_width, text_width + padding + dot_cluster_width)
+        height = int(70 * WINDOW_SCALING)
 
-        canvas = tk.Canvas(frame, bg="#131313", highlightthickness=0)
-        canvas.pack(fill="both", expand=True)
+        STATUS_INDICATOR_WINDOW.geometry(f"{width}x{height}+{int(18 * WINDOW_SCALING)}+{int(18 * WINDOW_SCALING)}")
+        STATUS_CANVAS.config(width=width, height=height)
 
-        # Initialize empty canvas items
-        text_id = canvas.create_text(
-            int(14 * WINDOW_SCALING),
-            int(18 * WINDOW_SCALING),
-            anchor="nw",
-            text="",
-            fill="#FFFFFF",
-            font=font_obj
-        )
+        STATUS_CANVAS.itemconfig(STATUS_TEXT_ID, text=text)
 
-        dot_ids = []
-        for _ in range(3):
-            dot = canvas.create_oval(0, 0, 0, 0, fill="#FFFFFF", outline="")
-            dot_ids.append(dot)
+        # Update dot placements and colors
+        dot_centers = [
+            width - int(100 * WINDOW_SCALING),
+            width - int(72 * WINDOW_SCALING),
+            width - int(44 * WINDOW_SCALING)
+        ]
 
-        def update_loop():
-            with ACTIVE_OVERLAY["lock"]:
-                should_stop = ACTIVE_OVERLAY["request_stop"]
-                
-                # If we are stopping, immediately mark the thread as dead before releasing the lock
-                # This prevents race conditions if show() is called a millisecond later
-                if should_stop:
-                    ACTIVE_OVERLAY["is_active"] = False
-                else:
-                    current_text = ACTIVE_OVERLAY["text"]
-                    current_color = ACTIVE_OVERLAY["color"]
+        for i, cx in enumerate(dot_centers):
+            STATUS_CANVAS.coords(
+                STATUS_DOT_IDS[i],
+                cx - int(7 * WINDOW_SCALING),
+                height // 2 - int(12 * WINDOW_SCALING),
+                cx + int(7 * WINDOW_SCALING),
+                height // 2 + int(6 * WINDOW_SCALING)
+            )
+            STATUS_CANVAS.itemconfig(STATUS_DOT_IDS[i], fill=dot_color)
 
-            if should_stop:
-                try:
-                    root.destroy()
-                except Exception:
-                    pass
-                return
+    # Schedule the UI update
+    DASHBOARD_ROOT.after(0, _update_or_create)
 
-            # Dynamically measure and calculate sizes based on current text
-            text_width = font_obj.measure(current_text)
-            padding = int(40 * WINDOW_SCALING)
-            dot_cluster_width = int(90 * WINDOW_SCALING)
-            min_width = int(290 * WINDOW_SCALING)
-            width = max(min_width, text_width + padding + dot_cluster_width)
-            height = int(70 * WINDOW_SCALING)
-
-            # Instantly snap the window to the new correct size
-            root.geometry(f"{width}x{height}+{int(18 * WINDOW_SCALING)}+{int(18 * WINDOW_SCALING)}")
-            canvas.config(width=width, height=height)
-
-            # Update the text widget
-            canvas.itemconfig(text_id, text=current_text)
-
-            # Update the dot placements and colors
-            dot_centers = [
-                width - int(100 * WINDOW_SCALING),
-                width - int(72 * WINDOW_SCALING),
-                width - int(44 * WINDOW_SCALING)
-            ]
-
-            for i, cx in enumerate(dot_centers):
-                canvas.coords(
-                    dot_ids[i],
-                    cx - int(7 * WINDOW_SCALING),
-                    height // 2 - int(12 * WINDOW_SCALING),
-                    cx + int(7 * WINDOW_SCALING),
-                    height // 2 + int(6 * WINDOW_SCALING)
-                )
-                canvas.itemconfig(dot_ids[i], fill=current_color)
-
-            # Loop every 50ms to check for state changes
-            root.after(50, update_loop)
-
-        # Call the update loop immediately to build the initial layout
-        update_loop()
-        root.mainloop()
-
-    threading.Thread(target=create_indicator, daemon=True).start()
 
 def hide_status_indicator():
-    with ACTIVE_OVERLAY["lock"]:
-        ACTIVE_OVERLAY["request_stop"] = True
+    if DASHBOARD_ROOT is None:
+        return
+
+    def _destroy():
+        global STATUS_INDICATOR_WINDOW
+        if STATUS_INDICATOR_WINDOW and STATUS_INDICATOR_WINDOW.winfo_exists():
+            STATUS_INDICATOR_WINDOW.destroy()
+        STATUS_INDICATOR_WINDOW = None
+
+    # Schedule the destruction
+    DASHBOARD_ROOT.after(0, _destroy)
 
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
@@ -1711,14 +1673,10 @@ class KiloBuddyDashboard:
         if result:
             request_kilobuddy_stop()
             try:
+                self.root.quit()
                 self.root.destroy()
             except:
                 pass
-            try:
-                self.root.quit()
-            except:
-                pass
-            sys.exit(0)
     
     def run(self):
         self.root.mainloop()
@@ -1730,7 +1688,7 @@ class KiloBuddyDashboard:
 
     def close_dashboard(self):
         try:
-            self.root.destroy()
+            self.root.withdraw()
         except:
             pass
 
