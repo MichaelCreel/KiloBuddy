@@ -2154,15 +2154,13 @@ class LogRedirector:
     
     def write(self, message):
         if message.strip():
+            self.rotate_if_needed()
             with open(self.path, "a", encoding="utf-8") as f:
                 f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
 
-    def flush(self):
-        pass
-
     def rotate_if_needed(self):
         if os.path.exists(self.path) and os.path.getsize(self.path) > MAX_LOG_SIZE:
-            os.rename(self.path, self.path + ".old")
+            os.replace(self.path, self.path + ".old")
 
 if __name__ == "__main__":
     if is_kilobuddy_running():
