@@ -680,7 +680,8 @@ def create_system_shortcuts(install_dir, venv_path=None):
     if system == "Linux":
         create_linux_shortcuts(install_dir)
     elif system == "Windows":
-        create_windows_shortcuts(install_dir, venv_path)
+        if venv_path is not None:
+            create_windows_shortcuts(install_dir, venv_path)
     elif system == "Darwin":  # macOS
         create_macos_shortcuts(install_dir)
 
@@ -758,7 +759,7 @@ NoDisplay=false
 # Windows Shortcuts
 def create_windows_shortcuts(install_dir, venv_path):
     target_path = os.path.join(venv_path, 'Scripts', 'pythonw.exe')
-    arguments = os.path.join(install_dir, 'KiloBuddy.py')
+    arguments = f"\"{os.path.join(install_dir, 'KiloBuddy.py')}\""
     icon_path = os.path.join(install_dir, 'icon.ico')
 
     # Create start menu and desktop shortcut
