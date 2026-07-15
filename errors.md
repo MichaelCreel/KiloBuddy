@@ -152,7 +152,7 @@
 148 - Failed to load settings file.
     This means that the script had an unknown error while reading the 'settings' file. The app will fallback to default configurations and will not fail.
 
-149 - Gemini API Timeout.
+149 - Local Model API Timeout.
     This means that the local model API did not respond before the maximum time allowed for generation was reached. The generation will fail, but the app will keep running.
 
 # WARN (301+)
