@@ -101,11 +101,11 @@ def setup_install_directory():
         current_files += linux_current_files
 
     for file in current_files:
+        dest_path = os.path.join(install_dir, file)
         if os.path.isdir(file):
             print(f"Copying directory {file}...")
             shutil.copytree(file, dest_path, dirs_exist_ok=True)
         elif os.path.exists(file):
-            dest_path = os.path.join(install_dir, file)
             
             if file in always_update_files:
                 # Always update core application files
