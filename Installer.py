@@ -101,11 +101,11 @@ def setup_install_directory():
         current_files += linux_current_files
 
     for file in current_files:
+        dest_path = os.path.join(install_dir, file)
         if os.path.isdir(file):
             print(f"Copying directory {file}...")
             shutil.copytree(file, dest_path, dirs_exist_ok=True)
         elif os.path.exists(file):
-            dest_path = os.path.join(install_dir, file)
             
             if file in always_update_files:
                 # Always update core application files
@@ -432,33 +432,37 @@ def run_terminal_installer():
         else:
             print("Enter 'y' or 'n'")
 
-    print("Do you want to install Ollama?")
-    
-    while True:
-        choice = input("Enter your choice (y/n): ").lower().strip()
-        if choice == "y":
-            do_install_ollama = True
-            break
-        elif choice == "n":
-            do_install_ollama = False
-            break
-        else:
-            print("Enter 'y' or 'n'")
+    do_install_ollama = False
+    manage_ollama = False
+    if use_local_models:
+        print("Do you want to install Ollama? (Required for local models)")
+        print("If you have already installed Ollama, type 'n'.")
+        
+        while True:
+            choice = input("Enter your choice (y/n): ").lower().strip()
+            if choice == "y":
+                do_install_ollama = True
+                break
+            elif choice == "n":
+                do_install_ollama = False
+                break
+            else:
+                print("Enter 'y' or 'n'")
 
-    print("Do you want KiloBuddy to manage Ollama?")
+        print("Do you want KiloBuddy to manage Ollama?")
 
-    while True:
-        choice = input("Enter your choice (y/n): ").lower().strip()
-        if choice == "y":
-            manage_ollama = True
-            settings_content.append("manage_ollama: true")
-            break
-        elif choice == "n":
-            manage_ollama = False
-            settings_content.append("manage_ollama: false")
-            break
-        else:
-            print("Enter 'y' or 'n'")
+        while True:
+            choice = input("Enter your choice (y/n): ").lower().strip()
+            if choice == "y":
+                manage_ollama = True
+                settings_content.append("manage_ollama: true")
+                break
+            elif choice == "n":
+                manage_ollama = False
+                settings_content.append("manage_ollama: false")
+                break
+            else:
+                print("Enter 'y' or 'n'")
 
     # Ask for AI preference
     print("\n=== AI Provider Preference ===")
@@ -680,7 +684,8 @@ def create_system_shortcuts(install_dir, venv_path=None):
     if system == "Linux":
         create_linux_shortcuts(install_dir)
     elif system == "Windows":
-        create_windows_shortcuts(install_dir, venv_path)
+        if venv_path is not None:
+            create_windows_shortcuts(install_dir, venv_path)
     elif system == "Darwin":  # macOS
         create_macos_shortcuts(install_dir)
 
@@ -758,7 +763,7 @@ NoDisplay=false
 # Windows Shortcuts
 def create_windows_shortcuts(install_dir, venv_path):
     target_path = os.path.join(venv_path, 'Scripts', 'pythonw.exe')
-    arguments = os.path.join(install_dir, 'KiloBuddy.py')
+    arguments = f"\"{os.path.join(install_dir, 'KiloBuddy.py')}\""
     icon_path = os.path.join(install_dir, 'icon.ico')
 
     # Create start menu and desktop shortcut

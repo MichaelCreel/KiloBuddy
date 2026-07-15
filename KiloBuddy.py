@@ -61,13 +61,10 @@ VOICE_THREAD = None
 
 # Interface Variables
 DASHBOARD_ROOT = None
-ACTIVE_OVERLAY = {
-    "lock": threading.Lock(),
-    "is_active": False,
-    "request_stop": False,
-    "text": "Listening",
-    "color": "#4FA4FF",
-}
+STATUS_INDICATOR_WINDOW = None
+STATUS_CANVAS = None
+STATUS_TEXT_ID = None
+STATUS_DOT_IDS = []
 
 def get_kilobuddy_pid():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
@@ -424,7 +421,7 @@ def save_settings():
         print("INFO: Saved settings to settings file.")
         return True
     except Exception as e:
-        print(f"ERROR: Failed to save settings: {e}\nERROR 149")
+        print(f"ERROR: Failed to save settings: {e}\nERROR 120")
         return False
 
 # Load API Timemout in seconds from file
@@ -525,6 +522,7 @@ def load_initial_prompt():
             # Validate prompt content
             if len(prompt_content) == 0:
                 print("ERROR: Initial prompt file is empty.\nERROR 124")
+                return False
             else:
                 INITIAL_PROMPT = prompt_content
         return True
@@ -614,7 +612,7 @@ def local_generate(input_prompt, model_name):
             response = requests.post(
                 "http://localhost:11434/api/generate",
                 json={"model": model_name, "prompt": input_prompt},
-                timeout=(API_TIMEOUT, None),
+                timeout=(API_TIMEOUT, API_TIMEOUT),
                 stream=True
             )
             if response.ok:
@@ -719,7 +717,7 @@ def claude_generate(input_prompt):
                 result["text"] = reply.strip()
         except Exception as e:
             if not timeout_triggered.is_set():
-                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 137")
+                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
 
     def fallback():
         timeout_triggered.set()
@@ -835,7 +833,7 @@ def listen_for_command():
         accepted_text = ""
         full_command = ""
 
-        while time.time() - last_speech_time < timeout_duration:
+        while time.time() - last_speech_time < timeout_duration and not STOP_EVENT.is_set():
             data, overflow = audio_stream.read(4096)
             if vosk_rec.AcceptWaveform(bytes(data)):
                 result = json.loads(vosk_rec.Result()).get('text', '')
@@ -845,7 +843,6 @@ def listen_for_command():
                     last_speech_time = time.time()
             else:
                 partial = json.loads(vosk_rec.PartialResult()).get("partial", "")
-                new_speech = partial[len(accepted_text):].strip() if partial.startswith(accepted_text) else partial
                 # Only treat partial as speech if it contains alphabetic characters
                 if any(c.isalpha() for c in partial):
                     last_speech_time = time.time()
@@ -1187,124 +1184,90 @@ def show_overlay(text):
     threading.Thread(target=open_overlay).start()
 
 def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
-    with ACTIVE_OVERLAY["lock"]:
-        # Update the target state
-        ACTIVE_OVERLAY["text"] = text
-        ACTIVE_OVERLAY["color"] = dot_color
-        ACTIVE_OVERLAY["request_stop"] = False
+    if DASHBOARD_ROOT is None:
+        return
 
-        # If the window is already running, we just let it pick up the new text/color
-        if ACTIVE_OVERLAY["is_active"]:
-            return
+    def _update_or_create():
+        global STATUS_INDICATOR_WINDOW, STATUS_CANVAS, STATUS_TEXT_ID, STATUS_DOT_IDS
         
-        # Otherwise, mark it active and start the thread
-        ACTIVE_OVERLAY["is_active"] = True
+        # If the window doesn't exist or was destroyed, create it
+        if STATUS_INDICATOR_WINDOW is None or not STATUS_INDICATOR_WINDOW.winfo_exists():
+            STATUS_INDICATOR_WINDOW = tk.Toplevel(DASHBOARD_ROOT)
+            STATUS_INDICATOR_WINDOW.title("KB Status")
+            STATUS_INDICATOR_WINDOW.overrideredirect(True)
+            STATUS_INDICATOR_WINDOW.attributes("-topmost", True)
+            STATUS_INDICATOR_WINDOW.attributes("-alpha", 0.86)
+            STATUS_INDICATOR_WINDOW.configure(bg="#131313")
+            
+            font_obj = tkFont.Font(
+                root=STATUS_INDICATOR_WINDOW,
+                family="Helvetica",
+                size=int(12 * WINDOW_SCALING),
+                weight="bold"
+            )
+            
+            STATUS_CANVAS = tk.Canvas(STATUS_INDICATOR_WINDOW, bg="#131313", highlightthickness=0)
+            STATUS_CANVAS.pack(fill="both", expand=True)
+            
+            STATUS_TEXT_ID = STATUS_CANVAS.create_text(
+                int(14 * WINDOW_SCALING), int(18 * WINDOW_SCALING),
+                anchor="nw", text="", fill="#FFFFFF", font=font_obj
+            )
+            
+            STATUS_DOT_IDS = [STATUS_CANVAS.create_oval(0, 0, 0, 0, fill="#FFFFFF", outline="") for _ in range(3)]
 
-    def create_indicator():
-        # Notice we removed Toplevel and withdraw(); this exactly mimics your stable show_overlay logic
-        root = tk.Tk()
-        root.title("KB Status")
-        root.overrideredirect(True)
-        root.attributes("-topmost", True)
-        root.attributes("-alpha", 0.86)
-        root.configure(bg="#131313")
-        root.lift()
-
-        font_obj = tkFont.Font(
-            root=root,
-            family="Helvetica",
-            size=int(12 * WINDOW_SCALING),
-            weight="bold"
-        )
+        font_obj = tkFont.Font(family="Helvetica", size=int(12 * WINDOW_SCALING), weight="bold")
+        text_width = font_obj.measure(text)
+        padding = int(40 * WINDOW_SCALING)
+        dot_cluster_width = int(90 * WINDOW_SCALING)
+        min_width = int(290 * WINDOW_SCALING)
         
-        frame = tk.Frame(root, bg="#131313")
-        frame.pack(fill="both", expand=True)
+        width = max(min_width, text_width + padding + dot_cluster_width)
+        height = int(70 * WINDOW_SCALING)
 
-        canvas = tk.Canvas(frame, bg="#131313", highlightthickness=0)
-        canvas.pack(fill="both", expand=True)
+        STATUS_INDICATOR_WINDOW.geometry(f"{width}x{height}+{int(18 * WINDOW_SCALING)}+{int(18 * WINDOW_SCALING)}")
+        STATUS_CANVAS.config(width=width, height=height)
 
-        # Initialize empty canvas items
-        text_id = canvas.create_text(
-            int(14 * WINDOW_SCALING),
-            int(18 * WINDOW_SCALING),
-            anchor="nw",
-            text="",
-            fill="#FFFFFF",
-            font=font_obj
-        )
+        STATUS_CANVAS.itemconfig(STATUS_TEXT_ID, text=text)
 
-        dot_ids = []
-        for _ in range(3):
-            dot = canvas.create_oval(0, 0, 0, 0, fill="#FFFFFF", outline="")
-            dot_ids.append(dot)
+        # Update dot placements and colors
+        dot_centers = [
+            width - int(100 * WINDOW_SCALING),
+            width - int(72 * WINDOW_SCALING),
+            width - int(44 * WINDOW_SCALING)
+        ]
 
-        def update_loop():
-            with ACTIVE_OVERLAY["lock"]:
-                should_stop = ACTIVE_OVERLAY["request_stop"]
-                
-                # If we are stopping, immediately mark the thread as dead before releasing the lock
-                # This prevents race conditions if show() is called a millisecond later
-                if should_stop:
-                    ACTIVE_OVERLAY["is_active"] = False
-                else:
-                    current_text = ACTIVE_OVERLAY["text"]
-                    current_color = ACTIVE_OVERLAY["color"]
+        for i, cx in enumerate(dot_centers):
+            STATUS_CANVAS.coords(
+                STATUS_DOT_IDS[i],
+                cx - int(7 * WINDOW_SCALING),
+                height // 2 - int(12 * WINDOW_SCALING),
+                cx + int(7 * WINDOW_SCALING),
+                height // 2 + int(6 * WINDOW_SCALING)
+            )
+            STATUS_CANVAS.itemconfig(STATUS_DOT_IDS[i], fill=dot_color)
 
-            if should_stop:
-                try:
-                    root.destroy()
-                except Exception:
-                    pass
-                return
+    # Schedule the UI update
+    DASHBOARD_ROOT.after(0, _update_or_create)
 
-            # Dynamically measure and calculate sizes based on current text
-            text_width = font_obj.measure(current_text)
-            padding = int(40 * WINDOW_SCALING)
-            dot_cluster_width = int(90 * WINDOW_SCALING)
-            min_width = int(290 * WINDOW_SCALING)
-            width = max(min_width, text_width + padding + dot_cluster_width)
-            height = int(70 * WINDOW_SCALING)
-
-            # Instantly snap the window to the new correct size
-            root.geometry(f"{width}x{height}+{int(18 * WINDOW_SCALING)}+{int(18 * WINDOW_SCALING)}")
-            canvas.config(width=width, height=height)
-
-            # Update the text widget
-            canvas.itemconfig(text_id, text=current_text)
-
-            # Update the dot placements and colors
-            dot_centers = [
-                width - int(100 * WINDOW_SCALING),
-                width - int(72 * WINDOW_SCALING),
-                width - int(44 * WINDOW_SCALING)
-            ]
-
-            for i, cx in enumerate(dot_centers):
-                canvas.coords(
-                    dot_ids[i],
-                    cx - int(7 * WINDOW_SCALING),
-                    height // 2 - int(12 * WINDOW_SCALING),
-                    cx + int(7 * WINDOW_SCALING),
-                    height // 2 + int(6 * WINDOW_SCALING)
-                )
-                canvas.itemconfig(dot_ids[i], fill=current_color)
-
-            # Loop every 50ms to check for state changes
-            root.after(50, update_loop)
-
-        # Call the update loop immediately to build the initial layout
-        update_loop()
-        root.mainloop()
-
-    threading.Thread(target=create_indicator, daemon=True).start()
 
 def hide_status_indicator():
-    with ACTIVE_OVERLAY["lock"]:
-        ACTIVE_OVERLAY["request_stop"] = True
+    if DASHBOARD_ROOT is None:
+        return
+
+    def _destroy():
+        global STATUS_INDICATOR_WINDOW
+        if STATUS_INDICATOR_WINDOW and STATUS_INDICATOR_WINDOW.winfo_exists():
+            STATUS_INDICATOR_WINDOW.destroy()
+        STATUS_INDICATOR_WINDOW = None
+
+    # Schedule the destruction
+    DASHBOARD_ROOT.after(0, _destroy)
 
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
-    def __init__(self):
+    def __init__(self, root):
+        self.root = root
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
@@ -1324,9 +1287,6 @@ class KiloBuddyDashboard:
         self.text_font_size = int(28 * WINDOW_SCALING)
         self.input_font_size = int(28 * WINDOW_SCALING)
 
-        global DASHBOARD_ROOT
-        self.root = ctk.CTk()
-        DASHBOARD_ROOT = self.root
         self.root.title("KiloBuddy")
         scaled_w, scaled_h = int(1000 * WINDOW_SCALING), int(800 * WINDOW_SCALING)
         self.root.geometry(f"{scaled_w}x{scaled_h}")
@@ -1335,6 +1295,7 @@ class KiloBuddyDashboard:
         self.root.resizable(True, True)
         self.root.configure(fg_color=self.background_color)
         self.root.protocol("WM_DELETE_WINDOW", self.close_dashboard)
+        #self.build_ui()
 
         def apply_taskbar_icon():
             ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
@@ -1712,21 +1673,22 @@ class KiloBuddyDashboard:
         if result:
             request_kilobuddy_stop()
             try:
+                self.root.quit()
                 self.root.destroy()
             except:
                 pass
-            try:
-                self.root.quit()
-            except:
-                pass
-            sys.exit(0)
     
     def run(self):
         self.root.mainloop()
 
+    def show(self):
+        self.root.update()
+        self.root.deiconify()
+        self.root.focus_set()
+
     def close_dashboard(self):
         try:
-            self.root.destroy()
+            self.root.withdraw()
         except:
             pass
 
@@ -1772,14 +1734,12 @@ def is_process_running(pid):
     except Exception:
         return False
 
-
 def is_kilobuddy_running():
     pid = get_kilobuddy_pid()
     if pid and is_process_running(pid):
         return True
     cleanup_lock_file()
     return False
-
 
 def stop_remote_kilobuddy(pid):
     if pid is None or pid == os.getpid():
@@ -1836,17 +1796,20 @@ def cleanup_lock_file():
 
 
 def show_dashboard():
-    try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        StackSans_EL = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-ExtraLight.ttf"), size=9)
-        StackSans_L = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Light.ttf"), size=12)
-        StackSans_M = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Medium.ttf"), size=22)
-    except:
-        StackSans_EL = ("Arial", 10)
-        StackSans_L = ("Arial", 12)
-        StackSans_M = ("Arial", 22)
-    dashboard = KiloBuddyDashboard()
-    dashboard.run()
+    global DASHBOARD_ROOT
+    dashboard = KiloBuddyDashboard(DASHBOARD_ROOT)
+    dashboard.show()
+    # try:
+    #     base_dir = os.path.dirname(os.path.abspath(__file__))
+    #     StackSans_EL = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-ExtraLight.ttf"), size=9)
+    #     StackSans_L = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Light.ttf"), size=12)
+    #     StackSans_M = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Medium.ttf"), size=22)
+    # except:
+    #     StackSans_EL = ("Arial", 10)
+    #     StackSans_L = ("Arial", 12)
+    #     StackSans_M = ("Arial", 22)
+    # dashboard = KiloBuddyDashboard()
+    # dashboard.run()
 
 # Show failure notification popup
 def show_failure_notification(message):
@@ -2155,6 +2118,7 @@ class LogRedirector:
     
     def write(self, message):
         if message.strip():
+            self.rotate_if_needed()
             with open(self.path, "a", encoding="utf-8") as f:
                 f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
 
@@ -2163,28 +2127,45 @@ class LogRedirector:
 
     def rotate_if_needed(self):
         if os.path.exists(self.path) and os.path.getsize(self.path) > MAX_LOG_SIZE:
-            os.rename(self.path, self.path + ".old")
+            os.replace(self.path, self.path + ".old")
 
 if __name__ == "__main__":
-    if is_kilobuddy_running():
-        print("INFO: Opening dashboard...")
-        show_dashboard()
-    else:
-        sys.stdout = LogRedirector(LOG_PATH)
-        sys.stderr = LogRedirector(LOG_PATH)
+    sys.stdout = LogRedirector(LOG_PATH)
+    sys.stderr = LogRedirector(LOG_PATH)
 
-        print("INFO: Launching KiloBuddy...")
+    print("INFO: Launching KiloBuddy...")
+
+    load_settings()
+    load_os_version()
+    load_prompt()
+    load_initial_prompt()
+
+    is_primary_instance = not is_kilobuddy_running()
+
+    if is_primary_instance:
         create_lock_file()
-        
-        signal.signal(signal.SIGINT, handle_signal)
 
-        # Detect scaling used for windows
-        populate_scaling()
-        
-        # Start voice listening in background thread
+    signal.signal(signal.SIGINT, handle_signal)
+
+    # Populate logical scaling field
+    populate_scaling()
+
+    # Create root
+    DASHBOARD_ROOT = ctk.CTk()
+
+    # Build dashboard UI
+    dashboard = KiloBuddyDashboard(DASHBOARD_ROOT)
+
+    # Start voice listening thread if not running
+    if is_primary_instance:
         print("INFO: Starting voice assistant in background...")
         start_voice_listening()
-        
-        # Show dashboard to indicate KiloBuddy is running
-        print("INFO: Opening dashboard...")
-        show_dashboard()
+    else:
+        print("INFO: Voice thread already running.")
+
+    # Show dashboard
+    print("INFO: Opening dashboard...")
+    dashboard.show()
+
+    # Enter Tk event loop LAST
+    DASHBOARD_ROOT.mainloop()

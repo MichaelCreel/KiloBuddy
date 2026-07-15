@@ -9,7 +9,7 @@
 2 - Failed to initialize KiloBuddy.
     This means that the script experienced an error while initializing necessary assets for the app. The app will quit.
 
-# ERRORS (101-300 : MISS 120, 123)
+# ERRORS (101-300 : MISS 123)
 
 101 - Invalid update type in file.
     This means that the script read a string from 'updates' that was not 'release' or 'pre-release'. The app will fallback to the type 'release' and will not fail. The file contains a string that is incorrectly formatted.
@@ -68,6 +68,9 @@
 119 - Failed to parse ChatGPT API key.
     This means that the script had an unknown error reading the ChatGPT API key from 'settings'. The app will not fail, but will be unable to use ChatGPT.
 
+120 - Failed to save settings.
+    This means that the script had an unknown error while trying to save the 'settings' file. The app will not fail, but the settings may not be saved.
+
 121 - Invalid Claude API key format.
     This means that the script read a string from 'settings' that was not a valid API key for Claude. The app will not fail, but will be unable to use Claude.
 
@@ -114,8 +117,7 @@
     This means that the script received no response from generation. Command processing will fail, but the app will keep running.
 
 137 - Failed to generate text with local model.
-    This means that the script had an unknown error while trying to use a local model to ge133 - Gemini API Timeout.
-    This means that the Gemini API did not respond before the maximum time allowed for generation was reached. The generation will fail, but the app will keep running.nerate text. The generation will fail, but the app will keep running. The local model may not be installed or inaccessible. The local models may also not be enabled, in which case this error can be ignored.
+    This means that the script had an unknown error while trying to use a local model to generate text. The generation will fail, but the app will keep running. The local model may not be installed or inaccessible. Local models may also not be enabled, in which case this error can be ignored.
 
 138 - Couldn't show failure notification.
     This means that the script failed to show a failure notification when an error occurred. The app will not fail.
@@ -150,7 +152,7 @@
 148 - Failed to load settings file.
     This means that the script had an unknown error while reading the 'settings' file. The app will fallback to default configurations and will not fail.
 
-149 - Gemini API Timeout.
+149 - Local Model API Timeout.
     This means that the local model API did not respond before the maximum time allowed for generation was reached. The generation will fail, but the app will keep running.
 
 # WARN (301+)
