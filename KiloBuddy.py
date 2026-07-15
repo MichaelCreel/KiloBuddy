@@ -525,6 +525,7 @@ def load_initial_prompt():
             # Validate prompt content
             if len(prompt_content) == 0:
                 print("ERROR: Initial prompt file is empty.\nERROR 124")
+                return False
             else:
                 INITIAL_PROMPT = prompt_content
         return True
