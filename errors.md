@@ -114,8 +114,7 @@
     This means that the script received no response from generation. Command processing will fail, but the app will keep running.
 
 137 - Failed to generate text with local model.
-    This means that the script had an unknown error while trying to use a local model to ge133 - Gemini API Timeout.
-    This means that the Gemini API did not respond before the maximum time allowed for generation was reached. The generation will fail, but the app will keep running.nerate text. The generation will fail, but the app will keep running. The local model may not be installed or inaccessible. The local models may also not be enabled, in which case this error can be ignored.
+    This means that the script had an unknown error while trying to use a local model to generate text. The generation will fail, but the app will keep running. The local model may not be installed or inaccessible. Local models may also not be enabled, in which case this error can be ignored.
 
 138 - Couldn't show failure notification.
     This means that the script failed to show a failure notification when an error occurred. The app will not fail.
