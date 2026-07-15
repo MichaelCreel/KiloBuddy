@@ -835,7 +835,7 @@ def listen_for_command():
         accepted_text = ""
         full_command = ""
 
-        while time.time() - last_speech_time < timeout_duration:
+        while time.time() - last_speech_time < timeout_duration and not STOP_EVENT.is_set():
             data, overflow = audio_stream.read(4096)
             if vosk_rec.AcceptWaveform(bytes(data)):
                 result = json.loads(vosk_rec.Result()).get('text', '')
