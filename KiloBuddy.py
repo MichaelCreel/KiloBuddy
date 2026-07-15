@@ -1304,7 +1304,8 @@ def hide_status_indicator():
 
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
-    def __init__(self):
+    def __init__(self, root):
+        self.root = root
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
@@ -1324,9 +1325,6 @@ class KiloBuddyDashboard:
         self.text_font_size = int(28 * WINDOW_SCALING)
         self.input_font_size = int(28 * WINDOW_SCALING)
 
-        global DASHBOARD_ROOT
-        self.root = ctk.CTk()
-        DASHBOARD_ROOT = self.root
         self.root.title("KiloBuddy")
         scaled_w, scaled_h = int(1000 * WINDOW_SCALING), int(800 * WINDOW_SCALING)
         self.root.geometry(f"{scaled_w}x{scaled_h}")
@@ -1335,6 +1333,7 @@ class KiloBuddyDashboard:
         self.root.resizable(True, True)
         self.root.configure(fg_color=self.background_color)
         self.root.protocol("WM_DELETE_WINDOW", self.close_dashboard)
+        #self.build_ui()
 
         def apply_taskbar_icon():
             ico_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
@@ -1724,6 +1723,11 @@ class KiloBuddyDashboard:
     def run(self):
         self.root.mainloop()
 
+    def show(self):
+        self.root.update()
+        self.root.deiconify()
+        self.root.focus_set()
+
     def close_dashboard(self):
         try:
             self.root.destroy()
@@ -1772,14 +1776,12 @@ def is_process_running(pid):
     except Exception:
         return False
 
-
 def is_kilobuddy_running():
     pid = get_kilobuddy_pid()
     if pid and is_process_running(pid):
         return True
     cleanup_lock_file()
     return False
-
 
 def stop_remote_kilobuddy(pid):
     if pid is None or pid == os.getpid():
@@ -1836,17 +1838,20 @@ def cleanup_lock_file():
 
 
 def show_dashboard():
-    try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        StackSans_EL = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-ExtraLight.ttf"), size=9)
-        StackSans_L = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Light.ttf"), size=12)
-        StackSans_M = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Medium.ttf"), size=22)
-    except:
-        StackSans_EL = ("Arial", 10)
-        StackSans_L = ("Arial", 12)
-        StackSans_M = ("Arial", 22)
-    dashboard = KiloBuddyDashboard()
-    dashboard.run()
+    global DASHBOARD_ROOT
+    dashboard = KiloBuddyDashboard(DASHBOARD_ROOT)
+    dashboard.show()
+    # try:
+    #     base_dir = os.path.dirname(os.path.abspath(__file__))
+    #     StackSans_EL = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-ExtraLight.ttf"), size=9)
+    #     StackSans_L = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Light.ttf"), size=12)
+    #     StackSans_M = tkFont.Font(file=os.path.join(base_dir, "StackSans-Text-Medium.ttf"), size=22)
+    # except:
+    #     StackSans_EL = ("Arial", 10)
+    #     StackSans_L = ("Arial", 12)
+    #     StackSans_M = ("Arial", 22)
+    # dashboard = KiloBuddyDashboard()
+    # dashboard.run()
 
 # Show failure notification popup
 def show_failure_notification(message):
@@ -2159,30 +2164,45 @@ class LogRedirector:
             with open(self.path, "a", encoding="utf-8") as f:
                 f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
 
+    def flush(self):
+        pass
+
     def rotate_if_needed(self):
         if os.path.exists(self.path) and os.path.getsize(self.path) > MAX_LOG_SIZE:
             os.replace(self.path, self.path + ".old")
 
 if __name__ == "__main__":
-    if is_kilobuddy_running():
-        print("INFO: Opening dashboard...")
-        show_dashboard()
-    else:
-        sys.stdout = LogRedirector(LOG_PATH)
-        sys.stderr = LogRedirector(LOG_PATH)
+    sys.stdout = LogRedirector(LOG_PATH)
+    sys.stderr = LogRedirector(LOG_PATH)
 
-        print("INFO: Launching KiloBuddy...")
+    print("INFO: Launching KiloBuddy...")
+
+    is_primary_instance = not is_kilobuddy_running()
+
+    if is_primary_instance:
         create_lock_file()
-        
-        signal.signal(signal.SIGINT, handle_signal)
 
-        # Detect scaling used for windows
-        populate_scaling()
-        
-        # Start voice listening in background thread
+    signal.signal(signal.SIGINT, handle_signal)
+
+    # Populate logical scaling field
+    populate_scaling()
+
+    # Create root
+    DASHBOARD_ROOT = ctk.CTk()
+
+    # Build dashboard UI
+    dashboard = KiloBuddyDashboard(DASHBOARD_ROOT)
+
+    # Start voice listening thread if not running
+    if is_primary_instance:
         print("INFO: Starting voice assistant in background...")
         start_voice_listening()
-        
-        # Show dashboard to indicate KiloBuddy is running
-        print("INFO: Opening dashboard...")
-        show_dashboard()
+    else:
+        print("INFO: Voice thread already running.")
+
+    # Show dashboard
+    print("INFO: Opening dashboard...")
+    dashboard.show()
+
+    # Enter Tk event loop LAST
+    DASHBOARD_ROOT.mainloop()
