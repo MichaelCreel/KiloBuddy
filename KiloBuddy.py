@@ -720,7 +720,7 @@ def claude_generate(input_prompt):
                 result["text"] = reply.strip()
         except Exception as e:
             if not timeout_triggered.is_set():
-                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 137")
+                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
 
     def fallback():
         timeout_triggered.set()
