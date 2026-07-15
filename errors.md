@@ -9,7 +9,7 @@
 2 - Failed to initialize KiloBuddy.
     This means that the script experienced an error while initializing necessary assets for the app. The app will quit.
 
-# ERRORS (101-300 : MISS 120, 123)
+# ERRORS (101-300 : MISS 123)
 
 101 - Invalid update type in file.
     This means that the script read a string from 'updates' that was not 'release' or 'pre-release'. The app will fallback to the type 'release' and will not fail. The file contains a string that is incorrectly formatted.
@@ -67,6 +67,9 @@
 
 119 - Failed to parse ChatGPT API key.
     This means that the script had an unknown error reading the ChatGPT API key from 'settings'. The app will not fail, but will be unable to use ChatGPT.
+
+120 - Failed to save settings.
+    This means that the script had an unknown error while trying to save the 'settings' file. The app will not fail, but the settings may not be saved.
 
 121 - Invalid Claude API key format.
     This means that the script read a string from 'settings' that was not a valid API key for Claude. The app will not fail, but will be unable to use Claude.

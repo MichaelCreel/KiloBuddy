@@ -424,7 +424,7 @@ def save_settings():
         print("INFO: Saved settings to settings file.")
         return True
     except Exception as e:
-        print(f"ERROR: Failed to save settings: {e}\nERROR 149")
+        print(f"ERROR: Failed to save settings: {e}\nERROR 120")
         return False
 
 # Load API Timemout in seconds from file
