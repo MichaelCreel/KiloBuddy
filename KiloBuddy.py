@@ -2177,6 +2177,11 @@ if __name__ == "__main__":
 
     print("INFO: Launching KiloBuddy...")
 
+    load_settings()
+    load_os_version()
+    load_prompt()
+    load_initial_prompt()
+
     is_primary_instance = not is_kilobuddy_running()
 
     if is_primary_instance:
