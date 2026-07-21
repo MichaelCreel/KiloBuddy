@@ -45,6 +45,7 @@ WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from w
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
 LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
+USER_INTENT = "" # Store the last user command for AI use
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
 MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
@@ -853,6 +854,7 @@ def listen_for_command():
         command = full_command
         if command.strip():
             print(f"INFO: Command received: {command}")
+            USER_INTENT = command
             return command
         else:
             print("INFO: No command detected within timeout.")
@@ -1082,8 +1084,8 @@ def user_call(command):
 
 # AI Call Method
 def ai_call(task_list):
-    global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT
-    combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nTodo List:\n{format_todo_list(task_list)}\n\nThis is a continuation of a previous task. Continue the task list by fulfilling the task marked 'DO NEXT'."
+    global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT, USER_INTENT
+    combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nUser Intent:{USER_INTENT}\n\nTodo List:\n{format_todo_list(task_list)}\n\nThis is a continuation of a previous task. Continue the task list by fulfilling the task marked 'DO NEXT'."
     print("INFO: Generating response...")
     response_text = generate_text(combined_prompt)
     process_response(response_text)
