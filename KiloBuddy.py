@@ -650,6 +650,7 @@ def local_generate(input_prompt, model_name):
     if thread.is_alive():
         thread.join(timeout=1)
 
+    print(result["text"])
     return result["text"]
  
 def chatgpt_generate(input_prompt):
@@ -1082,10 +1083,23 @@ def user_call(command):
     hide_status_indicator()
     PREVIOUS_COMMAND_OUTPUT = result.stdout
 
+# Truncate the middle of an input
+def truncate_middle(pco, max_length = 800):
+    if (len(pco)) <= max_length:
+        return pco
+
+    head_length = max_length // 2
+    tail_length = max_length - head_length
+
+    head = pco[:head_length]
+    tail = pco[-tail_length:]
+
+    return head + " [TRUNCATED] " + tail
+
 # AI Call Method
 def ai_call(task_list):
     global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT, USER_INTENT
-    combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nUser Intent:{USER_INTENT}\n\nTodo List:\n{format_todo_list(task_list)}\n\nThis is a continuation of a previous task. Continue the task list by fulfilling the task marked 'DO NEXT'."
+    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n{PROMPT}\nLast Command Output:\n{truncate_middle(PREVIOUS_COMMAND_OUTPUT)}\nUser Intent:{USER_INTENT}\nTodo List:\n{format_todo_list(task_list)}"
     print("INFO: Generating response...")
     response_text = generate_text(combined_prompt)
     process_response(response_text)
