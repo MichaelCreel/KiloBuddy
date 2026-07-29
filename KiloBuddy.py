@@ -24,6 +24,10 @@ import anthropic
 import requests
 import shlex
 from pathlib import Path
+from send2trash import send2trash
+import datetime
+import shutil
+from rapidfuzz import fuzz, process
 
 # Redefine app identification
 if platform.system() == "Windows":
@@ -964,6 +968,254 @@ def update_status(todo_list, current_step):
         if next_status == "PENDING":
             todo_list[current_step + 1] = (next_step_num, next_command, next_executor, "DO NEXT")
 
+# Execute a tool command
+def execute_tool(tool_name, raw_args):
+    try:
+        if tool_name == "cr_dir":
+            return tl_create_directory(raw_args[0])
+
+        elif tool_name == "cr_fil":
+            return tl_create_file(raw_args[0])
+
+        elif tool_name == "dl":
+            return tl_delete_file(raw_args[0])
+
+        elif tool_name == "rd_fil":
+            path = raw_args[0]
+            peek = raw_args[1] if len(raw_args) > 1 else None
+            peek_lines = int(raw_args[2]) if len(raw_args) > 2 else 0
+            return tl_read_file(path, peek, peek_lines)
+
+        elif tool_name == "rd_inf":
+            path = raw_args[0]
+            info_type = raw_args[1] if len(raw_args) > 1 else "all"
+            return tl_get_info(path, info_type)
+
+        elif tool_name == "mv":
+            return tl_move(raw_args[0], raw_args[1])
+
+        elif tool_name == "rn":
+            return tl_rename(raw_args[0], raw_args[1])
+
+        elif tool_name == "wr_fil":
+            return tl_write_file(raw_args[0], raw_args[1])
+
+        elif tool_name == "ds":
+            return tl_discover(raw_args[0], raw_args[1])
+
+        else:
+            return f"Unknown tool command: {tool_name}"
+
+    except Exception as e:
+        return f"Failed to execute tool command: {e}"
+
+# Create directory
+def tl_create_directory(path):
+    if not path:
+        return "No path provided for directory creation."
+    try:
+        os.makedirs(path, exist_ok=True)
+        return "Successfully created directory."
+    except Exception as e:
+        return f"Failed to create directory: {e}"
+
+# Create file
+def tl_create_file(path):
+    if not path:
+        return "No path provided for file creation."
+    try:
+        with open(path, "w") as f:
+            pass
+        return "Successfully created file."
+    except Exception as e:
+        return f"Failed to create file: {e}"
+
+# Delete file or directory (send to trash)
+def tl_delete_file(path):
+    if not path:
+        return "No path provided for deletion."
+    try:
+        if not os.path.exists(path):
+            return f"Path {path} does not exist."
+
+        send2trash(path)
+        return "Successfully sent to trash."
+    except Exception as e:
+        return f"Failed to send to trash: {e}"
+
+# Read or peek at file content
+# Truncates output automatically
+# Peek: top/bottom/None
+def tl_read_file(path, peek=None, peek_lines=0):
+    if not path:
+        return "No path provided for file reading."
+    if not os.path.exists(path):
+        return f"Path {path} does not exist."
+    if not os.path.isfile(path):
+        return f"Path {path} is not a file."
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        if peek is None:
+            full_content = "".join(lines)
+            return truncate_middle(full_content, 800)
+        if peek_lines <= 0:
+            return "Peek lines must be greater than 0."
+        if peek == "top":
+            selected = lines[:peek_lines]
+            text = "".join(selected)
+            return truncate_middle(text, 800)
+        elif peek == "bottom":
+            selected = lines[-peek_lines:]
+            text = "".join(selected)
+            return truncate_middle(text, 800)
+
+        return f"Invalid peek mode {peek}. Must be 'top', 'bottom', or None."
+    except Exception as e:
+        return f"Failed to read file: {e}"
+
+# Return file/directory information
+def tl_get_info(path, info_type="all"):
+    if not path:
+        return "No path provided for file info."
+    if not os.path.exists(path):
+        return f"Path {path} does not exist."
+    try:
+        stats = os.stat(path)
+
+        size = stats.st_size
+        created = datetime.datetime.fromtimestamp(stats.st_ctime).strftime("%Y-%m-%d %H:%M:%S")
+        modified = datetime.datetime.fromtimestamp(stats.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+        extension = os.path.splitext(path)[1]
+
+        if info_type == "size":
+            return f"Size: {size} bytes"
+        elif info_type == "create":
+            return f"Created: {created}"
+        elif info_type == "mod":
+            return f"Modified: {modified}"
+        elif info_type == "ext":
+            return f"Extension: {extension}"
+        elif info_type == "all":
+            return f"Size: {size} bytes\nCreated: {created}\nModified: {modified}\nExtension: {extension}"
+        else:
+            return f"Invalid info_type {info_type}. Must be 'size', 'create', 'mod', 'ext', or 'all'."
+    except Exception as e:
+        return f"Failed to get file info: {e}"
+
+# Move a file or directory
+def tl_move(path, dest):
+    if not path:
+        return "No source path provided for move."
+    if not dest:
+        return "No destination path provided for move."
+    if not os.path.exists(path):
+        return f"Source path {path} does not exist."
+    try:
+        dest_dir = os.path.dirname(dest)
+        if dest_dir and not os.path.exists(dest_dir):
+            os.makedirs(dest_dir, exist_ok=True)
+        shutil.move(path, dest)
+        return "Successfully moved."
+    except Exception as e:
+        return f"Failed to move: {e}"
+
+def tl_rename(path, new_name):
+    if not path:
+        return "No path provided for rename."
+    if not new_name:
+        return "No new name provided for rename."
+    if not os.path.exists(path):
+        return f"Path {path} does not exist."
+
+    try:
+        directory = os.path.dirname(path)
+        dest = os.path.join(directory, new_name)
+        return tl_move(path, dest)
+
+    except Exception as e:
+        return f"Failed to rename: {e}"
+
+# Write to a file
+def tl_write_file(path, content):
+    if not path:
+        return "No path provided for writing."
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return "Successfully wrote to file."
+    except Exception as e:
+        return f"Failed to write to file: {e}"
+
+# Search for files and directories
+def tl_discover(search_path, search_query):
+    if not search_path:
+        return "No search path provided."
+    if not search_query:
+        return "No search query provided."
+    if not os.path.exists(search_path):
+        return f"Search path {search_path} does not exist."
+    try:
+        entries = os.listdir(search_path)
+        full_paths = [os.path.join(search_path, entry) for entry in entries]
+
+        matches = process.extract(
+            search_query,
+            entries,
+            scorer = fuzz.WRatio,
+            limit = 30
+        )
+
+        filtered = [(name, score) for name, score, idx in matches if score >= 65]
+
+        if not filtered:
+            return f"No matches found with sufficient score."
+
+        filtered.sort(key=lambda x: x[1], reverse=True)
+
+        return "\n".join(f"{name} (score: {score})" for name, score in filtered)
+    except Exception as e:
+        return f"Failed to discover files: {e}"
+
+# Strip quotes and commas from a string
+def strip_quotes_commas(s):
+    s = s.strip()
+    if s.endswith(","):
+        s = s[:-1].strip()
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+        return s[1:-1]
+    return s
+
+# Parse a tool command in the format {tool: args}
+def parse_tool_call(command):
+    command = command.strip()
+
+    if not (command.startswith("{") and command.endswith("}")):
+        return None
+
+    inner = command[1:-1].strip()
+
+    if ":" not in inner:
+        return None
+
+    tool_name, arg_str = inner.split(":", 1)
+    tool_name = tool_name.strip()
+
+    raw_args = [strip_quotes_commas(a) for a in shlex.split(arg_str)]
+
+    return tool_name, raw_args
+
+# Try to execute a tool command and return its output
+def try_execute_tool(command):
+    parsed = parse_tool_call(command)
+    if parsed is None:
+        return None
+
+    tool_name, raw_args = parsed
+    output = execute_tool(tool_name, raw_args)
+    print(output)
+    return output
+
 # USER Call Subprocess
 def user_call(command):
     global PREVIOUS_COMMAND_OUTPUT, LAST_OUTPUT, OS_VERSION
@@ -974,13 +1226,23 @@ def user_call(command):
     if "$LAST_OUTPUT" in command:
         command = command.replace("$LAST_OUTPUT", LAST_OUTPUT)
         print(f"INFO: Substituted $LAST_OUTPUT in command")
+
+    CONVERSATION_HISTORY.add_message("LCI", command)
+
+    tool_output = try_execute_tool(command)
+    if tool_output is not None:
+        print(f"INFO: Successfully executed tool command: {command}")
+        hide_status_indicator()
+
+        PREVIOUS_COMMAND_OUTPUT = tool_output
+        CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
+        return
     
     # Check for dangerous commands
     tokens = shlex.split(command)
     exe = os.path.basename(tokens[0])
     print(f"INFO: Command found: {exe}")
     print(f"INFO: Attempting command: {command}")
-    CONVERSATION_HISTORY.add_message("LCI", command)
     if exe.lower() in DANGEROUS_COMMANDS:
         print("WARNING: Dangerous command detected. Prompting for administrator confirmation.")
         
