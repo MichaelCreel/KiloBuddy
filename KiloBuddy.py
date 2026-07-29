@@ -46,6 +46,7 @@ OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
 LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
 USER_INTENT = "" # Store the last user command for AI use
+CONVERSATION_HISTORY = None # Store conversation history for better model context
 VERSION = "v0.0" # The version of KiloBuddy that is running
 UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
 MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
@@ -874,9 +875,13 @@ def process_command(command):
     if not command:
         print("INFO: No command to process.")
         return
-    
+
+    CONVERSATION_HISTORY.add_message("USER", command)
+
     global INITIAL_PROMPT, OS_VERSION
-    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
+    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n{INITIAL_PROMPT}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\nUser Command: {command}"
+    print(">>>>>>>>>>>INITIAL COMBINED PROMPT<<<<<<<<<<")
+    print(combined_prompt)
 
     print("INFO: Generating response...")
     show_status_indicator("Processing", "#00FF22")
@@ -902,6 +907,7 @@ def process_response(response):
     if user_output:
         # Store the output in the global variable
         LAST_OUTPUT = user_output
+        CONVERSATION_HISTORY.add_message("AI", LAST_OUTPUT)
         show_overlay(user_output)
     
     if todo_list:
@@ -964,7 +970,7 @@ def user_call(command):
     
     show_status_indicator("Executing", "#00FF22")
 
-    # Replace $LAST_OUTPUT with the actual Gemini output
+    # Replace $LAST_OUTPUT with the actual AI output
     if "$LAST_OUTPUT" in command:
         command = command.replace("$LAST_OUTPUT", LAST_OUTPUT)
         print(f"INFO: Substituted $LAST_OUTPUT in command")
@@ -974,6 +980,7 @@ def user_call(command):
     exe = os.path.basename(tokens[0])
     print(f"INFO: Command found: {exe}")
     print(f"INFO: Attempting command: {command}")
+    CONVERSATION_HISTORY.add_message("LCI", command)
     if exe.lower() in DANGEROUS_COMMANDS:
         print("WARNING: Dangerous command detected. Prompting for administrator confirmation.")
         
@@ -993,20 +1000,24 @@ def user_call(command):
                     hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 else:
                     hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except subprocess.TimeoutExpired:
                 hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except Exception as e:
                 hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}\nERROR 141")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
         
         elif OS_VERSION.startswith("darwin"):
@@ -1025,20 +1036,24 @@ def user_call(command):
                     hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 else:
                     hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except subprocess.TimeoutExpired:
                 hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except Exception as e:
                 hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
         
         elif OS_VERSION.startswith("windows"):
@@ -1058,20 +1073,24 @@ def user_call(command):
                     hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 else:
                     hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except subprocess.TimeoutExpired:
                 hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except Exception as e:
                 hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
         
         else:
@@ -1082,6 +1101,7 @@ def user_call(command):
     result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
     hide_status_indicator()
     PREVIOUS_COMMAND_OUTPUT = result.stdout
+    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
 
 # Truncate the middle of an input
 def truncate_middle(pco, max_length = 800):
@@ -1099,7 +1119,7 @@ def truncate_middle(pco, max_length = 800):
 # AI Call Method
 def ai_call(task_list):
     global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT, USER_INTENT
-    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n{PROMPT}\nLast Command Output:\n{truncate_middle(PREVIOUS_COMMAND_OUTPUT)}\nUser Intent:{USER_INTENT}\nTodo List:\n{format_todo_list(task_list)}"
+    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n{PROMPT}\nLast Command Output:\n{truncate_middle(PREVIOUS_COMMAND_OUTPUT)}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\nUser Intent:{USER_INTENT}\nTodo List:\n{format_todo_list(task_list)}"
     print("INFO: Generating response...")
     response_text = generate_text(combined_prompt)
     process_response(response_text)
@@ -1279,6 +1299,32 @@ def hide_status_indicator():
 
     # Schedule the destruction
     DASHBOARD_ROOT.after(0, _destroy)
+
+# Class for managing the conversation memory
+class ConversationMemory:
+    def __init__(self, max_messages = 6):
+        self.history = []
+        self.max_messages = max_messages
+
+    # Add a message to the conversation history
+    # Automatically rotates history if needed
+    def add_message(self, role, content):
+        if role in ["LCO", "LCI"]:
+            content = truncate_middle(content, 60)
+        elif role in ["USER", "AI"]:
+            content = truncate_middle(content, 200)
+
+        self.history.append({"role": role, "content": content})
+
+        # Rotate history if exceeding maximum messages
+        if len(self.history) > self.max_messages:
+            self.history = self.history[-self.max_messages:]
+
+    # Returns the history in proper formatting
+    def get_formatted_history(self):
+        if not self.history:
+            return "[No previous history]"
+        return "\n".join([f"{msg['role']}: {msg['content']}" for msg in self.history])
 
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
@@ -2175,6 +2221,7 @@ if __name__ == "__main__":
     # Start voice listening thread if not running
     if is_primary_instance:
         print("INFO: Starting voice assistant in background...")
+        CONVERSATION_HISTORY = ConversationMemory(max_messages=6)
         start_voice_listening()
     else:
         print("INFO: Voice thread already running.")
