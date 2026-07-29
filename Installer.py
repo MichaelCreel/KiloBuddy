@@ -10,7 +10,7 @@ import urllib.request
 import filecmp
 import hashlib
 
-REQUIRED_PACKAGES = ["google-genai", "openai", "anthropic", "sounddevice", "tk", "requests", "customtkinter", "vosk", "psutil", "PyQt5"]
+REQUIRED_PACKAGES = ["google-genai", "openai", "anthropic", "sounddevice", "tk", "requests", "customtkinter", "vosk", "psutil", "PyQt5", "send2trash", "rapidfuzz"]
 
 WINDOWS_PACKAGES = []
 MACOS_PACKAGES = []
