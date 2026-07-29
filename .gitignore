@@ -4,3 +4,5 @@ vosk-model/
 settings
 __pycache__/
 kilobuddy_env/
+checkpoints/
+intent_model/
