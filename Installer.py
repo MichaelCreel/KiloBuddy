@@ -17,7 +17,6 @@ MACOS_PACKAGES = []
 LINUX_PACKAGES = []
 
 LOCAL_MODELS = {
-    "phi3:mini",
     "llama3.1:8b",
     "qwen2.5:14b-instruct"
 }
@@ -1143,9 +1142,9 @@ def run_gui_installer():
         ollama_help.pack(pady=(0, 10))
         manage_ollama_checkbox.pack(pady=(0, 10))
 
-        ai_pref1_dropdown["values"] = ["phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
-        ai_pref2_dropdown["values"] = ["None", "phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
-        ai_pref3_dropdown["values"] = ["None", "phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref1_dropdown["values"] = ["llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref2_dropdown["values"] = ["None", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref3_dropdown["values"] = ["None", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
 
     root = tk.Tk()
     root.title("KiloBuddy Installer")
