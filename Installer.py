@@ -200,9 +200,20 @@ def ask_update_preferences(install_dir):
                                      fg="#FF9800", bg="#1e1e1e",
                                      selectcolor="#2e2e2e",
                                      activebackground="#1e1e1e",
-                                     activeforeground="#FF9800")
+                                     activeforeground="#FF0000")
             all_radio.pack(anchor="w", pady=(0, 5))
 
+            none_radio = tk.Radiobutton(radio_frame,
+                                     text="None", 
+                                     variable=choice_var, 
+                                     value="none",
+                                     font=("Arial", 11, "bold"),
+                                     fg="#FF9800", bg="#1e1e1e",
+                                     selectcolor="#2e2e2e",
+                                     activebackground="#1e1e1e",
+                                     activeforeground="#FFA600")
+            none_radio.pack(anchor="w", pady=(0, 5))
+            
             button_frame = tk.Frame(main_frame, bg="#1e1e1e")
             button_frame.pack(pady=(20, 0))
             
