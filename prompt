@@ -11,7 +11,7 @@ INPUT: terminal command, tool call, or AI prompt
 TYPE: USER (terminal commands, tool calls) or AI
 Use USER tool calls for simple computer operations (tools below). Use USER terminal commands for more complex operations (eg. installing). Use AI tasks for reasoning or multi-step processes where output must be processed or generated (eg. discover files, use AI to pick file from output). AI tasks cannot have terminal commands or tool calls. The user will never see TASK LIST. It will be executed sequentially and automatically. It must always start with >> and end with <<. Do not add any extra text inside of TASK LIST.
 TOOLS:
-Tools must be in the format {tool: "a1", ["a2"], ["a3"]} 
+Tools must be in the format {<tool>: "a1", ["a2"], ["a3"]} 
 - Create Dir: {cr_dir: "path"}
 - Create File (does not accept content): {cr_fil: "path"}
 - Delete File/Dir {dl: "path"}
