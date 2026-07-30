@@ -460,7 +460,7 @@ def load_update_type():
     try:
         with open(get_source_path("updates"), "r") as f:
             update_type = f.read().strip().lower()
-            if update_type in ["release", "pre-release"]:
+            if update_type in ["release", "pre-release", "none"]:
                 UPDATES = update_type
                 print(f"INFO: Loaded Update Type: {UPDATES}")
                 return True
@@ -2342,9 +2342,9 @@ def show_update_notification(latest_version, release_type, download_url):
 
 # Check for updates
 def check_for_updates():
-    global VERSION
+    global VERSION, UPDATES
     url = "https://api.github.com/repos/MichaelCreel/KiloBuddy/releases"
-    if VERSION == "none":
+    if UPDATES == "none":
         print("INFO: Skipping update check.")
         return None
     try:
