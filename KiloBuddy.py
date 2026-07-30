@@ -1057,6 +1057,10 @@ def tl_read_file(path, peek=None, peek_lines=0):
         if peek is None:
             full_content = "".join(lines)
             return truncate_middle(full_content, 800)
+        peek = peek.lower()
+        if peek == "none":
+            full_content = "".join(lines)
+            return truncate_middle(full_content, 800)
         if peek_lines <= 0:
             return "Peek lines must be greater than 0."
         if peek == "top":
