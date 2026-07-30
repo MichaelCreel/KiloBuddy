@@ -860,7 +860,6 @@ def listen_for_command():
         command = full_command
         if command.strip():
             print(f"INFO: Command received: {command}")
-            USER_INTENT = command
             return command
         else:
             print("INFO: No command detected within timeout.")
@@ -880,12 +879,11 @@ def process_command(command):
         print("INFO: No command to process.")
         return
 
+    USER_INTENT = command
     CONVERSATION_HISTORY.add_message("USER", command)
 
     global INITIAL_PROMPT, OS_VERSION
     combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n{INITIAL_PROMPT}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\nUser Command: {command}"
-    print(">>>>>>>>>>>INITIAL COMBINED PROMPT<<<<<<<<<<")
-    print(combined_prompt)
 
     print("INFO: Generating response...")
     show_status_indicator("Processing", "#00FF22")
