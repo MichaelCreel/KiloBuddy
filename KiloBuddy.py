@@ -52,7 +52,7 @@ LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store t
 USER_INTENT = "" # Store the last user command for AI use
 CONVERSATION_HISTORY = None # Store conversation history for better model context
 VERSION = "v0.0" # The version of KiloBuddy that is running
-UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
+UPDATES = "release" # The type of updates to check for, "release", "pre-release", or "none"
 MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
 OLLAMA_THREAD = None # Thread to track Ollama process if managed
 WINDOW_SCALING = 1.0 # Scaling for the windows to match system scaling
@@ -2344,6 +2344,9 @@ def show_update_notification(latest_version, release_type, download_url):
 def check_for_updates():
     global VERSION
     url = "https://api.github.com/repos/MichaelCreel/KiloBuddy/releases"
+    if VERSION == "none":
+        print("INFO: Skipping update check.")
+        return None
     try:
         response = reqs.get(url, timeout=20)
         if response.status_code == 200:
