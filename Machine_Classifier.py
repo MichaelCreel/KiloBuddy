@@ -8,7 +8,7 @@ from setfit import SetFitModel, Trainer, TrainingArguments
 train_data = {
     "text": [
         # Volume
-        "turn up the volume", "make it louder", "increase the sound", "raise the volume", "turn down the volume", "make it quieter", " decrease the sound", "lower the volume", # 0: Adjust Volume
+        "turn up the volume", "make it louder", "increase the sound", "raise the volume", "turn down the volume", "make it quieter", "decrease the sound", "lower the volume", # 0: Adjust Volume
         # Create Folder
         "create a new folder called notes", "make a directory", "make a directory called projects", "create a folder", # 1: Create Folder
     ],
