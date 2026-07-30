@@ -879,6 +879,7 @@ def process_command(command):
         print("INFO: No command to process.")
         return
 
+    global USER_INTENT
     USER_INTENT = command
     CONVERSATION_HISTORY.add_message("USER", command)
 
