@@ -414,7 +414,7 @@ def load_settings():
     return True
 
 def save_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES
     try:
         with open(get_source_path("settings"), "w") as f:
             f.write(f"preference: {AI_PREFERENCE}\n")
@@ -424,7 +424,9 @@ def save_settings():
             f.write(f"chatgpt_api_key: {CHATGPT_API_KEY}\n")
             f.write(f"claude_api_key: {CLAUDE_API_KEY}\n")
             f.write(f"manage_ollama: {MANAGE_OLLAMA}\n")
-        print("INFO: Saved settings to settings file.")
+        with open(get_source_path("updates"), "w") as f:
+            f.write(f"{UPDATES}\n")
+        print("INFO: Successfully saved settings.")
         return True
     except Exception as e:
         print(f"ERROR: Failed to save settings: {e}\nERROR 120")
@@ -1852,6 +1854,30 @@ class KiloBuddyDashboard:
                 "When enabled, KiloBuddy will manage startup and shutdown of Ollama when it is not already running.\n\nWhen disabled, KiloBuddy will not manage Ollama and will assume it is already running.\n\nIgnore this setting if you are not using local models."
             )
 
+            update_label = make_label("Update Preference")
+            update_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            update_options = ["release", "pre-release", "none"]
+            update_pref_var = ctk.StringVar(value=UPDATES)
+            update_pref_dropdown = ctk.CTkOptionMenu(
+                form_frame,
+                variable=update_pref_var,
+                values=update_options,
+                fg_color="#1D4E89",
+                button_color="#1D4E89",
+                button_hover_color="#2E86C1",
+                text_color="White",
+                font=ctk.CTkFont(family=self.stacksans_light_family, size=int(24 * WINDOW_SCALING)),
+                dropdown_fg_color="#1D4E89",
+                dropdown_text_color="White",
+                dropdown_hover_color="#2E86C1",
+                dropdown_font=ctk.CTkFont(family=self.stacksans_light_family, size=int(24 * WINDOW_SCALING))
+            )
+            update_pref_dropdown.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
+            self.HoverToolTip(
+                update_pref_dropdown,
+                "Select what updates you want to be notified for at launch.\n- release: Only stable releases\n- pre-release: Both stable and unstable/incomplete releases\n- none: Disable update checking"
+            )
+            
             status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
             status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), 0))
 
@@ -1863,6 +1889,7 @@ class KiloBuddyDashboard:
                 chatgpt_value = chatgpt_entry.get().strip()
                 claude_value = claude_entry.get().strip()
                 manage_ollama_value = manage_ollama_var.get()
+                update_pref_value = update_pref_var.get()
 
                 if not preference_value:
                     status_label.configure(text="AI provider preference may not be empty.")
@@ -1894,7 +1921,7 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Claude key must be at least 20 chars or blank.")
                     return
 
-                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
+                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES
                 AI_PREFERENCE = ", ".join(parsed)
                 WAKE_WORD = wake_value
                 API_TIMEOUT = timeout_int
@@ -1902,6 +1929,7 @@ class KiloBuddyDashboard:
                 CHATGPT_API_KEY = chatgpt_value
                 CLAUDE_API_KEY = claude_value
                 MANAGE_OLLAMA = manage_ollama_value
+                UPDATES = update_pref_value
 
                 if save_settings():
                     status_label.configure(text="Settings saved successfully.", text_color="#81C784")
@@ -2466,6 +2494,7 @@ if __name__ == "__main__":
     print("INFO: Launching KiloBuddy...")
 
     load_settings()
+    load_update_type()
     load_os_version()
     load_prompt()
     load_initial_prompt()
