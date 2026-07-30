@@ -2478,10 +2478,11 @@ if __name__ == "__main__":
     # Build dashboard UI
     dashboard = KiloBuddyDashboard(DASHBOARD_ROOT)
 
+    CONVERSATION_HISTORY = ConversationMemory(max_messages=6)
+
     # Start voice listening thread if not running
     if is_primary_instance:
         print("INFO: Starting voice assistant in background...")
-        CONVERSATION_HISTORY = ConversationMemory(max_messages=6)
         start_voice_listening()
     else:
         print("INFO: Voice thread already running.")
