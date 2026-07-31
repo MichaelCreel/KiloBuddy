@@ -184,10 +184,10 @@ def ask_update_preferences(install_dir):
                                         variable=choice_var, 
                                         value="release",
                                         font=("Arial", 11, "bold"),
-                                        fg="#4CAF50", bg="#1e1e1e",
+                                        fg="#B4D2B5", bg="#1e1e1e",
                                         selectcolor="#2e2e2e",
                                         activebackground="#1e1e1e",
-                                        activeforeground="#4CAF50")
+                                        activeforeground="#CEFFCF")
             stable_radio.pack(anchor="w", pady=(0, 5))
             
             all_radio = tk.Radiobutton(radio_frame, 
@@ -195,10 +195,10 @@ def ask_update_preferences(install_dir):
                                      variable=choice_var, 
                                      value="pre-release",
                                      font=("Arial", 11, "bold"),
-                                     fg="#FF9800", bg="#1e1e1e",
+                                     fg="#D8B3B3", bg="#1e1e1e",
                                      selectcolor="#2e2e2e",
                                      activebackground="#1e1e1e",
-                                     activeforeground="#FF0000")
+                                     activeforeground="#FFC8C8")
             all_radio.pack(anchor="w", pady=(0, 5))
 
             none_radio = tk.Radiobutton(radio_frame,
@@ -206,10 +206,10 @@ def ask_update_preferences(install_dir):
                                      variable=choice_var, 
                                      value="none",
                                      font=("Arial", 11, "bold"),
-                                     fg="#FF9800", bg="#1e1e1e",
+                                     fg="#C9B79B", bg="#1e1e1e",
                                      selectcolor="#2e2e2e",
                                      activebackground="#1e1e1e",
-                                     activeforeground="#FFA600")
+                                     activeforeground="#FFEBC5")
             none_radio.pack(anchor="w", pady=(0, 5))
             
             button_frame = tk.Frame(main_frame, bg="#1e1e1e")
