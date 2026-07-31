@@ -272,12 +272,11 @@ def load_timeout(line):
 
 # Load Gemini API Key from settings
 def load_gemini_api_key(line):
-    global GEMINI_API_KEY
+    global GEMINI_API_KEY, GEMINI_CLIENT
     value = line.split(":", 1)[1].strip()
     try:
         if len(value) >= 20 and not any(char in value for char in [' ', '\t', '\n']):
             GEMINI_API_KEY = value
-            genai.configure(api_key=value)
             print("INFO: Loaded Gemini API Key")
             return True
         else:
@@ -762,18 +761,20 @@ def gemini_generate(input_prompt):
             return
         try:
             client = genai.Client(api_key=GEMINI_API_KEY)
-            interaction = client.interactions.create(
-                model="gemini-3.5-flash",
-                input=input_prompt,
+
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=input_prompt
             )
-            response = interaction.output_text
+
+            text = response.text
 
             if not timeout_triggered.is_set() and response:
-                result["text"] = response.strip()
+                result["text"] = text.strip()
         except Exception as e:
             if not timeout_triggered.is_set():
                 print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
-    
+
     def fallback():
         timeout_triggered.set()
         print("ERROR: Gemini API Timeout.\nERROR 133")
