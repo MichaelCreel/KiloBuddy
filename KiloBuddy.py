@@ -1878,9 +1878,31 @@ class KiloBuddyDashboard:
                 update_pref_dropdown,
                 "Select what updates you want to be notified for at launch.\n- release: Only stable releases\n- pre-release: Both stable and unstable/incomplete releases\n- none: Disable update checking"
             )
+
+            open_log_label = make_label("Open App Log")
+            open_log_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            open_log_btn = ctk.CTkButton(
+                scroll_frame,
+                text = "Open Log",
+                fg_color = "#1D4E89",
+                hover_color = "#2E86C1",
+                width = int(135 * WINDOW_SCALING),
+                font = ctk.CTkFont(family=self.stacksans_light_family, size=int(24 * WINDOW_SCALING)),
+                command = lambda: open_log_file()
+            )
+            open_log_btn.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(10 * WINDOW_SCALING)))
             
             status_label = ctk.CTkLabel(scroll_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
             status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), 0))
+
+            def open_log_file():
+                global LOG_PATH
+                if sys.platform.startswith("win"):
+                    os.startfile(LOG_PATH)
+                elif sys.platform.startswith("darwin"):
+                    subprocess.call(["open", LOG_PATH])
+                else:
+                    subprocess.call(["xdg-open", LOG_PATH])
 
             def save_and_close():
                 preference_value = pref_entry.get().strip().lower()
