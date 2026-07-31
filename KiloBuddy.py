@@ -1000,7 +1000,7 @@ def execute_tool(tool_name, raw_args):
             return tl_rename(raw_args[0], raw_args[1])
 
         elif tool_name == "wr_fil":
-            return tl_write_file(raw_args[0], raw_args[1])
+            return tl_write_file(raw_args[0], raw_args[1], raw_args[2])
 
         elif tool_name == "ds":
             return tl_discover(raw_args[0], raw_args[1])
@@ -1143,13 +1143,20 @@ def tl_rename(path, new_name):
         return f"Failed to rename: {e}"
 
 # Write to a file
-def tl_write_file(path, content):
+def tl_write_file(path, content, mode):
     if not path:
         return "No path provided for writing."
     try:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        return "Successfully wrote to file."
+        if mode.lower() == "write":
+            with open(path, "w") as f:
+                f.write(content)
+            return "Successfully wrote to file."
+        elif mode.lower() == "append":
+            with open(path, "a") as f:
+                f.write(content)
+            return "Successfully appended to file."
+        else:
+            return f"Invalid mode {mode}."
     except Exception as e:
         return f"Failed to write to file: {e}"
 

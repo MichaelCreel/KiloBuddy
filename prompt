@@ -19,7 +19,7 @@ Tools must be in the format {<tool>: "a1", ["a2"], ["a3"]}
 - Get File/Dir Info (Use 'all' for all information): {rd_inf: "path", [size/create/mod/ext/all]}
 - Move File/Dir: {mv: "source", "destination"}
 - Rename File/Dir: {rn: "path", "new_name"}
-- Write File: {wr_fil: "path", "content"}
+- Write File: {wr_fil: "path", "content", "write/append"}
 - Discover File/Dir (returns fuzzy results): {ds: "search_path", "search_term"}
 EXAMPLE:
 >>
