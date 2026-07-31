@@ -1026,6 +1026,17 @@ def tl_create_file(path):
     if not path:
         return "No path provided for file creation."
     try:
+        if os.path.exists(path):
+            if os.path.getsize(path) > 0:
+                result = show_custom_confirm(
+                    "Overwrite File Contents",
+                    f"Are you sure you want to overwrite the existing content of the file?\n\nFile Size: {os.path.getsize(path) / 1024:.2f} KB\nFile Path: {path}",
+                    parent=None
+                )
+                if result:
+                    pass
+                else:
+                    return "Write operation declined by user because of existing content."
         with open(path, "w") as f:
             pass
         return "Successfully created file."
@@ -1148,6 +1159,17 @@ def tl_write_file(path, content, mode):
         return "No path provided for writing."
     try:
         if mode.lower() == "write":
+            if os.path.exists(path):
+                if os.path.getsize(path) > 0:
+                    result = show_custom_confirm(
+                        "Overwrite File Contents",
+                        f"Are you sure you want to overwrite the existing content of the file?\n\nFile Size: {os.path.getsize(path) / 1024:.2f} KB\nFile Path: {path}",
+                        parent=None
+                    )
+                    if result:
+                        pass
+                    else:
+                        return "Write operation declined by user because of existing content."
             with open(path, "w") as f:
                 f.write(content)
             return "Successfully wrote to file."
