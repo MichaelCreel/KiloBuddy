@@ -1769,7 +1769,7 @@ class KiloBuddyDashboard:
             global WINDOW_SCALING
             settings_window = ctk.CTkToplevel(self.root)
             settings_window.title("KiloBuddy Settings")
-            scaled_w, scaled_h = int(620 * WINDOW_SCALING), int(930 * WINDOW_SCALING)
+            scaled_w, scaled_h = int(620 * WINDOW_SCALING), int(805 * WINDOW_SCALING)
             settings_window.geometry(f"{scaled_w}x{scaled_h}")
             settings_window.configure(fg_color="#0B3147")
             settings_window.transient(self.root)
@@ -1779,15 +1779,15 @@ class KiloBuddyDashboard:
             header = ctk.CTkLabel(settings_window, text="Settings", font=ctk.CTkFont(family=self.stacksans_medium_family, size=int(28 * WINDOW_SCALING)), text_color="white")
             header.pack(padx=int(20 * WINDOW_SCALING), pady=(int(20 * WINDOW_SCALING), int(10 * WINDOW_SCALING)), anchor="w")
 
-            form_frame = ctk.CTkFrame(settings_window, fg_color="#142A44", corner_radius=int(15 * WINDOW_SCALING))
-            form_frame.pack(fill="both", expand=True, padx=int(20 * WINDOW_SCALING), pady=(0, int(20 * WINDOW_SCALING)))
+            scroll_frame = ctk.CTkScrollableFrame(settings_window, fg_color="#142A44", corner_radius=int(15 * WINDOW_SCALING))
+            scroll_frame.pack(fill="both", expand=True, padx=int(20 * WINDOW_SCALING), pady=(0, int(20 * WINDOW_SCALING)))
 
             def make_label(entry_text):
-                return ctk.CTkLabel(form_frame, text=entry_text, font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="white")
+                return ctk.CTkLabel(scroll_frame, text=entry_text, font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="white")
 
             pref_label = make_label("AI Provider Preference")
             pref_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(20 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            pref_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
+            pref_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
             pref_entry.insert(0, AI_PREFERENCE)
             pref_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1797,7 +1797,7 @@ class KiloBuddyDashboard:
 
             wake_label = make_label("Wake Word")
             wake_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            wake_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="computer")
+            wake_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="computer")
             wake_entry.insert(0, WAKE_WORD)
             wake_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1807,7 +1807,7 @@ class KiloBuddyDashboard:
 
             timeout_label = make_label("API Timeout (seconds)")
             timeout_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            timeout_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="15")
+            timeout_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="15")
             timeout_entry.insert(0, str(API_TIMEOUT))
             timeout_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1817,7 +1817,7 @@ class KiloBuddyDashboard:
 
             gemini_label = make_label("Gemini API Key")
             gemini_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            gemini_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
+            gemini_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
             gemini_entry.insert(0, GEMINI_API_KEY)
             gemini_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1827,7 +1827,7 @@ class KiloBuddyDashboard:
 
             chatgpt_label = make_label("ChatGPT API Key")
             chatgpt_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            chatgpt_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
+            chatgpt_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
             chatgpt_entry.insert(0, CHATGPT_API_KEY)
             chatgpt_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1837,7 +1837,7 @@ class KiloBuddyDashboard:
 
             claude_label = make_label("Claude API Key")
             claude_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            claude_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
+            claude_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
             claude_entry.insert(0, CLAUDE_API_KEY)
             claude_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1848,7 +1848,7 @@ class KiloBuddyDashboard:
             manage_ollama_var = ctk.BooleanVar(value=MANAGE_OLLAMA)
             manage_ollama_label = make_label("Manage Ollama")
             manage_ollama_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            manage_ollama_checkbox = ctk.CTkCheckBox(form_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = int(24 * WINDOW_SCALING)), text_color="white")
+            manage_ollama_checkbox = ctk.CTkCheckBox(scroll_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = int(24 * WINDOW_SCALING)), text_color="white")
             manage_ollama_checkbox.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 manage_ollama_checkbox,
@@ -1860,7 +1860,7 @@ class KiloBuddyDashboard:
             update_options = ["release", "pre-release", "none"]
             update_pref_var = ctk.StringVar(value=UPDATES)
             update_pref_dropdown = ctk.CTkOptionMenu(
-                form_frame,
+                scroll_frame,
                 variable=update_pref_var,
                 values=update_options,
                 fg_color="#1D4E89",
@@ -1879,7 +1879,7 @@ class KiloBuddyDashboard:
                 "Select what updates you want to be notified for at launch.\n- release: Only stable releases\n- pre-release: Both stable and unstable/incomplete releases\n- none: Disable update checking"
             )
             
-            status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
+            status_label = ctk.CTkLabel(scroll_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
             status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), 0))
 
             def save_and_close():
