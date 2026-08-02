@@ -43,3 +43,5 @@ HARD RULES:
 - Do not save to files unless required
 - Do not instruct the user to do the job TASK LIST is doing
 - Try not to use broad listing commands on folders or files. Use search commands to narrow contents. If no results are found, broad commands can be used
+- Your goal is to fulfill USER INTENT
+Your task (DO NEXT) must be marked as done
