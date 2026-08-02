@@ -887,7 +887,7 @@ def process_command(command):
     CONVERSATION_HISTORY.add_message("USER", command)
 
     global INITIAL_PROMPT, OS_VERSION
-    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n{INITIAL_PROMPT}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\nUser Command: {command}"
+    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n{INITIAL_PROMPT}\nUser Command: {command}"
 
     print("INFO: Generating response...")
     show_status_indicator("Processing", "#00FF22")
@@ -1416,7 +1416,7 @@ def truncate_middle(pco, max_length = 800):
 # AI Call Method
 def ai_call(task_list):
     global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT, USER_INTENT
-    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n{PROMPT}\nLast Command Output:\n{truncate_middle(PREVIOUS_COMMAND_OUTPUT)}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\nUser Intent:{USER_INTENT}\nTodo List:\n{format_todo_list(task_list)}"
+    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n{PROMPT}\nLast Command Output:\n{truncate_middle(PREVIOUS_COMMAND_OUTPUT)}\nUser Intent:{USER_INTENT}\nTodo List:\n{format_todo_list(task_list)}"
     print("INFO: Generating response...")
     response_text = generate_text(combined_prompt)
     process_response(response_text)
