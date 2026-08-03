@@ -656,7 +656,6 @@ def local_generate(input_prompt, model_name):
     if thread.is_alive():
         thread.join(timeout=1)
 
-    print(result["text"])
     return result["text"]
  
 def chatgpt_generate(input_prompt):
