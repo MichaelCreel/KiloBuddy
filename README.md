@@ -77,10 +77,7 @@ KiloBuddy uses AI to process user commands. Only some commands prompt user input
 
 The cloud models Google Gemini, OpenAI ChatGPT, and Anthropic Claude are usable cloud models with KiloBuddy. Local models can also be used with KiloBuddy by changing 'AI Provider Preference' in settings. During installation, these local models are provided as viable options:
 
-- Phi 3 Mini - This is a fast and small model created by Microsoft. Designed to be run locally on devices, this model will perform on mid-range devices.
-  - Recommended PC Specs: >8 GB of RAM, 4-10+ GB of VRAM
-
-- Llama 3.1 8B - This is a balanced model created by Meta. It offers good reasoning abilities and instruction following while still being lightweight for mid to higher-range devices. This model is heavier and slower than Phi 3, but is generally more intelligent.
+- Llama 3.1 8B - This is a balanced model created by Meta. It offers good reasoning abilities and instruction following while still being lightweight for mid to higher-range devices. This model is generally intelligent and capable for many tasks.
   - Recommended PC Specs: >16 GB of RAM, 7-16+GB of VRAM
 
 - Qwen 2.5 14B Instruct - This is a large model created by Alibaba. It is designed for instruction following and complex reasoning while not being very conversational. This model is heavier and slower than Llama 3.1 and will require a higher-end system, but it is much better at reasoning and instruction following. This assistant is not very conversational.

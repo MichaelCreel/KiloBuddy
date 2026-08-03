@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import subprocess
+import time
 import venv
 import os
 import platform
@@ -10,14 +11,13 @@ import urllib.request
 import filecmp
 import hashlib
 
-REQUIRED_PACKAGES = ["google-genai", "openai", "anthropic", "sounddevice", "tk", "requests", "customtkinter", "vosk", "psutil", "PyQt5"]
+REQUIRED_PACKAGES = ["google-genai", "openai", "anthropic", "sounddevice", "tk", "requests", "customtkinter", "vosk", "psutil", "PyQt5", "send2trash", "rapidfuzz"]
 
 WINDOWS_PACKAGES = []
 MACOS_PACKAGES = []
 LINUX_PACKAGES = []
 
 LOCAL_MODELS = {
-    "phi3:mini",
     "llama3.1:8b",
     "qwen2.5:14b-instruct"
 }
@@ -28,9 +28,6 @@ SYSTEM_PACKAGE_HINTS = {
         "If your microphone is functioning, ensure the correct drivers are installed on your system."
     ],
     "Windows": [
-        "Windows shortcut creation requires pywin32 and winshell, which are installed by the installer.",
-        "If shortcut creation still fails, ensure pythonw.exe is available in the active Python installation."
-
         "If you encounter issues with audio input, ensure that your microphone is functioning properly.",
         "If your microphone is functioning, ensure that you have the correct audio drivers using check for updates in system settings."
     ],
@@ -187,10 +184,10 @@ def ask_update_preferences(install_dir):
                                         variable=choice_var, 
                                         value="release",
                                         font=("Arial", 11, "bold"),
-                                        fg="#4CAF50", bg="#1e1e1e",
+                                        fg="#B4D2B5", bg="#1e1e1e",
                                         selectcolor="#2e2e2e",
                                         activebackground="#1e1e1e",
-                                        activeforeground="#4CAF50")
+                                        activeforeground="#CEFFCF")
             stable_radio.pack(anchor="w", pady=(0, 5))
             
             all_radio = tk.Radiobutton(radio_frame, 
@@ -198,12 +195,23 @@ def ask_update_preferences(install_dir):
                                      variable=choice_var, 
                                      value="pre-release",
                                      font=("Arial", 11, "bold"),
-                                     fg="#FF9800", bg="#1e1e1e",
+                                     fg="#D8B3B3", bg="#1e1e1e",
                                      selectcolor="#2e2e2e",
                                      activebackground="#1e1e1e",
-                                     activeforeground="#FF9800")
+                                     activeforeground="#FFC8C8")
             all_radio.pack(anchor="w", pady=(0, 5))
 
+            none_radio = tk.Radiobutton(radio_frame,
+                                     text="None", 
+                                     variable=choice_var, 
+                                     value="none",
+                                     font=("Arial", 11, "bold"),
+                                     fg="#C9B79B", bg="#1e1e1e",
+                                     selectcolor="#2e2e2e",
+                                     activebackground="#1e1e1e",
+                                     activeforeground="#FFEBC5")
+            none_radio.pack(anchor="w", pady=(0, 5))
+            
             button_frame = tk.Frame(main_frame, bg="#1e1e1e")
             button_frame.pack(pady=(20, 0))
             
@@ -1082,12 +1090,46 @@ def run_gui_installer():
                         ai_pref3_var.get().lower()
                     }
 
+                    running_ollama = False
+                    ollama_thread = None
+
+                    # Start Ollama if needed
+                    if any(model in LOCAL_MODELS for model in models_to_install):
+                        print("Starting Ollama for local model install.")
+                        # Run Ollama
+                        ollama_thread = subprocess.Popen(
+                            ["ollama", "serve"],
+                            stdout = subprocess.PIPE,
+                            stderr = subprocess.PIPE,
+                            text = True
+                        )
+                        # Give time for output production
+                        time.sleep(5)
+                        # Read error outputs
+                        error_output = ollama_thread.stderr.readline()
+
+                        if "address already in use" in error_output.lower():
+                            print("Ollama already running.")
+                            ollama_thread = None
+                        else:
+                            print("Ollama managed by installer, starting.")
+                            running_ollama = True
+                            # Give Ollama more time to start
+                            time.sleep(10)
+
+                    # Install local models
                     for model in models_to_install:
                         if model in LOCAL_MODELS:
                             install_local_model(model)
                         progress['value'] = progress['value'] + 5
                         root.update_idletasks()
 
+                    # Stop Ollama if started by installer
+                    if running_ollama and ollama_thread is not None:
+                        print("Stopping Ollama.")
+                        ollama_thread.terminate()
+                        ollama_thread.wait()
+                        ollama_thread = None
 
                 # Download and install Vosk model
                 progress['value'] = 85
@@ -1143,9 +1185,9 @@ def run_gui_installer():
         ollama_help.pack(pady=(0, 10))
         manage_ollama_checkbox.pack(pady=(0, 10))
 
-        ai_pref1_dropdown["values"] = ["phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
-        ai_pref2_dropdown["values"] = ["None", "phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
-        ai_pref3_dropdown["values"] = ["None", "phi3:mini", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref1_dropdown["values"] = ["llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref2_dropdown["values"] = ["None", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref3_dropdown["values"] = ["None", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
 
     root = tk.Tk()
     root.title("KiloBuddy Installer")

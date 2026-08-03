@@ -24,6 +24,10 @@ import anthropic
 import requests
 import shlex
 from pathlib import Path
+from send2trash import send2trash
+import datetime
+import shutil
+from rapidfuzz import fuzz, process
 
 # Redefine app identification
 if platform.system() == "Windows":
@@ -45,8 +49,10 @@ WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from w
 OS_VERSION = "auto-detect" # Operating system version for command generation
 PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
 LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
+USER_INTENT = "" # Store the last user command for AI use
+CONVERSATION_HISTORY = None # Store conversation history for better model context
 VERSION = "v0.0" # The version of KiloBuddy that is running
-UPDATES = "release" # The type of updates to check for, "release" or "pre-release"
+UPDATES = "release" # The type of updates to check for, "release", "pre-release", or "none"
 MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
 OLLAMA_THREAD = None # Thread to track Ollama process if managed
 WINDOW_SCALING = 1.0 # Scaling for the windows to match system scaling
@@ -266,12 +272,11 @@ def load_timeout(line):
 
 # Load Gemini API Key from settings
 def load_gemini_api_key(line):
-    global GEMINI_API_KEY
+    global GEMINI_API_KEY, GEMINI_CLIENT
     value = line.split(":", 1)[1].strip()
     try:
         if len(value) >= 20 and not any(char in value for char in [' ', '\t', '\n']):
             GEMINI_API_KEY = value
-            genai.configure(api_key=value)
             print("INFO: Loaded Gemini API Key")
             return True
         else:
@@ -408,7 +413,7 @@ def load_settings():
     return True
 
 def save_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES
     try:
         with open(get_source_path("settings"), "w") as f:
             f.write(f"preference: {AI_PREFERENCE}\n")
@@ -418,7 +423,9 @@ def save_settings():
             f.write(f"chatgpt_api_key: {CHATGPT_API_KEY}\n")
             f.write(f"claude_api_key: {CLAUDE_API_KEY}\n")
             f.write(f"manage_ollama: {MANAGE_OLLAMA}\n")
-        print("INFO: Saved settings to settings file.")
+        with open(get_source_path("updates"), "w") as f:
+            f.write(f"{UPDATES}\n")
+        print("INFO: Successfully saved settings.")
         return True
     except Exception as e:
         print(f"ERROR: Failed to save settings: {e}\nERROR 120")
@@ -454,7 +461,7 @@ def load_update_type():
     try:
         with open(get_source_path("updates"), "r") as f:
             update_type = f.read().strip().lower()
-            if update_type in ["release", "pre-release"]:
+            if update_type in ["release", "pre-release", "none"]:
                 UPDATES = update_type
                 print(f"INFO: Loaded Update Type: {UPDATES}")
                 return True
@@ -753,18 +760,20 @@ def gemini_generate(input_prompt):
             return
         try:
             client = genai.Client(api_key=GEMINI_API_KEY)
-            interaction = client.interactions.create(
-                model="gemini-3.5-flash",
-                input=input_prompt,
+
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=input_prompt
             )
-            response = interaction.output_text
+
+            text = response.text
 
             if not timeout_triggered.is_set() and response:
-                result["text"] = response.strip()
+                result["text"] = text.strip()
         except Exception as e:
             if not timeout_triggered.is_set():
                 print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
-    
+
     def fallback():
         timeout_triggered.set()
         print("ERROR: Gemini API Timeout.\nERROR 133")
@@ -871,9 +880,13 @@ def process_command(command):
     if not command:
         print("INFO: No command to process.")
         return
-    
+
+    global USER_INTENT
+    USER_INTENT = command
+    CONVERSATION_HISTORY.add_message("USER", command)
+
     global INITIAL_PROMPT, OS_VERSION
-    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\n\n{INITIAL_PROMPT}\n\nUser Command: {command}"
+    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n{INITIAL_PROMPT}\nUser Command: {command}"
 
     print("INFO: Generating response...")
     show_status_indicator("Processing", "#00FF22")
@@ -899,6 +912,7 @@ def process_response(response):
     if user_output:
         # Store the output in the global variable
         LAST_OUTPUT = user_output
+        CONVERSATION_HISTORY.add_message("AI", LAST_OUTPUT)
         show_overlay(user_output)
     
     if todo_list:
@@ -955,16 +969,308 @@ def update_status(todo_list, current_step):
         if next_status == "PENDING":
             todo_list[current_step + 1] = (next_step_num, next_command, next_executor, "DO NEXT")
 
+# Execute a tool command
+def execute_tool(tool_name, raw_args):
+    try:
+        if tool_name == "cr_dir":
+            return tl_create_directory(raw_args[0])
+
+        elif tool_name == "cr_fil":
+            return tl_create_file(raw_args[0])
+
+        elif tool_name == "dl":
+            return tl_delete_file(raw_args[0])
+
+        elif tool_name == "rd_fil":
+            path = raw_args[0]
+            peek = raw_args[1] if len(raw_args) > 1 else None
+            peek_lines = int(raw_args[2]) if len(raw_args) > 2 else 0
+            return tl_read_file(path, peek, peek_lines)
+
+        elif tool_name == "rd_inf":
+            path = raw_args[0]
+            info_type = raw_args[1] if len(raw_args) > 1 else "all"
+            return tl_get_info(path, info_type)
+
+        elif tool_name == "mv":
+            return tl_move(raw_args[0], raw_args[1])
+
+        elif tool_name == "rn":
+            return tl_rename(raw_args[0], raw_args[1])
+
+        elif tool_name == "wr_fil":
+            return tl_write_file(raw_args[0], raw_args[1], raw_args[2])
+
+        elif tool_name == "ds":
+            return tl_discover(raw_args[0], raw_args[1])
+
+        else:
+            return f"Unknown tool command: {tool_name}"
+
+    except Exception as e:
+        return f"Failed to execute tool command: {e}"
+
+# Create directory
+def tl_create_directory(path):
+    if not path:
+        return "No path provided for directory creation."
+    try:
+        os.makedirs(path, exist_ok=True)
+        return "Successfully created directory."
+    except Exception as e:
+        return f"Failed to create directory: {e}"
+
+# Create file
+def tl_create_file(path):
+    if not path:
+        return "No path provided for file creation."
+    try:
+        if os.path.exists(path):
+            if os.path.getsize(path) > 0:
+                result = show_custom_confirm(
+                    "Overwrite File Contents",
+                    f"Are you sure you want to overwrite the existing content of the file?\n\nFile Size: {os.path.getsize(path) / 1024:.2f} KB\nFile Path: {path}",
+                    parent=None
+                )
+                if result:
+                    pass
+                else:
+                    return "Write operation declined by user because of existing content."
+        with open(path, "w") as f:
+            pass
+        return "Successfully created file."
+    except Exception as e:
+        return f"Failed to create file: {e}"
+
+# Delete file or directory (send to trash)
+def tl_delete_file(path):
+    if not path:
+        return "No path provided for deletion."
+    try:
+        if not os.path.exists(path):
+            return f"Path {path} does not exist."
+
+        send2trash(path)
+        return "Successfully sent to trash."
+    except Exception as e:
+        return f"Failed to send to trash: {e}"
+
+# Read or peek at file content
+# Truncates output automatically
+# Peek: top/bottom/None
+def tl_read_file(path, peek=None, peek_lines=0):
+    if not path:
+        return "No path provided for file reading."
+    if not os.path.exists(path):
+        return f"Path {path} does not exist."
+    if not os.path.isfile(path):
+        return f"Path {path} is not a file."
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        if peek is None:
+            full_content = "".join(lines)
+            return truncate_middle(full_content, 800)
+        peek = peek.lower()
+        if peek == "none":
+            full_content = "".join(lines)
+            return truncate_middle(full_content, 800)
+        if peek_lines <= 0:
+            return "Peek lines must be greater than 0."
+        if peek == "top":
+            selected = lines[:peek_lines]
+            text = "".join(selected)
+            return truncate_middle(text, 800)
+        elif peek == "bottom":
+            selected = lines[-peek_lines:]
+            text = "".join(selected)
+            return truncate_middle(text, 800)
+
+        return f"Invalid peek mode {peek}. Must be 'top', 'bottom', or None."
+    except Exception as e:
+        return f"Failed to read file: {e}"
+
+# Return file/directory information
+def tl_get_info(path, info_type="all"):
+    if not path:
+        return "No path provided for file info."
+    if not os.path.exists(path):
+        return f"Path {path} does not exist."
+    try:
+        stats = os.stat(path)
+
+        size = stats.st_size
+        created = datetime.datetime.fromtimestamp(stats.st_ctime).strftime("%Y-%m-%d %H:%M:%S")
+        modified = datetime.datetime.fromtimestamp(stats.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+        extension = os.path.splitext(path)[1]
+
+        if info_type == "size":
+            return f"Size: {size} bytes"
+        elif info_type == "create":
+            return f"Created: {created}"
+        elif info_type == "mod":
+            return f"Modified: {modified}"
+        elif info_type == "ext":
+            return f"Extension: {extension}"
+        elif info_type == "all":
+            return f"Size: {size} bytes\nCreated: {created}\nModified: {modified}\nExtension: {extension}"
+        else:
+            return f"Invalid info_type {info_type}. Must be 'size', 'create', 'mod', 'ext', or 'all'."
+    except Exception as e:
+        return f"Failed to get file info: {e}"
+
+# Move a file or directory
+def tl_move(path, dest):
+    if not path:
+        return "No source path provided for move."
+    if not dest:
+        return "No destination path provided for move."
+    if not os.path.exists(path):
+        return f"Source path {path} does not exist."
+    try:
+        dest_dir = os.path.dirname(dest)
+        if dest_dir and not os.path.exists(dest_dir):
+            os.makedirs(dest_dir, exist_ok=True)
+        shutil.move(path, dest)
+        return "Successfully moved."
+    except Exception as e:
+        return f"Failed to move: {e}"
+
+def tl_rename(path, new_name):
+    if not path:
+        return "No path provided for rename."
+    if not new_name:
+        return "No new name provided for rename."
+    if not os.path.exists(path):
+        return f"Path {path} does not exist."
+
+    try:
+        directory = os.path.dirname(path)
+        dest = os.path.join(directory, new_name)
+        return tl_move(path, dest)
+
+    except Exception as e:
+        return f"Failed to rename: {e}"
+
+# Write to a file
+def tl_write_file(path, content, mode):
+    if not path:
+        return "No path provided for writing."
+    try:
+        if mode.lower() == "write":
+            if os.path.exists(path):
+                if os.path.getsize(path) > 0:
+                    result = show_custom_confirm(
+                        "Overwrite File Contents",
+                        f"Are you sure you want to overwrite the existing content of the file?\n\nFile Size: {os.path.getsize(path) / 1024:.2f} KB\nFile Path: {path}",
+                        parent=None
+                    )
+                    if result:
+                        pass
+                    else:
+                        return "Write operation declined by user because of existing content."
+            with open(path, "w") as f:
+                f.write(content)
+            return "Successfully wrote to file."
+        elif mode.lower() == "append":
+            with open(path, "a") as f:
+                f.write(content)
+            return "Successfully appended to file."
+        else:
+            return f"Invalid mode {mode}."
+    except Exception as e:
+        return f"Failed to write to file: {e}"
+
+# Search for files and directories
+def tl_discover(search_path, search_query):
+    if not search_path:
+        return "No search path provided."
+    if not search_query:
+        return "No search query provided."
+    if not os.path.exists(search_path):
+        return f"Search path {search_path} does not exist."
+    try:
+        entries = os.listdir(search_path)
+        full_paths = [os.path.join(search_path, entry) for entry in entries]
+
+        matches = process.extract(
+            search_query,
+            entries,
+            scorer = fuzz.WRatio,
+            limit = 30
+        )
+
+        filtered = [(name, score) for name, score, idx in matches if score >= 65]
+
+        if not filtered:
+            return f"No matches found with sufficient score."
+
+        filtered.sort(key=lambda x: x[1], reverse=True)
+
+        return "\n".join(f"{name} (score: {score})" for name, score in filtered)
+    except Exception as e:
+        return f"Failed to discover files: {e}"
+
+# Strip quotes and commas from a string
+def strip_quotes_commas(s):
+    s = s.strip()
+    if s.endswith(","):
+        s = s[:-1].strip()
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+        return s[1:-1]
+    return s
+
+# Parse a tool command in the format {tool: args}
+def parse_tool_call(command):
+    command = command.strip()
+
+    if not (command.startswith("{") and command.endswith("}")):
+        return None
+
+    inner = command[1:-1].strip()
+
+    if ":" not in inner:
+        return None
+
+    tool_name, arg_str = inner.split(":", 1)
+    tool_name = tool_name.strip()
+
+    raw_args = [strip_quotes_commas(a) for a in shlex.split(arg_str)]
+
+    return tool_name, raw_args
+
+# Try to execute a tool command and return its output
+def try_execute_tool(command):
+    parsed = parse_tool_call(command)
+    if parsed is None:
+        return None
+
+    tool_name, raw_args = parsed
+    output = execute_tool(tool_name, raw_args)
+    print(output)
+    return output
+
 # USER Call Subprocess
 def user_call(command):
     global PREVIOUS_COMMAND_OUTPUT, LAST_OUTPUT, OS_VERSION
     
     show_status_indicator("Executing", "#00FF22")
 
-    # Replace $LAST_OUTPUT with the actual Gemini output
+    # Replace $LAST_OUTPUT with the actual AI output
     if "$LAST_OUTPUT" in command:
         command = command.replace("$LAST_OUTPUT", LAST_OUTPUT)
         print(f"INFO: Substituted $LAST_OUTPUT in command")
+
+    CONVERSATION_HISTORY.add_message("LCI", command)
+
+    tool_output = try_execute_tool(command)
+    if tool_output is not None:
+        print(f"INFO: Successfully executed tool command: {command}")
+        hide_status_indicator()
+
+        PREVIOUS_COMMAND_OUTPUT = tool_output
+        CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
+        return
     
     # Check for dangerous commands
     tokens = shlex.split(command)
@@ -990,20 +1296,24 @@ def user_call(command):
                     hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 else:
                     hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except subprocess.TimeoutExpired:
                 hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except Exception as e:
                 hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}\nERROR 141")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
         
         elif OS_VERSION.startswith("darwin"):
@@ -1022,20 +1332,24 @@ def user_call(command):
                     hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 else:
                     hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except subprocess.TimeoutExpired:
                 hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except Exception as e:
                 hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
         
         elif OS_VERSION.startswith("windows"):
@@ -1055,20 +1369,24 @@ def user_call(command):
                     hide_status_indicator()
                     print("INFO: Dangerous command executed successfully with administrator privileges.")
                     PREVIOUS_COMMAND_OUTPUT = result.stdout
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 else:
                     hide_status_indicator()
                     print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
                     PREVIOUS_COMMAND_OUTPUT = f"Command cancelled or failed: {result.stderr}"
+                    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except subprocess.TimeoutExpired:
                 hide_status_indicator()
                 print("ERROR: Administrator authentication timed out.")
                 PREVIOUS_COMMAND_OUTPUT = "Command timed out during authentication"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
             except Exception as e:
                 hide_status_indicator()
                 print(f"ERROR: Failed to prompt for administrator confirmation: {e}")
                 PREVIOUS_COMMAND_OUTPUT = "Failed to authenticate as administrator"
+                CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
                 return
         
         else:
@@ -1079,11 +1397,25 @@ def user_call(command):
     result = subprocess.run(command, shell=True, timeout=45, capture_output=True, text=True)
     hide_status_indicator()
     PREVIOUS_COMMAND_OUTPUT = result.stdout
+    CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
+
+# Truncate the middle of an input
+def truncate_middle(pco, max_length = 800):
+    if (len(pco)) <= max_length:
+        return pco
+
+    head_length = max_length // 2
+    tail_length = max_length - head_length
+
+    head = pco[:head_length]
+    tail = pco[-tail_length:]
+
+    return head + " [TRUNCATED] " + tail
 
 # AI Call Method
 def ai_call(task_list):
-    global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT
-    combined_prompt = f"OS: {OS_VERSION}\n\n{PROMPT}\n\nPrevious Command Output:\n{PREVIOUS_COMMAND_OUTPUT}\n\nTodo List:\n{format_todo_list(task_list)}\n\nThis is a continuation of a previous task. Continue the task list by fulfilling the task marked 'DO NEXT'."
+    global OS_VERSION, PROMPT, PREVIOUS_COMMAND_OUTPUT, USER_INTENT
+    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n{PROMPT}\nLast Command Output:\n{truncate_middle(PREVIOUS_COMMAND_OUTPUT)}\nUser Intent:{USER_INTENT}\nTodo List:\n{format_todo_list(task_list)}"
     print("INFO: Generating response...")
     response_text = generate_text(combined_prompt)
     process_response(response_text)
@@ -1264,6 +1596,32 @@ def hide_status_indicator():
     # Schedule the destruction
     DASHBOARD_ROOT.after(0, _destroy)
 
+# Class for managing the conversation memory
+class ConversationMemory:
+    def __init__(self, max_messages = 6):
+        self.history = []
+        self.max_messages = max_messages
+
+    # Add a message to the conversation history
+    # Automatically rotates history if needed
+    def add_message(self, role, content):
+        if role in ["LCO", "LCI"]:
+            content = truncate_middle(content, 60)
+        elif role in ["USER", "AI"]:
+            content = truncate_middle(content, 200)
+
+        self.history.append({"role": role, "content": content})
+
+        # Rotate history if exceeding maximum messages
+        if len(self.history) > self.max_messages:
+            self.history = self.history[-self.max_messages:]
+
+    # Returns the history in proper formatting
+    def get_formatted_history(self):
+        if not self.history:
+            return "[No previous history]"
+        return "\n".join([f"{msg['role']}: {msg['content']}" for msg in self.history])
+
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
     def __init__(self, root):
@@ -1439,7 +1797,7 @@ class KiloBuddyDashboard:
             global WINDOW_SCALING
             settings_window = ctk.CTkToplevel(self.root)
             settings_window.title("KiloBuddy Settings")
-            scaled_w, scaled_h = int(620 * WINDOW_SCALING), int(930 * WINDOW_SCALING)
+            scaled_w, scaled_h = int(620 * WINDOW_SCALING), int(805 * WINDOW_SCALING)
             settings_window.geometry(f"{scaled_w}x{scaled_h}")
             settings_window.configure(fg_color="#0B3147")
             settings_window.transient(self.root)
@@ -1449,15 +1807,15 @@ class KiloBuddyDashboard:
             header = ctk.CTkLabel(settings_window, text="Settings", font=ctk.CTkFont(family=self.stacksans_medium_family, size=int(28 * WINDOW_SCALING)), text_color="white")
             header.pack(padx=int(20 * WINDOW_SCALING), pady=(int(20 * WINDOW_SCALING), int(10 * WINDOW_SCALING)), anchor="w")
 
-            form_frame = ctk.CTkFrame(settings_window, fg_color="#142A44", corner_radius=int(15 * WINDOW_SCALING))
-            form_frame.pack(fill="both", expand=True, padx=int(20 * WINDOW_SCALING), pady=(0, int(20 * WINDOW_SCALING)))
+            scroll_frame = ctk.CTkScrollableFrame(settings_window, fg_color="#142A44", corner_radius=int(15 * WINDOW_SCALING))
+            scroll_frame.pack(fill="both", expand=True, padx=int(20 * WINDOW_SCALING), pady=(0, int(20 * WINDOW_SCALING)))
 
             def make_label(entry_text):
-                return ctk.CTkLabel(form_frame, text=entry_text, font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="white")
+                return ctk.CTkLabel(scroll_frame, text=entry_text, font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="white")
 
             pref_label = make_label("AI Provider Preference")
             pref_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(20 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            pref_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
+            pref_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="gemini, chatgpt, claude")
             pref_entry.insert(0, AI_PREFERENCE)
             pref_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1467,7 +1825,7 @@ class KiloBuddyDashboard:
 
             wake_label = make_label("Wake Word")
             wake_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            wake_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="computer")
+            wake_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="computer")
             wake_entry.insert(0, WAKE_WORD)
             wake_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1477,7 +1835,7 @@ class KiloBuddyDashboard:
 
             timeout_label = make_label("API Timeout (seconds)")
             timeout_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            timeout_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="15")
+            timeout_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="15")
             timeout_entry.insert(0, str(API_TIMEOUT))
             timeout_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1487,7 +1845,7 @@ class KiloBuddyDashboard:
 
             gemini_label = make_label("Gemini API Key")
             gemini_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            gemini_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
+            gemini_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
             gemini_entry.insert(0, GEMINI_API_KEY)
             gemini_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1497,7 +1855,7 @@ class KiloBuddyDashboard:
 
             chatgpt_label = make_label("ChatGPT API Key")
             chatgpt_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            chatgpt_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
+            chatgpt_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="ChatGPT API Key", show="~")
             chatgpt_entry.insert(0, CHATGPT_API_KEY)
             chatgpt_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1507,7 +1865,7 @@ class KiloBuddyDashboard:
 
             claude_label = make_label("Claude API Key")
             claude_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            claude_entry = ctk.CTkEntry(form_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
+            claude_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Claude API Key", show="~")
             claude_entry.insert(0, CLAUDE_API_KEY)
             claude_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
@@ -1518,15 +1876,61 @@ class KiloBuddyDashboard:
             manage_ollama_var = ctk.BooleanVar(value=MANAGE_OLLAMA)
             manage_ollama_label = make_label("Manage Ollama")
             manage_ollama_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
-            manage_ollama_checkbox = ctk.CTkCheckBox(form_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = int(24 * WINDOW_SCALING)), text_color="white")
+            manage_ollama_checkbox = ctk.CTkCheckBox(scroll_frame, text = "Enable Ollama Management", variable = manage_ollama_var, onvalue=True, offvalue=False, font=ctk.CTkFont(family=self.stacksans_light_family, size = int(24 * WINDOW_SCALING)), text_color="white")
             manage_ollama_checkbox.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 manage_ollama_checkbox,
                 "When enabled, KiloBuddy will manage startup and shutdown of Ollama when it is not already running.\n\nWhen disabled, KiloBuddy will not manage Ollama and will assume it is already running.\n\nIgnore this setting if you are not using local models."
             )
 
-            status_label = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
+            update_label = make_label("Update Preference")
+            update_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            update_options = ["release", "pre-release", "none"]
+            update_pref_var = ctk.StringVar(value=UPDATES)
+            update_pref_dropdown = ctk.CTkOptionMenu(
+                scroll_frame,
+                variable=update_pref_var,
+                values=update_options,
+                fg_color="#1D4E89",
+                button_color="#1D4E89",
+                button_hover_color="#2E86C1",
+                text_color="White",
+                font=ctk.CTkFont(family=self.stacksans_light_family, size=int(24 * WINDOW_SCALING)),
+                dropdown_fg_color="#1D4E89",
+                dropdown_text_color="White",
+                dropdown_hover_color="#2E86C1",
+                dropdown_font=ctk.CTkFont(family=self.stacksans_light_family, size=int(24 * WINDOW_SCALING))
+            )
+            update_pref_dropdown.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
+            self.HoverToolTip(
+                update_pref_dropdown,
+                "Select what updates you want to be notified for at launch.\n- release: Only stable releases\n- pre-release: Both stable and unstable/incomplete releases\n- none: Disable update checking"
+            )
+
+            open_log_label = make_label("Open App Log")
+            open_log_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            open_log_btn = ctk.CTkButton(
+                scroll_frame,
+                text = "Open Log",
+                fg_color = "#1D4E89",
+                hover_color = "#2E86C1",
+                width = int(135 * WINDOW_SCALING),
+                font = ctk.CTkFont(family=self.stacksans_light_family, size=int(24 * WINDOW_SCALING)),
+                command = lambda: open_log_file()
+            )
+            open_log_btn.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(10 * WINDOW_SCALING)))
+            
+            status_label = ctk.CTkLabel(scroll_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
             status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), 0))
+
+            def open_log_file():
+                global LOG_PATH
+                if sys.platform.startswith("win"):
+                    os.startfile(LOG_PATH)
+                elif sys.platform.startswith("darwin"):
+                    subprocess.call(["open", LOG_PATH])
+                else:
+                    subprocess.call(["xdg-open", LOG_PATH])
 
             def save_and_close():
                 preference_value = pref_entry.get().strip().lower()
@@ -1536,6 +1940,7 @@ class KiloBuddyDashboard:
                 chatgpt_value = chatgpt_entry.get().strip()
                 claude_value = claude_entry.get().strip()
                 manage_ollama_value = manage_ollama_var.get()
+                update_pref_value = update_pref_var.get()
 
                 if not preference_value:
                     status_label.configure(text="AI provider preference may not be empty.")
@@ -1567,7 +1972,7 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Claude key must be at least 20 chars or blank.")
                     return
 
-                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
+                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES
                 AI_PREFERENCE = ", ".join(parsed)
                 WAKE_WORD = wake_value
                 API_TIMEOUT = timeout_int
@@ -1575,6 +1980,7 @@ class KiloBuddyDashboard:
                 CHATGPT_API_KEY = chatgpt_value
                 CLAUDE_API_KEY = claude_value
                 MANAGE_OLLAMA = manage_ollama_value
+                UPDATES = update_pref_value
 
                 if save_settings():
                     status_label.configure(text="Settings saved successfully.", text_color="#81C784")
@@ -2015,8 +2421,11 @@ def show_update_notification(latest_version, release_type, download_url):
 
 # Check for updates
 def check_for_updates():
-    global VERSION
+    global VERSION, UPDATES
     url = "https://api.github.com/repos/MichaelCreel/KiloBuddy/releases"
+    if UPDATES == "none":
+        print("INFO: Skipping update check.")
+        return None
     try:
         response = reqs.get(url, timeout=20)
         if response.status_code == 200:
@@ -2136,6 +2545,7 @@ if __name__ == "__main__":
     print("INFO: Launching KiloBuddy...")
 
     load_settings()
+    load_update_type()
     load_os_version()
     load_prompt()
     load_initial_prompt()
@@ -2155,6 +2565,8 @@ if __name__ == "__main__":
 
     # Build dashboard UI
     dashboard = KiloBuddyDashboard(DASHBOARD_ROOT)
+
+    CONVERSATION_HISTORY = ConversationMemory(max_messages=6)
 
     # Start voice listening thread if not running
     if is_primary_instance:
