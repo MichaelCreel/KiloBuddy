@@ -2539,8 +2539,12 @@ class LogRedirector:
             os.replace(self.path, self.path + ".old")
 
 if __name__ == "__main__":
-    sys.stdout = LogRedirector(LOG_PATH)
-    sys.stderr = LogRedirector(LOG_PATH)
+    if "--dev" not in sys.argv:
+        print("INFO: Non-developer mode launched.")
+        sys.stdout = LogRedirector(LOG_PATH)
+        sys.stderr = LogRedirector(LOG_PATH)
+    else:
+        print("INFO: Developer mode launched.")
 
     print("INFO: Launching KiloBuddy...")
 
