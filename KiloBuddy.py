@@ -71,6 +71,20 @@ STATUS_INDICATOR_WINDOW = None
 STATUS_CANVAS = None
 STATUS_TEXT_ID = None
 STATUS_DOT_IDS = []
+DISPLAY_TASK_LIST = []
+DISPLAY_TASK_WINDOW = None
+TASK_NAME_MAP = {
+    "cr_dir": "Create Directory",
+    "cr_fil": "Create File",
+    "dl": "Delete Item",
+    "rd_fil": "Read File",
+    "rd_inf": "Get File Info",
+    "mv": "Move Item",
+    "rn": "Rename Item",
+    "wr_fil": "Write File",
+    "ds": "Discover Item",
+}
+
 
 def get_kilobuddy_pid():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
@@ -916,17 +930,28 @@ def process_response(response):
         show_overlay(user_output)
     
     if todo_list:
+        update_display_task_list(todo_list)
         print(f"INFO: Found {len(todo_list)} todo items")
         process_todo_list(todo_list)
     else:
         print("INFO: No todo list found in response.")
     return
 
+def update_display_task_list(new_list):
+    global DISPLAY_TASK_LIST
+    DISPLAY_TASK_LIST = new_list
+
+    print(f"DISPLAY LIST: {DISPLAY_TASK_LIST}")
+    show_todo_list_window()
+
 # Extract the todo list from AI response
 def extract_todo_list(response):
     # More flexible regex pattern - allows variable spacing
     task_pattern = re.compile(r"\[(\d+)\]\s+(.+?)\s+#\s+(USER|AI)\s+---\s+(DONE|DO NEXT|PENDING|SKIPPED)")
     matches = task_pattern.findall(response)
+
+    for match in matches:
+        print(match)
     
     return matches
 
@@ -1514,6 +1539,63 @@ def show_overlay(text):
         root.mainloop()
 
     threading.Thread(target=open_overlay).start()
+
+def friendly_name(raw_command):
+    match = re.match(r"\{(\w+):", raw_command)
+    if match:
+        tool = match.group(1)
+        return TASK_NAME_MAP.get(tool, raw_command)
+    return raw_command
+
+def show_todo_list_window():
+    global DISPLAY_TASK_WINDOW
+    if DASHBOARD_ROOT is None:
+        return
+
+    def _update_or_create():
+        global DISPLAY_TASK_WINDOW
+
+        # Create window if needed
+        if DISPLAY_TASK_WINDOW is None or not DISPLAY_TASK_WINDOW.winfo_exists():
+            DISPLAY_TASK_WINDOW = tk.Toplevel(DASHBOARD_ROOT)
+            DISPLAY_TASK_WINDOW.title("KB Task List")
+            DISPLAY_TASK_WINDOW.overrideredirect(True)
+            DISPLAY_TASK_WINDOW.attributes("-topmost", True)
+            DISPLAY_TASK_WINDOW.attributes("-alpha", 0.86)
+            DISPLAY_TASK_WINDOW.configure(bg="#131313")
+
+            x = int(18 * WINDOW_SCALING)
+            y = int(120 * WINDOW_SCALING)
+            DISPLAY_TASK_WINDOW.geometry(f"+{x}+{y}")
+
+            task_frame = tk.Frame(DISPLAY_TASK_WINDOW, bg="#131313")
+            task_frame.pack(fill=tk.BOTH, expand=True)
+
+            DISPLAY_TASK_WINDOW.task_frame = task_frame
+
+        for widget in DISPLAY_TASK_WINDOW.task_frame.winfo_children():
+            widget.destroy()
+
+        for step_num, raw_cmd, executor, status in DISPLAY_TASK_LIST:
+            name = friendly_name(raw_cmd)
+
+            checkbox = "D" if status == "DONE" else "P"
+
+            color = "#60E666" if status == "DONE" else "#FFFFFF"
+
+            label = tk.Label(
+                DISPLAY_TASK_WINDOW.task_frame,
+                text=f"{checkbox} {name}",
+                fg=color,
+                bg="#131313",
+                font=("Helvetica", int(14 * WINDOW_SCALING)),
+            )
+            label.pack(fill=tk.X, padx=int(10 * WINDOW_SCALING), pady=int(2 * WINDOW_SCALING))
+
+        if all(status == "DONE" for (_, _, _, status) in DISPLAY_TASK_LIST):
+            DISPLAY_TASK_WINDOW.after(3000, DISPLAY_TASK_WINDOW.destroy)
+
+    DASHBOARD_ROOT.after(0, _update_or_create)
 
 def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
     if DASHBOARD_ROOT is None:
@@ -2571,6 +2653,24 @@ if __name__ == "__main__":
     dashboard = KiloBuddyDashboard(DASHBOARD_ROOT)
 
     CONVERSATION_HISTORY = ConversationMemory(max_messages=6)
+
+    ##############################
+    ###### TASK LIST TESTING #####
+    ##############################
+
+    print("TEST TASK LIST:")
+
+    test_list = """>>
+[1] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[2] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[3] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+<<"""
+
+    process_response(test_list)
+
+    ##############################
+    ###### TASK LIST TESTING #####
+    ##############################
 
     # Start voice listening thread if not running
     if is_primary_instance:
