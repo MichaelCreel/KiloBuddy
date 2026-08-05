@@ -934,24 +934,20 @@ def process_response(response):
         print(f"INFO: Found {len(todo_list)} todo items")
         process_todo_list(todo_list)
     else:
+        update_display_task_list([])
         print("INFO: No todo list found in response.")
     return
 
 def update_display_task_list(new_list):
     global DISPLAY_TASK_LIST
     DISPLAY_TASK_LIST = new_list
-
-    print(f"DISPLAY LIST: {DISPLAY_TASK_LIST}")
     show_todo_list_window()
 
 # Extract the todo list from AI response
 def extract_todo_list(response):
     # More flexible regex pattern - allows variable spacing
-    task_pattern = re.compile(r"\[(\d+)\]\s+(.+?)\s+#\s+(USER|AI)\s+---\s+(DONE|DO NEXT|PENDING|SKIPPED)")
+    task_pattern = re.compile(r"\[(\d+)\]\s+(.+?)\s+#\s+(USER|AI)\s+---\s+(DONE|DO NEXT|PENDING|SKIPPED)", re.IGNORECASE)
     matches = task_pattern.findall(response)
-
-    for match in matches:
-        print(match)
     
     return matches
 
@@ -1564,104 +1560,80 @@ def show_todo_list_window():
             DISPLAY_TASK_WINDOW.attributes("-alpha", 0.86)
             DISPLAY_TASK_WINDOW.configure(bg="#131313")
 
+            main_frame = tk.Frame(DISPLAY_TASK_WINDOW, bg="#131313")
+            main_frame.pack(fill = tk.BOTH, expand = True, padx = int(5 * WINDOW_SCALING), pady = int(5 * WINDOW_SCALING))
+
+            # Create 8 labels
+            DISPLAY_TASK_WINDOW.labels = []
+            for _ in range(8):
+                lbl = tk.Label(
+                    main_frame,
+                    bg = "#131313",
+                    font = ("Helvetica", int(14 * WINDOW_SCALING)),
+                    anchor = "w"
+                )
+                DISPLAY_TASK_WINDOW.labels.append(lbl)
+
             line_height = int(40 * WINDOW_SCALING)
             padding = int(20 * WINDOW_SCALING)
 
-            window_w = int(300 * WINDOW_SCALING)
-            window_h = 6 * line_height + padding
+            window_w = int(320 * WINDOW_SCALING)
+            window_h = 8 * line_height + padding
             screen_w = DASHBOARD_ROOT.winfo_screenwidth()
             x = screen_w - window_w - int(18 * WINDOW_SCALING)
             y = int(120 * WINDOW_SCALING)
             DISPLAY_TASK_WINDOW.geometry(f"{window_w}x{window_h}+{x}+{y}")
 
-            canvas = tk.Canvas(
-                DISPLAY_TASK_WINDOW,
-                bg="#131313",
-                highlightthickness=0,
-                borderwidth=0
-            )
-            canvas.pack(side = tk.LEFT, fill = tk.BOTH, expand = True)
+        # Find active task for rolling center
+        active_index = next((i for i, t in enumerate(DISPLAY_TASK_LIST) if t[3] != "DONE"), len(DISPLAY_TASK_LIST))
+        print(f"ACT IDX: {active_index}")
 
-            scrollbar = tk.Scrollbar(
-                DISPLAY_TASK_WINDOW,
-                command = canvas.yview,
-                bg="#131313",
-                troughcolor = "#131313",
-                relief = tk.FLAT
-            )
-            scrollbar.pack(side = tk.RIGHT, fill = tk.Y)
+        # Show up to 6 items
+        start_idx = max(0, active_index - 3)
+        end_idx = min(len(DISPLAY_TASK_LIST), start_idx + 6)
 
-            canvas.configure(yscrollcommand = scrollbar.set)
+        start_idx = max(0, end_idx - 6)
 
-            inner_frame = tk.Frame(canvas, bg="#131313")
-            canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+        print(f"STA IDX: {start_idx}\nEND IDX: {end_idx}")
 
-            DISPLAY_TASK_WINDOW.canvas = canvas
-            DISPLAY_TASK_WINDOW.inner_frame = inner_frame
+        has_more_above = start_idx > 0
+        has_more_below = end_idx < len(DISPLAY_TASK_LIST)
 
-            def _on_mousewheel(event):
-                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        items_to_show = []
 
-            canvas.bind_all("<MouseWheel>", _on_mousewheel)
-            canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
-            canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
-
-        canvas = DISPLAY_TASK_WINDOW.canvas
-        inner_frame = DISPLAY_TASK_WINDOW.inner_frame
-
-        scroll_pos = canvas.yview()
-
-        for widget in inner_frame.winfo_children():
-            widget.destroy()
-
-        # Separate pending and done tasks
-        done_tasks = [t for t in DISPLAY_TASK_LIST if t[3] == "DONE"]
-        pending_tasks = [t for t in DISPLAY_TASK_LIST if t[3] != "DONE"]
-
-        # Display last 3 done tasks and first 3 pending tasks
-        visible_done = done_tasks[-3:] if len(done_tasks) > 3 else done_tasks
-        visible_pending = pending_tasks[:3]
-
-        has_more_above = len(done_tasks) > 3
-        has_more_below = len(pending_tasks) > 3
-
-        visible_items = []
         if has_more_above:
-            visible_items.append(("...", "HEADER"))
+            items_to_show.append(("...", "#888888", int(12 * WINDOW_SCALING)))
 
-        visible_items.extend([(t, "TASK") for t in visible_done])
-        visible_items.extend([(t, "TASK") for t in visible_pending])
+        for step_num, raw_cmd, executor, status in DISPLAY_TASK_LIST[start_idx:end_idx]:
+            name = friendly_name(raw_cmd)
+            checkbox = "☑" if status == "DONE" else "☐"
+            color = "#60E666" if status == "DONE" else "#FFFFFF"
+            items_to_show.append((f"{checkbox} - {name}", color, int(14 * WINDOW_SCALING)))
 
         if has_more_below:
-            visible_items.append(("...", "FOOTER"))
+            items_to_show.append(("...", "#888888", int(12 * WINDOW_SCALING)))
+        
+        # Unpack all labels
+        for lbl in DISPLAY_TASK_WINDOW.labels:
+            lbl.pack_forget()
 
-        for item, item_type in visible_items:
-            if item_type in ("HEADER", "FOOTER"):
-                label = tk.Label(
-                    inner_frame,
-                    text = "...",
-                    fg = "#888888",
-                    bg = "#131313",
-                    font = ("Helvetica", int(12 * WINDOW_SCALING))
-                )
-            else:
-                step_num, raw_cmd, executor, status = item
-                name = friendly_name(raw_cmd)
-                checkbox = checkbox = "☑ -" if status == "DONE" else "☐ -"
-                color = "#60E666" if status == "DONE" else "#FFFFFF"
-
-                label = tk.Label(
-                    inner_frame,
-                    text = f"{checkbox} {name}",
+        # Update and pack text
+        for i in range(8):
+            if i < len(items_to_show):
+                text, color, font_size = items_to_show[i]
+                DISPLAY_TASK_WINDOW.labels[i].config(
+                    text = text,
                     fg = color,
-                    bg = "#131313",
-                    font = ("Helvetica", int(14 * WINDOW_SCALING)),
-                    anchor = "w"
+                    font = ("Helvetica", font_size)
                 )
-            label.pack(fill = tk.X, padx = int(10 * WINDOW_SCALING), pady = int(2 * WINDOW_SCALING))
+                DISPLAY_TASK_WINDOW.labels[i].pack(fill = tk.X, padx = int(10 * WINDOW_SCALING), pady = int(2 * WINDOW_SCALING))
+            else:
+                DISPLAY_TASK_WINDOW.labels[i].pack_forget()
 
-        if all(status == "DONE" for (_, _, _, status) in DISPLAY_TASK_LIST):
-            DISPLAY_TASK_WINDOW.after(10000, DISPLAY_TASK_WINDOW.destroy)
+        # Close window after delay when all tasks are done
+        if DISPLAY_TASK_LIST and all(status == "DONE" for (_, _, _, status) in DISPLAY_TASK_LIST):
+            if DISPLAY_TASK_WINDOW.winfo_exists():
+                DISPLAY_TASK_WINDOW.after(10000, DISPLAY_TASK_WINDOW.destroy)
 
     DASHBOARD_ROOT.after(0, _update_or_create)
 
@@ -2741,22 +2713,22 @@ if __name__ == "__main__":
     print("TEST TASK LIST:")
 
     test_list = """>>
-[1] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[2] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[3] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[1] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[2] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[3] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
 [4] say hello to the user # AI --- PENDING
-[5] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[6] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[7] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[8] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[5] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[6] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[7] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[8] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
 [9] Briefly explain world war 2 # AI --- PENDING
-[10] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[11] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[12] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[13] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[14] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[15] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[16] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[10] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[11] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[12] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[13] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[14] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[15] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
+[16] {rd_inf: "/home/michael/Desktop/results.txt", size]} # USER --- PENDING
 <<"""
 
     process_response(test_list)
