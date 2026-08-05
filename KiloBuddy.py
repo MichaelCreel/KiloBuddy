@@ -1564,36 +1564,104 @@ def show_todo_list_window():
             DISPLAY_TASK_WINDOW.attributes("-alpha", 0.86)
             DISPLAY_TASK_WINDOW.configure(bg="#131313")
 
-            x = int(18 * WINDOW_SCALING)
+            line_height = int(40 * WINDOW_SCALING)
+            padding = int(20 * WINDOW_SCALING)
+
+            window_w = int(300 * WINDOW_SCALING)
+            window_h = 6 * line_height + padding
+            screen_w = DASHBOARD_ROOT.winfo_screenwidth()
+            x = screen_w - window_w - int(18 * WINDOW_SCALING)
             y = int(120 * WINDOW_SCALING)
-            DISPLAY_TASK_WINDOW.geometry(f"+{x}+{y}")
+            DISPLAY_TASK_WINDOW.geometry(f"{window_w}x{window_h}+{x}+{y}")
 
-            task_frame = tk.Frame(DISPLAY_TASK_WINDOW, bg="#131313")
-            task_frame.pack(fill=tk.BOTH, expand=True)
+            canvas = tk.Canvas(
+                DISPLAY_TASK_WINDOW,
+                bg="#131313",
+                highlightthickness=0,
+                borderwidth=0
+            )
+            canvas.pack(side = tk.LEFT, fill = tk.BOTH, expand = True)
 
-            DISPLAY_TASK_WINDOW.task_frame = task_frame
+            scrollbar = tk.Scrollbar(
+                DISPLAY_TASK_WINDOW,
+                command = canvas.yview,
+                bg="#131313",
+                troughcolor = "#131313",
+                relief = tk.FLAT
+            )
+            scrollbar.pack(side = tk.RIGHT, fill = tk.Y)
 
-        for widget in DISPLAY_TASK_WINDOW.task_frame.winfo_children():
+            canvas.configure(yscrollcommand = scrollbar.set)
+
+            inner_frame = tk.Frame(canvas, bg="#131313")
+            canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+
+            DISPLAY_TASK_WINDOW.canvas = canvas
+            DISPLAY_TASK_WINDOW.inner_frame = inner_frame
+
+            def _on_mousewheel(event):
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+            canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+
+        canvas = DISPLAY_TASK_WINDOW.canvas
+        inner_frame = DISPLAY_TASK_WINDOW.inner_frame
+
+        scroll_pos = canvas.yview()
+
+        for widget in inner_frame.winfo_children():
             widget.destroy()
 
-        for step_num, raw_cmd, executor, status in DISPLAY_TASK_LIST:
-            name = friendly_name(raw_cmd)
+        # Separate pending and done tasks
+        done_tasks = [t for t in DISPLAY_TASK_LIST if t[3] == "DONE"]
+        pending_tasks = [t for t in DISPLAY_TASK_LIST if t[3] != "DONE"]
 
-            checkbox = "D" if status == "DONE" else "P"
+        # Display last 3 done tasks and first 3 pending tasks
+        visible_done = done_tasks[-3:] if len(done_tasks) > 3 else done_tasks
+        visible_pending = pending_tasks[:3]
 
-            color = "#60E666" if status == "DONE" else "#FFFFFF"
+        has_more_above = len(done_tasks) > 3
+        has_more_below = len(pending_tasks) > 3
 
-            label = tk.Label(
-                DISPLAY_TASK_WINDOW.task_frame,
-                text=f"{checkbox} {name}",
-                fg=color,
-                bg="#131313",
-                font=("Helvetica", int(14 * WINDOW_SCALING)),
-            )
-            label.pack(fill=tk.X, padx=int(10 * WINDOW_SCALING), pady=int(2 * WINDOW_SCALING))
+        visible_items = []
+        if has_more_above:
+            visible_items.append(("...", "HEADER"))
+
+        visible_items.extend([(t, "TASK") for t in visible_done])
+        visible_items.extend([(t, "TASK") for t in visible_pending])
+
+        if has_more_below:
+            visible_items.append(("...", "FOOTER"))
+
+        for item, item_type in visible_items:
+            if item_type in ("HEADER", "FOOTER"):
+                label = tk.Label(
+                    inner_frame,
+                    text = "...",
+                    fg = "#888888",
+                    bg = "#131313",
+                    font = ("Helvetica", int(12 * WINDOW_SCALING))
+                )
+            else:
+                step_num, raw_cmd, executor, status = item
+                name = friendly_name(raw_cmd)
+                checkbox = checkbox = "☑ -" if status == "DONE" else "☐ -"
+                color = "#60E666" if status == "DONE" else "#FFFFFF"
+
+                label = tk.Label(
+                    inner_frame,
+                    text = f"{checkbox} {name}",
+                    fg = color,
+                    bg = "#131313",
+                    font = ("Helvetica", int(14 * WINDOW_SCALING)),
+                    anchor = "w"
+                )
+            label.pack(fill = tk.X, padx = int(10 * WINDOW_SCALING), pady = int(2 * WINDOW_SCALING))
 
         if all(status == "DONE" for (_, _, _, status) in DISPLAY_TASK_LIST):
-            DISPLAY_TASK_WINDOW.after(3000, DISPLAY_TASK_WINDOW.destroy)
+            DISPLAY_TASK_WINDOW.after(10000, DISPLAY_TASK_WINDOW.destroy)
 
     DASHBOARD_ROOT.after(0, _update_or_create)
 
@@ -2654,24 +2722,6 @@ if __name__ == "__main__":
 
     CONVERSATION_HISTORY = ConversationMemory(max_messages=6)
 
-    ##############################
-    ###### TASK LIST TESTING #####
-    ##############################
-
-    print("TEST TASK LIST:")
-
-    test_list = """>>
-[1] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[2] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-[3] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
-<<"""
-
-    process_response(test_list)
-
-    ##############################
-    ###### TASK LIST TESTING #####
-    ##############################
-
     # Start voice listening thread if not running
     if is_primary_instance:
         print("INFO: Starting voice assistant in background...")
@@ -2682,6 +2732,38 @@ if __name__ == "__main__":
     # Show dashboard
     print("INFO: Opening dashboard...")
     dashboard.show()
+
+    ##############################
+    ###### TASK LIST TESTING #####
+    ##############################
+
+    time.sleep(5)
+    print("TEST TASK LIST:")
+
+    test_list = """>>
+[1] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[2] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[3] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[4] say hello to the user # AI --- PENDING
+[5] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[6] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[7] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[8] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[9] Briefly explain world war 2 # AI --- PENDING
+[10] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[11] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[12] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[13] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[14] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[15] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+[16] {rd_inf: "/home/michael/Desktop/results.txt", all]} # USER --- PENDING
+<<"""
+
+    process_response(test_list)
+
+    ##############################
+    ###### TASK LIST TESTING #####
+    ##############################
 
     # Enter Tk event loop LAST
     DASHBOARD_ROOT.mainloop()
