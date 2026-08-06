@@ -1616,6 +1616,9 @@ class ConversationMemory:
         if len(self.history) > self.max_messages:
             self.history = self.history[-self.max_messages:]
 
+    def get_history(self):
+        return self.history
+
     # Returns the history in proper formatting
     def get_formatted_history(self):
         if not self.history:
