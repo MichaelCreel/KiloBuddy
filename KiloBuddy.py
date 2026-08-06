@@ -1746,10 +1746,10 @@ class KiloBuddyDashboard:
         self.output_text.pack(fill="both", expand=True)
 
         # Colors for conversation
-        self.output_text.tag_config("USER", foreground = "#FFFFFF")
+        self.output_text.tag_config("USER", foreground = "#9F9F9F")
         self.output_text.tag_config("AI", foreground = "#FFFFFF")
-        self.output_text.tag_config("LCO", foreground = "#FFFFFF")
-        self.output_text.tag_config("LCI", foreground = "#FFFFFF")
+        self.output_text.tag_config("LCO", foreground = "#00D080")
+        self.output_text.tag_config("LCI", foreground = "#C36100")
 
         self.update_output_display()
 
