@@ -1745,6 +1745,12 @@ class KiloBuddyDashboard:
         self.output_text._textbox.configure(wrap = "word")
         self.output_text.pack(fill="both", expand=True)
 
+        # Colors for conversation
+        self.output_text.tag_config("USER", foreground = "#FFFFFF")
+        self.output_text.tag_config("AI", foreground = "#FFFFFF")
+        self.output_text.tag_config("LCO", foreground = "#FFFFFF")
+        self.output_text.tag_config("LCI", foreground = "#FFFFFF")
+
         self.update_output_display()
 
         input_frame = ctk.CTkFrame(self.root, fg_color=self.frame_color, corner_radius=15)
