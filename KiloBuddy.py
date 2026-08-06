@@ -1739,6 +1739,7 @@ class KiloBuddyDashboard:
         text_frame.pack(fill="both", expand=True, padx=int(15 * WINDOW_SCALING), pady=int(15 * WINDOW_SCALING))
 
         self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=int(10 * WINDOW_SCALING), height=int(300 * WINDOW_SCALING))
+        self.output_text._textbox.configure(wrap = "word")
         self.output_text.pack(fill="both", expand=True)
 
         self.update_output_display()
