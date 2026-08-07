@@ -6,3 +6,5 @@ __pycache__/
 kilobuddy_env/
 checkpoints/
 intent_model/
+test_output.txt
+updates
