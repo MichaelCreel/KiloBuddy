@@ -1941,8 +1941,8 @@ class KiloBuddyDashboard:
             )
             open_log_btn.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(10 * WINDOW_SCALING)))
             
-            status_label = ctk.CTkLabel(scroll_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
-            status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), 0))
+            status_label = ctk.CTkLabel(settings_window, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
+            status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(3 * WINDOW_SCALING), 0))
 
             def open_log_file():
                 global LOG_PATH
