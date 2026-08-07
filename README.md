@@ -85,6 +85,14 @@ The cloud models Google Gemini, OpenAI ChatGPT, and Anthropic Claude are usable 
 
 While CPU processing is possible with local models, generation will be slow and a discrete video card is recommended for generation.
 
+### Model Tests
+
+These scatter plots below compare the performance of the models. They show the accuracy of the models compared to the time it took for generation. These tests looked at 12 models, and the performance of the recommended models above are supported by the tests.
+
+![Model Accuracy vs Generation Time Results](model_evaluation_results.png)
+
+![Model Accuracy vs Generation Time Results Zoomed](model_evaluation_results_zoomed.png)
+
 ## Notes
 
 - The prompts for models can be changed by editing `initial_prompt` and `prompt` to tune generation
