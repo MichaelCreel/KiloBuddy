@@ -1605,22 +1605,34 @@ class ConversationMemory:
     # Add a message to the conversation history
     # Automatically rotates history if needed
     def add_message(self, role, content):
-        if role in ["LCO", "LCI"]:
-            content = truncate_middle(content, 60)
-        elif role in ["USER", "AI"]:
-            content = truncate_middle(content, 200)
-
         self.history.append({"role": role, "content": content})
 
         # Rotate history if exceeding maximum messages
         if len(self.history) > self.max_messages:
             self.history = self.history[-self.max_messages:]
 
-    # Returns the history in proper formatting
+    def get_history(self):
+        return self.history
+
+    # Returns the history in proper formatting and truncated
     def get_formatted_history(self):
         if not self.history:
             return "[No previous history]"
-        return "\n".join([f"{msg['role']}: {msg['content']}" for msg in self.history])
+        
+        formatted = []
+        for msg in self.history:
+            role = msg["role"]
+            content = msg["content"]
+
+            # Truncate
+            if role in ["LCO", "LCI"]:
+                content = truncate_middle(content, 60)
+            elif role in ["USER", "AI"]:
+                content = truncate_middle(content, 200)
+
+            formatted.append(f"{role}: {content}")
+
+        return "\n".join(formatted)
 
 # Dashboard for KiloBuddy
 class KiloBuddyDashboard:
@@ -1739,7 +1751,15 @@ class KiloBuddyDashboard:
         text_frame.pack(fill="both", expand=True, padx=int(15 * WINDOW_SCALING), pady=int(15 * WINDOW_SCALING))
 
         self.output_text = ctk.CTkTextbox(text_frame, font=ctk.CTkFont(family=self.stacksans_light_family, size=self.text_font_size), fg_color=self.background_color, text_color="white", corner_radius=int(10 * WINDOW_SCALING), height=int(300 * WINDOW_SCALING))
+        self.output_text._textbox.configure(wrap = "word")
         self.output_text.pack(fill="both", expand=True)
+
+        # Colors for conversation
+        self.output_text.tag_config("USER", foreground = "#9F9F9F")
+        self.output_text.tag_config("AI", foreground = "#FFFFFF")
+        self.output_text.tag_config("LCO", foreground = "#00D080")
+        self.output_text.tag_config("LCI", foreground = "#C36100")
+        self.output_text.tag_config("SYS", foreground = "#FFB300")
 
         self.update_output_display()
 
@@ -1920,8 +1940,8 @@ class KiloBuddyDashboard:
             )
             open_log_btn.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(10 * WINDOW_SCALING)))
             
-            status_label = ctk.CTkLabel(scroll_frame, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
-            status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), 0))
+            status_label = ctk.CTkLabel(settings_window, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
+            status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(3 * WINDOW_SCALING), 0))
 
             def open_log_file():
                 global LOG_PATH
@@ -2009,12 +2029,24 @@ class KiloBuddyDashboard:
                 pass
 
     def update_output_display(self):
-        if LAST_OUTPUT:
-            self.output_text.delete("0.0", "end")
-            self.output_text.insert("0.0", LAST_OUTPUT)
-        else:
-            self.output_text.delete("0.0", "end")
-            self.output_text.insert("0.0", "No response yet. Try sending a command...")
+        self.output_text.delete("0.0", "end")
+        history = getattr(CONVERSATION_HISTORY, "history", None)
+
+        if not history:
+            self.output_text.insert("end", "No response yet. Try sending a command...", "SYS")
+            return
+        
+        for msg in history:
+            role = msg["role"]
+            content = msg["content"]
+
+            self.output_text.insert("end", f"{role}: ", role)
+
+            self.output_text.insert("end", f"{content}\n", role)
+
+            self.output_text.insert("end", "\n", "SYS")
+
+        self.output_text._textbox.see("end")
     
     def set_status_lights(self, state):
         inactive = {"green": "#104712", "yellow": "#693609", "red": "#490A0A"}
@@ -2057,19 +2089,11 @@ class KiloBuddyDashboard:
     def update_output_with_response(self, text):
         global LAST_OUTPUT
         LAST_OUTPUT = text
-        
-        self.output_text.delete("0.0", "end")
-        self.output_text.insert("0.0", text)
+        self.update_output_display()
     
     def update_output_with_latest_response(self):
-        global LAST_OUTPUT
-        
-        self.output_text.delete("0.0", "end")
-        if LAST_OUTPUT:
-            self.output_text.insert("0.0", LAST_OUTPUT)
-        else:
-            self.output_text.insert("0.0", "No response available.")
-        
+        self.update_output_display()
+
     def quit_kilobuddy(self):
         result = show_custom_confirm(
             "Stop KiloBuddy",
@@ -2539,8 +2563,12 @@ class LogRedirector:
             os.replace(self.path, self.path + ".old")
 
 if __name__ == "__main__":
-    sys.stdout = LogRedirector(LOG_PATH)
-    sys.stderr = LogRedirector(LOG_PATH)
+    if "--dev" not in sys.argv:
+        print("INFO: Non-developer mode launched.")
+        sys.stdout = LogRedirector(LOG_PATH)
+        sys.stderr = LogRedirector(LOG_PATH)
+    else:
+        print("INFO: Developer mode launched.")
 
     print("INFO: Launching KiloBuddy...")
 
