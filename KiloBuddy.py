@@ -1612,7 +1612,6 @@ class ConversationMemory:
             self.history = self.history[-self.max_messages:]
 
     def get_history(self):
-        print(self.history)
         return self.history
 
     # Returns the history in proper formatting and truncated
@@ -1625,7 +1624,7 @@ class ConversationMemory:
             role = msg["role"]
             content = msg["content"]
 
-            # Trucate
+            # Truncate
             if role in ["LCO", "LCI"]:
                 content = truncate_middle(content, 60)
             elif role in ["USER", "AI"]:
