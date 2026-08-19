@@ -28,6 +28,7 @@ from send2trash import send2trash
 import datetime
 import shutil
 from rapidfuzz import fuzz, process
+from collections import deque
 
 # Redefine app identification
 if platform.system() == "Windows":
@@ -71,6 +72,8 @@ STATUS_INDICATOR_WINDOW = None
 STATUS_CANVAS = None
 STATUS_TEXT_ID = None
 STATUS_DOT_IDS = []
+OVERLAY_QUEUE = deque() # Queue for overlay messages
+OVERLAY_ACTIVE = False
 
 def get_kilobuddy_pid():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
@@ -1428,8 +1431,8 @@ def format_todo_list(todo_list):
     lines.append("<<")
     return "\n".join(lines)
 
-# Show overlay for AI output designated for user
-def show_overlay(text):
+# Creates the window for AI output designated for user
+def display_overlay():
     def open_overlay():
         root = tk.Tk()
         root.title("KiloBuddy")
@@ -1477,16 +1480,16 @@ def show_overlay(text):
         frame.pack(fill=tk.BOTH, expand=True, padx=int(5 * WINDOW_SCALING), pady=int(5 * WINDOW_SCALING))
 
         text_widget = tk.Text(frame, 
-                             font=overlay_font, 
-                             fg="white", 
-                             bg="#131313", 
-                             wrap=tk.WORD,
-                             selectbackground="#195cba",
-                             selectforeground="white",
-                             insertbackground="white",
-                             relief=tk.FLAT,
-                             borderwidth=1,
-                             highlightthickness=0)
+                                font=overlay_font, 
+                                fg="white", 
+                                bg="#131313", 
+                                wrap=tk.WORD,
+                                selectbackground="#195cba",
+                                selectforeground="white",
+                                insertbackground="white",
+                                relief=tk.FLAT,
+                                borderwidth=1,
+                                highlightthickness=0)
         
         needs_scrollbar = ideal_height >= max_height
         
@@ -1505,15 +1508,28 @@ def show_overlay(text):
         
         def close_overlay(event=None):
             root.destroy()
+            global OVERLAY_ACTIVE
+            OVERLAY_ACTIVE = False
         
         # Double-click to close
         text_widget.bind("<Double-Button-1>", close_overlay)
         root.bind("<Escape>", close_overlay)
         
-        root.after(len(text) * 15 + 5000, root.destroy)
+        root.after(len(text) * 15 + 5000, close_overlay)
         root.mainloop()
+        display_overlay()
 
-    threading.Thread(target=open_overlay).start()
+    global OVERLAY_ACTIVE
+    if OVERLAY_QUEUE is not None and not len(OVERLAY_QUEUE) == 0 and not OVERLAY_ACTIVE:
+        text = OVERLAY_QUEUE.popleft()
+        threading.Thread(target=open_overlay).start()
+        OVERLAY_ACTIVE = True
+
+# Show overlay for AI output designated for user
+def show_overlay(text):
+    if OVERLAY_QUEUE is not None:
+        OVERLAY_QUEUE.append(text)
+        display_overlay()
 
 def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
     if DASHBOARD_ROOT is None:
