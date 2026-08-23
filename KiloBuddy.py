@@ -1250,7 +1250,6 @@ def try_execute_tool(command):
 
     tool_name, raw_args = parsed
     output = execute_tool(tool_name, raw_args)
-    print(output)
     return output
 
 # USER Call Subprocess
