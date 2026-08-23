@@ -621,7 +621,13 @@ def local_generate(input_prompt, model_name):
         try:
             response = requests.post(
                 "http://localhost:11434/api/generate",
-                json={"model": model_name, "prompt": input_prompt},
+                json={
+                    "model": model_name,
+                    "prompt": input_prompt,
+                    "options": {
+                        "temperature": 0.5,
+                    }
+                },
                 timeout=(API_TIMEOUT, API_TIMEOUT),
                 stream=True
             )
