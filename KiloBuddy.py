@@ -948,6 +948,7 @@ def extract_user_output(response):
 
 # Interprets the todo list and decides on user or AI call
 def process_todo_list(todo_list):
+    print(todo_list)
     # Check if there's a DO NEXT task, if not, promote the first PENDING task
     has_do_next = any(status == "DO NEXT" for _, _, _, status in todo_list)
     if not has_do_next:
@@ -966,6 +967,7 @@ def process_todo_list(todo_list):
             elif executor == "AI":
                 print(f"INFO: Requesting AI command: {command}")
                 ai_call(todo_list)
+                update_status(todo_list, i)
                 break
 
 # Update the status of a task in the todo list
