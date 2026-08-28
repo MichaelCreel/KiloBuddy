@@ -1024,17 +1024,17 @@ def execute_tool(tool_name, raw_args):
 # Create directory
 def tl_create_directory(path):
     if not path:
-        return "No path provided for directory creation."
+        return "[[>TOOL_FAIL<]] No path provided for directory creation."
     try:
         os.makedirs(path, exist_ok=True)
         return "Successfully created directory."
     except Exception as e:
-        return f"Failed to create directory: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to create directory: {e}"
 
 # Create file
 def tl_create_file(path):
     if not path:
-        return "No path provided for file creation."
+        return "[[>TOOL_FAIL<]] No path provided for file creation."
     try:
         if os.path.exists(path):
             if os.path.getsize(path) > 0:
@@ -1046,36 +1046,36 @@ def tl_create_file(path):
                 if result:
                     pass
                 else:
-                    return "Write operation declined by user because of existing content."
+                    return "[[>TOOL_FAIL<]] Write operation declined by user because of existing content."
         with open(path, "w") as f:
             pass
         return "Successfully created file."
     except Exception as e:
-        return f"Failed to create file: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to create file: {e}"
 
 # Delete file or directory (send to trash)
 def tl_delete_file(path):
     if not path:
-        return "No path provided for deletion."
+        return "[[>TOOL_FAIL<]] No path provided for deletion."
     try:
         if not os.path.exists(path):
-            return f"Path {path} does not exist."
+            return f"[[>TOOL_FAIL<]] Path {path} does not exist."
 
         send2trash(path)
         return "Successfully sent to trash."
     except Exception as e:
-        return f"Failed to send to trash: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to send to trash: {e}"
 
 # Read or peek at file content
 # Truncates output automatically
 # Peek: top/bottom/None
 def tl_read_file(path, peek=None, peek_lines=0):
     if not path:
-        return "No path provided for file reading."
+        return "[[>TOOL_FAIL<]] No path provided for file reading."
     if not os.path.exists(path):
-        return f"Path {path} does not exist."
+        return f"[[>TOOL_FAIL<]] Path {path} does not exist."
     if not os.path.isfile(path):
-        return f"Path {path} is not a file."
+        return f"[[>TOOL_FAIL<]] Path {path} is not a file."
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -1087,7 +1087,7 @@ def tl_read_file(path, peek=None, peek_lines=0):
             full_content = "".join(lines)
             return truncate_middle(full_content, 800)
         if peek_lines <= 0:
-            return "Peek lines must be greater than 0."
+            return "[[>TOOL_FAIL<]] Peek lines must be greater than 0."
         if peek == "top":
             selected = lines[:peek_lines]
             text = "".join(selected)
@@ -1097,16 +1097,16 @@ def tl_read_file(path, peek=None, peek_lines=0):
             text = "".join(selected)
             return truncate_middle(text, 800)
 
-        return f"Invalid peek mode {peek}. Must be 'top', 'bottom', or None."
+        return f"[[>TOOL_FAIL<]] Invalid peek mode {peek}. Must be 'top', 'bottom', or None."
     except Exception as e:
-        return f"Failed to read file: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to read file: {e}"
 
 # Return file/directory information
 def tl_get_info(path, info_type="all"):
     if not path:
-        return "No path provided for file info."
+        return "[[>TOOL_FAIL<]] No path provided for file info."
     if not os.path.exists(path):
-        return f"Path {path} does not exist."
+        return f"[[>TOOL_FAIL<]] Path {path} does not exist."
     try:
         stats = os.stat(path)
 
@@ -1126,18 +1126,18 @@ def tl_get_info(path, info_type="all"):
         elif info_type == "all":
             return f"Size: {size} bytes\nCreated: {created}\nModified: {modified}\nExtension: {extension}"
         else:
-            return f"Invalid info_type {info_type}. Must be 'size', 'create', 'mod', 'ext', or 'all'."
+            return f"[[>TOOL_FAIL<]] Invalid info_type {info_type}. Must be 'size', 'create', 'mod', 'ext', or 'all'."
     except Exception as e:
-        return f"Failed to get file info: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to get file info: {e}"
 
 # Move a file or directory
 def tl_move(path, dest):
     if not path:
-        return "No source path provided for move."
+        return "[[>TOOL_FAIL<]] No source path provided for move."
     if not dest:
-        return "No destination path provided for move."
+        return "[[>TOOL_FAIL<]] No destination path provided for move."
     if not os.path.exists(path):
-        return f"Source path {path} does not exist."
+        return f"[[>TOOL_FAIL<]] Source path {path} does not exist."
     try:
         dest_dir = os.path.dirname(dest)
         if dest_dir and not os.path.exists(dest_dir):
@@ -1145,15 +1145,15 @@ def tl_move(path, dest):
         shutil.move(path, dest)
         return "Successfully moved."
     except Exception as e:
-        return f"Failed to move: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to move: {e}"
 
 def tl_rename(path, new_name):
     if not path:
-        return "No path provided for rename."
+        return "[[>TOOL_FAIL<]] No path provided for rename."
     if not new_name:
-        return "No new name provided for rename."
+        return "[[>TOOL_FAIL<]] No new name provided for rename."
     if not os.path.exists(path):
-        return f"Path {path} does not exist."
+        return f"[[>TOOL_FAIL<]] Path {path} does not exist."
 
     try:
         directory = os.path.dirname(path)
@@ -1161,12 +1161,12 @@ def tl_rename(path, new_name):
         return tl_move(path, dest)
 
     except Exception as e:
-        return f"Failed to rename: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to rename: {e}"
 
 # Write to a file
 def tl_write_file(path, content, mode):
     if not path:
-        return "No path provided for writing."
+        return "[[>TOOL_FAIL<]] No path provided for writing."
     try:
         if mode.lower() == "write":
             if os.path.exists(path):
@@ -1179,7 +1179,7 @@ def tl_write_file(path, content, mode):
                     if result:
                         pass
                     else:
-                        return "Write operation declined by user because of existing content."
+                        return "[[>TOOL_FAIL<]] Write operation declined by user because of existing content."
             with open(path, "w") as f:
                 f.write(content)
             return "Successfully wrote to file."
@@ -1188,18 +1188,18 @@ def tl_write_file(path, content, mode):
                 f.write(content)
             return "Successfully appended to file."
         else:
-            return f"Invalid mode {mode}."
+            return f"[[>TOOL_FAIL<]] Invalid mode {mode}."
     except Exception as e:
-        return f"Failed to write to file: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to write to file: {e}"
 
 # Search for files and directories
 def tl_discover(search_path, search_query):
     if not search_path:
-        return "No search path provided."
+        return "[[>TOOL_FAIL<]] No search path provided."
     if not search_query:
-        return "No search query provided."
+        return "[[>TOOL_FAIL<]] No search query provided."
     if not os.path.exists(search_path):
-        return f"Search path {search_path} does not exist."
+        return f"[[>TOOL_FAIL<]] Search path {search_path} does not exist."
     try:
         entries = os.listdir(search_path)
         full_paths = [os.path.join(search_path, entry) for entry in entries]
@@ -1214,13 +1214,13 @@ def tl_discover(search_path, search_query):
         filtered = [(name, score) for name, score, idx in matches if score >= 65]
 
         if not filtered:
-            return f"No matches found with sufficient score."
+            return f"[[>TOOL_FAIL<]] No matches found with sufficient score."
 
         filtered.sort(key=lambda x: x[1], reverse=True)
 
         return "\n".join(f"{name} (score: {score})" for name, score in filtered)
     except Exception as e:
-        return f"Failed to discover files: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to discover files: {e}"
 
 # Strip quotes and commas from a string
 def strip_quotes_commas(s):
@@ -1260,6 +1260,13 @@ def try_execute_tool(command):
     output = execute_tool(tool_name, raw_args)
     return output
 
+def needs_ai_followup(tool_name, tool_output):
+    if "[[>TOOL_FAIL<]]" in tool_output:
+        return True
+    if tool_name in ["rd_fil", "rd_inf", "ds"]:
+        return True
+    return False
+
 # USER Call Subprocess
 def user_call(command):
     global PREVIOUS_COMMAND_OUTPUT, LAST_OUTPUT, OS_VERSION
@@ -1281,6 +1288,8 @@ def user_call(command):
         PREVIOUS_COMMAND_OUTPUT = tool_output
         CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
         return
+
+    # CALL NEEDS AI FOLLOW UP TO SEE IF TOOL HAS FAILED OR REQUIRES GENERATION
     
     # Check for dangerous commands
     tokens = shlex.split(command)
