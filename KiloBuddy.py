@@ -929,6 +929,14 @@ def process_response(response):
         process_todo_list(todo_list)
     else:
         print("INFO: No todo list found in response.")
+
+
+    #############################
+    print("DEBUG: User Output: ", user_output)
+    print("DEBUG: Todo List: ", todo_list)
+    #############################
+
+
     return
 
 # Extract the todo list from AI response
@@ -946,9 +954,16 @@ def extract_user_output(response):
         return output_pattern.group(1).strip()
     return None
 
+# Checks tool name and output to determine if the tool needs AI follow-up
+def needs_ai_followup(tool_name, tool_output):
+    if "[[>TOOL_FAIL<]]" in tool_output:
+        return True
+    if tool_name in ["rd_fil", "rd_inf", "ds"]:
+        return True
+    return False
+
 # Interprets the todo list and decides on user or AI call
 def process_todo_list(todo_list):
-    print(todo_list)
     # Check if there's a DO NEXT task, if not, promote the first PENDING task
     has_do_next = any(status == "DO NEXT" for _, _, _, status in todo_list)
     if not has_do_next:
@@ -961,14 +976,18 @@ def process_todo_list(todo_list):
     for i, (step_num, command, executor, status) in enumerate(todo_list):
         if status == "DO NEXT":
             if executor == "USER":
-                user_call(command)
+                tool_name, tool_output = user_call(command)
                 update_status(todo_list, i)
+                if needs_ai_followup(tool_name, tool_output):
+                    print(f"INFO: Tool '{tool_name}' output requires AI follow-up.")
+                    ai_call(todo_list)
+                    return
                 continue
             elif executor == "AI":
                 print(f"INFO: Requesting AI command: {command}")
                 ai_call(todo_list)
                 update_status(todo_list, i)
-                break
+                return
 
 # Update the status of a task in the todo list
 def update_status(todo_list, current_step):
@@ -1258,14 +1277,7 @@ def try_execute_tool(command):
 
     tool_name, raw_args = parsed
     output = execute_tool(tool_name, raw_args)
-    return output
-
-def needs_ai_followup(tool_name, tool_output):
-    if "[[>TOOL_FAIL<]]" in tool_output:
-        return True
-    if tool_name in ["rd_fil", "rd_inf", "ds"]:
-        return True
-    return False
+    return output, tool_name
 
 # USER Call Subprocess
 def user_call(command):
@@ -1280,16 +1292,14 @@ def user_call(command):
 
     CONVERSATION_HISTORY.add_message("LCI", command)
 
-    tool_output = try_execute_tool(command)
+    tool_output, tool_name = try_execute_tool(command)
     if tool_output is not None:
         print(f"INFO: Successfully executed tool command: {command}")
         hide_status_indicator()
 
         PREVIOUS_COMMAND_OUTPUT = tool_output
         CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
-        return
-
-    # CALL NEEDS AI FOLLOW UP TO SEE IF TOOL HAS FAILED OR REQUIRES GENERATION
+        return tool_name, tool_output
     
     # Check for dangerous commands
     tokens = shlex.split(command)
