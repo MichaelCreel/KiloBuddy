@@ -2584,6 +2584,8 @@ class LogRedirector:
             os.replace(self.path, self.path + ".old")
 
 if __name__ == "__main__":
+    print(f"STARTUP: [[[LAUNCH AT {time.strftime('%Y-%m-%d %H:%M:%S')}]]]")
+
     if "--dev" not in sys.argv:
         print("INFO: Non-developer mode launched.")
         sys.stdout = LogRedirector(LOG_PATH)
