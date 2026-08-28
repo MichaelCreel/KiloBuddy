@@ -42,4 +42,6 @@ HARD RULES:
 - Use DEFAULT PATH for unless specified in USER COMMAND to avoid lost files
 - Do not save to files unless required
 - Do not instruct the user to do the job TASK LIST is doing
+- Instruct the AI in INPUT to extend the TASK LIST when necessary (summaries, file discovery, etc.)
+- Do not output an answer to a question unless the TASK LIST is empty
 - Try not to use broad listing commands on folders or files. Use search commands to narrow contents. If no results are found, broad commands can be used
