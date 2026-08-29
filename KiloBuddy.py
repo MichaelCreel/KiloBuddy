@@ -39,6 +39,17 @@ if platform.system() == "Windows":
 LOG_PATH = os.path.join(tempfile.gettempdir(), "kilobuddy.log") # Path to log file
 MAX_LOG_SIZE = 1 * 1024 * 1024
 
+WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
+OS_VERSION = "auto-detect" # Operating system version for command generation
+PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
+VERSION = "v0.0" # The version of KiloBuddy that is running
+UPDATES = "release" # The type of updates to check for, "release", "pre-release", or "none"
+MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
+OLLAMA_THREAD = None # Thread to track Ollama process if managed
+WINDOW_SCALING = 1.0 # Scaling for the windows to match system scaling
+DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
+
+# AI Variables
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 CHATGPT_API_KEY = "" # API Key for calling ChatGPT API, loaded from chatgpt_api_key file
@@ -46,18 +57,183 @@ CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key
 AI_PREFERENCE = "gemini, chatgpt, claude" # Preferred order of AI models to call, loaded from ai_preference file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for AI API calls, loaded from prompt file
 INITIAL_PROMPT = "Return 'Initial Prompt not loaded'." # Prompt for initial AI API call, loaded from initial prompt file
-WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
-OS_VERSION = "auto-detect" # Operating system version for command generation
-PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
-LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
 USER_INTENT = "" # Store the last user command for AI use
 CONVERSATION_HISTORY = None # Store conversation history for better model context
-VERSION = "v0.0" # The version of KiloBuddy that is running
-UPDATES = "release" # The type of updates to check for, "release", "pre-release", or "none"
-MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
-OLLAMA_THREAD = None # Thread to track Ollama process if managed
-WINDOW_SCALING = 1.0 # Scaling for the windows to match system scaling
-DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
+LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
+TOOLS = [ # Tools available for the AI to call
+    {
+        "type": "function",
+        "function": {
+            "name": "cr_dir",
+            "description": "Create a new directory at a specified path. New directory included in path.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    }
+                }
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cr_fil",
+            "description": "Create a new file at a specified path. New file included in path.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    }
+                }
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dl",
+            "description": "Send a file or folder to trash",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    }
+                }
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rd_fil",
+            "description": "Read the contents of a file. Supports peeking (none/top/bottom). Automatically truncates as necessary.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "peek": {
+                        "type": "string", 
+                        "default": "none"
+                    },
+                    "peek_lines": {
+                        "type": "integer", 
+                        "default": 0 
+                    }
+                } 
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rd_inf",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "info_type": {
+                        "type": "string", 
+                        "default": "all"
+                    }
+                } 
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mv",
+            "description": "Move a file or folder.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "destination": {
+                        "type": "string",
+                    }
+                },
+                "required": ["path", "destination"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rn",
+            "description": "Rename a file or folder.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "new_name": {
+                        "type": "string",
+                    }
+                },
+                "required": ["path", "new_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "wr_fil",
+            "description": "Write or append to a file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "content": {
+                        "type": "string",
+                    },
+                    "mode": {
+                        "type": "string",
+                        "default": "write"
+                    }
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ds",
+            "description": "Discover files and folders in a path. Returns fuzzy search with score.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "query": {
+                        "type": "string",
+                        "default": ""
+                    }
+                },
+                "required": ["path", "query"]
+            }
+        }
+    }
+]
 
 # Vosk Speech Recognition Variables
 vosk_model = None
