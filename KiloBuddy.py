@@ -1210,45 +1210,44 @@ def update_status(todo_list, current_step):
             todo_list[current_step + 1] = (next_step_num, next_command, next_executor, "DO NEXT")
 
 # Execute a tool command
-def execute_tool(tool_name, raw_args):
+def execute_tool(tool_name, args):
     try:
+        # Replace variables in the command
+        for key, val in args.items():
+            if isinstance(val, str) and "$LAST_OUTPUT" in val:
+                args[key] = val.replace("$LAST_OUTPUT", LAST_OUTPUT)
+
         if tool_name == "cr_dir":
-            return tl_create_directory(raw_args[0])
-
+            return tool_name, tl_create_directory(args["path"])
         elif tool_name == "cr_fil":
-            return tl_create_file(raw_args[0])
-
+            return tool_name, tl_create_file(args["path"])
         elif tool_name == "dl":
-            return tl_delete_file(raw_args[0])
-
+            return tool_name, tl_delete_file(args["path"])
         elif tool_name == "rd_fil":
-            path = raw_args[0]
-            peek = raw_args[1] if len(raw_args) > 1 else None
-            peek_lines = int(raw_args[2]) if len(raw_args) > 2 else 0
-            return tl_read_file(path, peek, peek_lines)
-
+            path = args["path"]
+            peek = args.get("peek", None)
+            peek_lines = args.get("peek_lines", 0)
+            return tool_name, tl_read_file(path, peek, peek_lines)
         elif tool_name == "rd_inf":
-            path = raw_args[0]
-            info_type = raw_args[1] if len(raw_args) > 1 else "all"
-            return tl_get_info(path, info_type)
-
+            path = args["path"]
+            info_type = args.get("info_type", "all")
+            return tool_name, tl_get_info(path, info_type)
         elif tool_name == "mv":
-            return tl_move(raw_args[0], raw_args[1])
-
+            return tool_name, tl_move(args["source"], args["destination"])
         elif tool_name == "rn":
-            return tl_rename(raw_args[0], raw_args[1])
-
+            return tool_name, tl_rename(args["old_name"], args["new_name"])
         elif tool_name == "wr_fil":
-            return tl_write_file(raw_args[0], raw_args[1], raw_args[2])
-
+            return tool_name, tl_write_file(args["path"], args["content"], args.get("mode", "write"))
         elif tool_name == "ds":
-            return tl_discover(raw_args[0], raw_args[1])
-
+            return tool_name, tl_discover(args["path"], args.get("pattern", ""))
+        #elif tool_name == "ai_call":
+        #    return tool_name, tl_ai_call(args["prompt"])
+        #elif tool_name == "tm_cmd":
+        #    return tool_name, tl_run_command(args["command"])
         else:
-            return f"Unknown tool command: {tool_name}"
-
+            return tool_name, f"[[>TOOL_FAIL<]] Unknown tool: {tool_name}"
     except Exception as e:
-        return f"Failed to execute tool command: {e}"
+        return tool_name, f"[[>TOOL_FAIL<]] Failed to execute tool {tool_name}: {e}"
 
 # Create directory
 def tl_create_directory(path):
