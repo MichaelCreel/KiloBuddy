@@ -65,7 +65,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "cr_dir",
-            "description": "Create a new directory at a specified path. New directory included in path.",
+            "description": "Create a new directory at a specified path. New directory included in path. Automatically calls AI on failure.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -81,7 +81,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "cr_fil",
-            "description": "Create a new file at a specified path. New file included in path.",
+            "description": "Create a new file at a specified path. New file included in path. Automatically calls AI on failure.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -97,7 +97,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "dl",
-            "description": "Send a file or folder to trash",
+            "description": "Send a file or folder to trash. Automatically calls AI on failure.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -113,7 +113,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "rd_fil",
-            "description": "Read the contents of a file. Supports peeking (none/top/bottom). Automatically truncates as necessary.",
+            "description": "Read the contents of a file. Supports peeking (none/top/bottom). Automatically truncates as necessary. Automatically calls AI all cases.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -137,6 +137,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "rd_inf",
+            "description": "Get information about a file or folder (size/creation/modification/extention/all). Automatically calls AI all cases.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -156,7 +157,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "mv",
-            "description": "Move a file or folder.",
+            "description": "Move a file or folder. Automatically calls AI on failure.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -175,7 +176,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "rn",
-            "description": "Rename a file or folder.",
+            "description": "Rename a file or folder. Automatically calls AI on failure.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -194,7 +195,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "wr_fil",
-            "description": "Write or append to a file.",
+            "description": "Write or append to a file. Automatically calls AI on failure.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -217,7 +218,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "ds",
-            "description": "Discover files and folders in a path. Returns fuzzy search with score.",
+            "description": "Discover files and folders in a path. Returns fuzzy search with score. Automatically calls AI all cases.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -230,6 +231,39 @@ TOOLS = [ # Tools available for the AI to call
                     }
                 },
                 "required": ["path", "query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ai_call",
+            "description": "Make an additional call to AI. Used for multi-step reasoning.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": "The prompt to send to the AI."
+                    }
+                },
+                "required": ["prompt"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "tm_cmd",
+            "description": "Execute a terminal command. Does not automatically format for OS or run as Administrator.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                    }
+                },
+                "required": ["command"]
             }
         }
     }
