@@ -810,19 +810,19 @@ def generate_text(input_prompt):
             result = local_generate(input_prompt, model)
         
         # If we got a successful result, return it
-        if result is not None and result.strip():
+        if result and isinstance(result, dict) and result.get("message"):
             print(f"INFO: Successfully generated text using {model.upper()}")
             return result
         else:
             print(f"WARNING: {model.upper()} failed to generate text, trying next AI model...")
-    
+
     # If we've exhausted all AI models without success
     print("ERROR: All AI models failed to generate text.\nERROR 127")
     show_failure_notification("ERROR 127: All AI models failed to generate text.")
     return "ERROR: All AI models failed to generate text."
 
 def local_generate(input_prompt, model_name):
-    result = {"text": None}
+    result = {"data": None}
     timeout_triggered = threading.Event()
 
     def local_call():
@@ -830,52 +830,56 @@ def local_generate(input_prompt, model_name):
             return
         try:
             response = requests.post(
-                "http://localhost:11434/api/generate",
+                "http://localhost:11434/api/chat",
                 json={
                     "model": model_name,
-                    "prompt": input_prompt,
-                    "options": {
-                        "temperature": 0.5,
-                    }
+                    "messages": [{"role": "user", "content": input_prompt}],
+                    "tools": TOOLS,
+                    "stream": False,
+                    "options": {"temperature": 0.5}
                 },
-                timeout=(API_TIMEOUT, API_TIMEOUT),
-                stream=True
+                timeout=(API_TIMEOUT, API_TIMEOUT)
             )
             if response.ok:
-                reply = ""
-                for line in response.iter_lines():
-                    if not line:
-                        continue
-                    obj = json.loads(line.decode("utf-8"))
-                    if "response" in obj:
-                        reply += obj["response"]
-                    if obj.get("done"):
-                        break
-                if reply and not timeout_triggered.is_set():
-                    result["text"] = reply
+                res_data = response.json()
+                msg = res_data.get("message", "{}")
+
+                tool_calls = []
+                for tc in msg.get("tool_calls", []):
+                    tool_calls.append({
+                        "function": {
+                            "name": tc["function"]["name"],
+                            "arguments": tc["function"]["arguments"]
+                        }
+                    })
+
+                if not timeout_triggered.is_set():
+                    result["data"] = {
+                        "message": {
+                            "content": msg.get("content", "") or "",
+                            "tool_calls": tool_calls
+                        }
+                    }
         except Exception as e:
             if not timeout_triggered.is_set():
-                print(f"ERROR: Failed to generate text with local model '{model_name}': {e}\nERROR 137")
-    
+                print(f"ERROR: Failed to generate text with local model {model_name}: {e}\nERROR 137")
+
     def fallback():
         timeout_triggered.set()
-        print(f"ERROR: Local model '{model_name}' API Timeout.\nERROR 149")
+        print(f"ERROR: Local model {model_name} API Timeout.\nERROR 149")
 
     thread = threading.Thread(target=local_call)
     thread.start()
-
     timer = threading.Timer(API_TIMEOUT, fallback)
     timer.start()
 
-    while result["text"] is None and not timeout_triggered.is_set():
+    while result["data"] is None and not timeout_triggered.is_set():
         thread.join(timeout=0.1)
-
     timer.cancel()
-
     if thread.is_alive():
         thread.join(timeout=1)
 
-    return result["text"]
+    return result["data"]
  
 def chatgpt_generate(input_prompt):
     result = {"text": None}
@@ -1132,7 +1136,9 @@ def process_command(command):
         f"OS: {OS_VERSION}\n"
         f"DEFAULT PATH: {Path.home() / 'Desktop'}\n"
         f"Conversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n"
-        f"{INITIAL_PROMPT}\n"
+        f"You are KiloBuddy, a helpful computer assistant able to run commands on the user's computer.\n"
+        f"Use tool calls to execute commands on the user's computer and fulfill the request in USER COMMAND.\n"
+        #f"{INITIAL_PROMPT}\n"
         f"User Command: {command}"
     )
     response = generate_text(initial_model_prompt)
@@ -1146,6 +1152,8 @@ def process_command(command):
     else:
         print("ERROR: No response generated.\nERROR 136")
         return
+
+    print("Tool Calls: ", tool_calls)
 
     # Extract user output
     if content:
