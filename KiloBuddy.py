@@ -882,7 +882,7 @@ def local_generate(input_prompt, model_name):
     return result["data"]
  
 def chatgpt_generate(input_prompt):
-    result = {"text": None}
+    result = {"data": None}
     timeout_triggered = threading.Event()
 
     def chatgpt_call():
@@ -890,88 +890,52 @@ def chatgpt_generate(input_prompt):
             return
         try:
             response = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "user", "content": input_prompt}
-                ]
+                model = "gpt-4o mini",
+                messages=[{"role": "user", "content": input_prompt}],
+                tools=TOOLS,
+                tool_choice="auto"
             )
-            reply = response.choices[0].message.content
-            if not timeout_triggered.is_set() and reply:
-                result["text"] = reply.strip()
+            msg = response.choices[0].message
+            content = msg.content or ""
+            tool_calls = []
+
+            if msg.tool_calls:
+                for tc in msg.tool_calls:
+                    args = json.loads(tc.function.arguments) if isinstance(tc.function.arguments, str) else tc.function.arguments
+                    tool_calls.append({
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": args
+                        }
+                    })
+
+            if not timeout_triggered.is_set():
+                result["data"] = {
+                    "message": {
+                        "content": content or "",
+                        "tool_calls": tool_calls
+                    }
+                }
         except Exception as e:
             if not timeout_triggered.is_set():
                 print(f"ERROR: Failed to generate text with ChatGPT: {e}\nERROR 128")
-    
     def fallback():
         timeout_triggered.set()
-        print("ERROR: ChatGPT API Timeout.\nERROR 129")
+        print(f"ERROR: ChatGPT API Timeout.\nERROR 129")
 
-    # Start ChatGPT call
     thread = threading.Thread(target=chatgpt_call)
     thread.start()
-
-    # Start timer
     timer = threading.Timer(API_TIMEOUT, fallback)
     timer.start()
 
-    # Check for result or timeout
-    while result["text"] is None and not timeout_triggered.is_set():
+    while result["data"] is None and not timeout_triggered.is_set():
         thread.join(timeout=0.1)
 
     timer.cancel()
-    
-    # Wait for thread to complete if it's still running
     if thread.is_alive():
         thread.join(timeout=1)
-    
-    return result["text"]
 
-def claude_generate(input_prompt):
-    result = {"text": None}
-    timeout_triggered = threading.Event()
-
-    def claude_call():
-        if timeout_triggered.is_set():
-            return
-        try:
-            client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-            response = client.messages.create(
-                model="claude-3-haiku-20240922",
-                max_tokens=4096,
-                messages=[
-                    {"role": "user", "content": input_prompt}
-                ]
-            )
-            reply = response.content[0].text
-            if not timeout_triggered.is_set() and reply:
-                result["text"] = reply.strip()
-        except Exception as e:
-            if not timeout_triggered.is_set():
-                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
-
-    def fallback():
-        timeout_triggered.set()
-        print("ERROR: Claude API Timeout.\nERROR 131")
-
-    # Start Claude call
-    thread = threading.Thread(target=claude_call)
-    thread.start()
-
-    # Start timer
-    timer = threading.Timer(API_TIMEOUT, fallback)
-    timer.start()
-
-    # Check for result or timeout
-    while result["text"] is None and not timeout_triggered.is_set():
-        thread.join(timeout=0.1)
-
-    timer.cancel()
-    
-    # Wait for thread to complete if it's still running
-    if thread.is_alive():
-        thread.join(timeout=1)
-    
-    return result["text"]
+    return result["data"]
 
 # Generate Text With Gemini
 def gemini_generate(input_prompt):
