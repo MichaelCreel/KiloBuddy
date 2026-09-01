@@ -937,6 +937,73 @@ def chatgpt_generate(input_prompt):
 
     return result["data"]
 
+def claude_generate(input_prompt):
+    result = {"data": None}
+    timeout_triggered = threading.Event()
+
+    def claude_call():
+        if timeout_triggered.is_set():
+            return
+        try:
+            claude_tools = []
+            for t in TOOLS:
+                claude_tools.append({
+                    "name": t["function"]["name"],
+                    "description": t["function"]["description"],
+                    "input_schema": t["function"]["parameters"]
+                })
+
+            client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+            response = client.messages.create(
+                model="claude-3-5-haiku-20241022",
+                max_tokens=4096,
+                messages=[{"role": "user", "content": input_prompt}],
+                tools=claude_tools,
+            )
+
+            content_text = ""
+            tool_calls = []
+
+            for block in response.content:
+                if block.type == "text":
+                    content_text += block.text
+                elif block.type == "tool_use":
+                    tool_calls.append({
+                        "function": {
+                            "name": block.name,
+                            "arguments": block.input
+                        }
+                    })
+
+            if not timeout_triggered.is_set():
+                result["data"] = {
+                    "message": {
+                        "content": content_text,
+                        "tool_calls": tool_calls
+                    }
+                }
+        except Exception as e:
+            if not timeout_triggered.is_set():
+                print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
+
+    def fallback():
+        timeout_triggered.set()
+        print("ERROR: Claude API Timeout.\nERROR 131")
+
+    thread = threading.Thread(target=claude_call)
+    thread.start()
+    timer = threading.Timer(API_TIMEOUT, fallback)
+    timer.start()
+
+    while result["data"] is None and not timeout_triggered.is_set():
+        thread.join(timeout=0.1)
+
+    timer.cancel()
+    if thread.is_alive():
+        thread.join(timeout=1)
+
+    return result["data"]
+
 # Generate Text With Gemini
 def gemini_generate(input_prompt):
     result = {"text": None}
