@@ -1094,8 +1094,8 @@ def listen_for_command():
     finally:
         hide_status_indicator()
 
-# Process Command
-def process_command(command):
+# Process Command (OLD)
+def process_command_old(command):
     if not command:
         print("INFO: No command to process.")
         return
@@ -1116,6 +1116,152 @@ def process_command(command):
     else:
         hide_status_indicator()
         print("ERROR: No response generated.\nERROR 136")
+
+# Process Command
+def process_command(command):
+    if not command:
+        print("INFO: No command to process.")
+        return
+
+    global USER_INTENT, LAST_OUTPUT, CONVERSATION_HISTORY, PREVIOUS_COMMAND_OUTPUT, INITIAL_PROMPT, PROMPT, OS_VERSION
+    CONVERSATION_HISTORY.add_message("USER", command)
+
+    # Initial call to AI (populates USER_INTENT)
+    show_status_indicator("Processing", "#00FF22")
+    initial_model_prompt = (
+        f"OS: {OS_VERSION}\n"
+        f"DEFAULT PATH: {Path.home() / 'Desktop'}\n"
+        f"Conversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n"
+        f"{INITIAL_PROMPT}\n"
+        f"User Command: {command}"
+    )
+    response = generate_text(initial_model_prompt)
+    hide_status_indicator()
+
+    # Check if a response was generated
+    if response and response != "ERROR: All AI models failed to generate text.":
+        message = response.get("message", {})
+        tool_calls = message.get("tool_calls", [])
+        content = message.get("content", "").strip()
+    else:
+        print("ERROR: No response generated.\nERROR 136")
+        return
+
+    # Extract user output
+    if content:
+        # Extract user intent
+        user_intent_match = re.search(r"USER INTENT:\s*(.+)", content)
+        if user_intent_match:
+            USER_INTENT = user_intent_match.group(1).strip()
+
+        # Remove user intent from content
+        content = re.sub(r"USER INTENT:\s*.+", "", content).strip()
+
+        # Remove leading whitespace
+        content = content.lstrip()
+
+        # Add to conversation history
+        LAST_OUTPUT = content
+        CONVERSATION_HISTORY.add_message("AI", content)
+
+        # Display output
+        show_overlay(content)
+    else:
+        USER_INTENT = command
+
+    # Check for tool calls
+    if not tool_calls:
+        print("INFO: Initial call completed with no tools.")
+        return
+
+    requires_ai_followup = False
+
+    for call in tool_calls:
+        show_status_indicator(f"Executing", "#FFB700")
+        tool_name = call["function"]["name"]
+        tool_args = call["function"]["arguments"]
+
+        tool_output = execute_tool(tool_name, tool_args)
+        PREVIOUS_COMMAND_OUTPUT = tool_output
+        CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
+
+        # Check if the tool requires AI follow-up and stop tool execution if so
+        if needs_ai_followup(tool_name, tool_output):
+            print(f"INFO: {tool_name} failed or requires follow-up. Stopped execution list.")
+            requires_ai_followup = True
+            hide_status_indicator()
+            break
+
+    if not requires_ai_followup:
+        print("INFO: All tools executed successfully.")
+        hide_status_indicator()
+        return
+
+    print("INFO: Follow-up started.")
+    max_turns = 50
+    turn = 0
+
+    while turn < max_turns:
+        turn += 1
+
+        show_status_indicator("Processing", "#00FF22")
+        followup_model_prompt = (
+            f"OS: {OS_VERSION}\n"
+            f"DEFAULT PATH: {Path.home() / 'Desktop'}\n"
+            f"Conversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n"
+            f"{PROMPT}\n"
+            f"User Intent: {USER_INTENT}\n"
+            f"Previous Command Output: {PREVIOUS_COMMAND_OUTPUT}\n"
+        )
+
+        response = generate_text(followup_model_prompt)
+        hide_status_indicator()
+
+        # Check if a response was generated
+        if response and response != "ERROR: All AI models failed to generate text.":
+            message = response.get("message", {})
+            tool_calls = message.get("tool_calls", [])
+            content = message.get("content", "").strip()
+        else:
+            print("ERROR: No response generated.\nERROR 136")
+            return
+
+        # Extract user output
+        if content:
+            # Add to conversation history
+            LAST_OUTPUT = content
+            CONVERSATION_HISTORY.add_message("AI", content)
+
+            # Display output
+            show_overlay(content)
+
+        if not tool_calls:
+            print("INFO: Follow-up completed with no tools.")
+            break
+
+        requires_ai_followup = False
+        for call in tool_calls:
+            show_status_indicator(f"Executing", "#FFB700")
+            tool_name = call["function"]["name"]
+            tool_args = call["function"]["arguments"]
+
+            tool_output = execute_tool(tool_name, tool_args)
+            PREVIOUS_COMMAND_OUTPUT = tool_output
+            CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
+
+            # Check if the tool requires AI follow-up and stop tool execution if so
+            if needs_ai_followup(tool_name, tool_output):
+                print(f"INFO: {tool_name} failed or requires follow-up. Stopped execution list.")
+                requires_ai_followup = True
+                hide_status_indicator()
+                break
+
+        if not requires_ai_followup:
+            print("INFO: All tools executed successfully.")
+            hide_status_indicator()
+            break
+
+    hide_status_indicator()
 
 def process_response(response):
     if not response:
