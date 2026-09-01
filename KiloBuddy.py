@@ -1006,51 +1006,68 @@ def claude_generate(input_prompt):
 
 # Generate Text With Gemini
 def gemini_generate(input_prompt):
-    result = {"text": None}
+    result = {"data": None}
     timeout_triggered = threading.Event()
 
     def gemini_call():
         if timeout_triggered.is_set():
             return
         try:
-            client = genai.Client(api_key=GEMINI_API_KEY)
+            gemini_tools = []
+            for t in TOOLS:
+                gemini_tools.append({
+                    "name": t["function"]["name"],
+                    "description": t["function"]["description"],
+                    "parameters": t["function"]["parameters"]
+                })
 
+            client = genai.Client(api_key=GEMINI_API_KEY)
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
-                contents=input_prompt
+                contents=input_prompt,
+                config={"tools": [{"function_declarations": gemini_tools}]}
             )
 
-            text = response.text
+            content_text = response.text or ""
+            tool_calls = []
 
-            if not timeout_triggered.is_set() and response:
-                result["text"] = text.strip()
+            if hasattr(response, "function_calls") and response.function_calls:
+                for fc in response.function_calls:
+                    tool_calls.append({
+                        "function": {
+                            "name": fc.name,
+                            "arguments": dict(fc.args)
+                        }
+                    })
+
+            if not timeout_triggered.is_set():
+                result["data"] = {
+                    "message": {
+                        "content": content_text,
+                        "tool_calls": tool_calls
+                    }
+                }
         except Exception as e:
             if not timeout_triggered.is_set():
-                print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
+                print(f"ERROR: Gemini API error: {e}\nERROR 132")
 
     def fallback():
         timeout_triggered.set()
-        print("ERROR: Gemini API Timeout.\nERROR 133")
+        print(f"ERROR: Gemini API timeout.\nERROR 133")
 
-    # Start Gemini call
     thread = threading.Thread(target=gemini_call)
     thread.start()
-
-    # Start timer
     timer = threading.Timer(API_TIMEOUT, fallback)
     timer.start()
 
-    # Check for result or timeout
-    while result["text"] is None and not timeout_triggered.is_set():
+    while result["data"] is None and not timeout_triggered.is_set():
         thread.join(timeout=0.1)
 
     timer.cancel()
-    
-    # Wait for thread to complete if it's still running
     if thread.is_alive():
         thread.join(timeout=1)
-    
-    return result["text"]
+
+    return result["data"]
 
 # Listen for Wake Word
 def listen_for_wake_word():
