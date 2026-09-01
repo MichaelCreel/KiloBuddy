@@ -1550,7 +1550,7 @@ def tl_write_file(path, content, mode):
     if not path:
         return "[[>TOOL_FAIL<]] No path provided for writing."
     try:
-        if mode.lower() == "write":
+        if mode.lower() == "write" or mode.lower() == "w":
             if os.path.exists(path):
                 if os.path.getsize(path) > 0:
                     result = show_custom_confirm(
@@ -1565,7 +1565,7 @@ def tl_write_file(path, content, mode):
             with open(path, "w") as f:
                 f.write(content)
             return "Successfully wrote to file."
-        elif mode.lower() == "append":
+        elif mode.lower() == "append" or mode.lower() == "a":
             with open(path, "a") as f:
                 f.write(content)
             return "Successfully appended to file."
