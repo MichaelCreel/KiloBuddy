@@ -1368,6 +1368,9 @@ def extract_user_output(response):
 
 # Checks tool name and output to determine if the tool needs AI follow-up
 def needs_ai_followup(tool_name, tool_output):
+    if isinstance(tool_output, tuple):
+        tool_output = tool_output[1] if len(tool_output) > 1 else str(tool_output)
+        
     if "[[>TOOL_FAIL<]]" in tool_output:
         return True
     if tool_name in ["rd_fil", "rd_inf", "ds"]:
