@@ -28,6 +28,7 @@ from send2trash import send2trash
 import datetime
 import shutil
 from rapidfuzz import fuzz, process
+from collections import deque
 
 # Redefine app identification
 if platform.system() == "Windows":
@@ -38,6 +39,17 @@ if platform.system() == "Windows":
 LOG_PATH = os.path.join(tempfile.gettempdir(), "kilobuddy.log") # Path to log file
 MAX_LOG_SIZE = 1 * 1024 * 1024
 
+WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
+OS_VERSION = "auto-detect" # Operating system version for command generation
+PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
+VERSION = "v0.0" # The version of KiloBuddy that is running
+UPDATES = "release" # The type of updates to check for, "release", "pre-release", or "none"
+MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
+OLLAMA_THREAD = None # Thread to track Ollama process if managed
+WINDOW_SCALING = 1.0 # Scaling for the windows to match system scaling
+DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
+
+# AI Variables
 API_TIMEOUT = 15 # Duration for API Response in seconds
 GEMINI_API_KEY = "" # API Key for calling Gemini API, loaded from gemini_api_key file
 CHATGPT_API_KEY = "" # API Key for calling ChatGPT API, loaded from chatgpt_api_key file
@@ -45,18 +57,217 @@ CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key
 AI_PREFERENCE = "gemini, chatgpt, claude" # Preferred order of AI models to call, loaded from ai_preference file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for AI API calls, loaded from prompt file
 INITIAL_PROMPT = "Return 'Initial Prompt not loaded'." # Prompt for initial AI API call, loaded from initial prompt file
-WAKE_WORD = "computer" # Wake word to trigger KiloBuddy listening, loaded from wake_word file
-OS_VERSION = "auto-detect" # Operating system version for command generation
-PREVIOUS_COMMAND_OUTPUT = "" # Store the previously run USER command output for AI use
-LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
 USER_INTENT = "" # Store the last user command for AI use
 CONVERSATION_HISTORY = None # Store conversation history for better model context
-VERSION = "v0.0" # The version of KiloBuddy that is running
-UPDATES = "release" # The type of updates to check for, "release", "pre-release", or "none"
-MANAGE_OLLAMA = False # Whether to manage Ollama startup and shutdown
-OLLAMA_THREAD = None # Thread to track Ollama process if managed
-WINDOW_SCALING = 1.0 # Scaling for the windows to match system scaling
-DANGEROUS_COMMANDS = ["sudo", "rm", "del", "erase", "dd", "diskpart", "format", "shutdown", "reboot", "poweroff", "mkfs", "reg delete", "sysctl -w", "launchctl", "iptables -F", "ufw disable", "netsh"]
+LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
+TOOLS = [ # Tools available for the AI to call
+    {
+        "type": "function",
+        "function": {
+            "name": "cr_dir",
+            "description": "Create a new directory at a specified path. New directory included in path. Automatically calls AI on failure.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    }
+                }
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cr_fil",
+            "description": "Create a new file at a specified path. New file included in path. Automatically calls AI on failure.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    }
+                }
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dl",
+            "description": "Send a file or folder to trash. Automatically calls AI on failure.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    }
+                }
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rd_fil",
+            "description": "Read the contents of a file. Supports peeking (none/top/bottom). Automatically truncates as necessary. Automatically calls AI all cases.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "peek": {
+                        "type": "string", 
+                        "default": "none"
+                    },
+                    "peek_lines": {
+                        "type": "integer", 
+                        "default": 0 
+                    }
+                } 
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rd_inf",
+            "description": "Get information about a file or folder (size/creation/modification/extention/all). Automatically calls AI all cases.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "info_type": {
+                        "type": "string", 
+                        "default": "all"
+                    }
+                } 
+            },
+            "required": ["path"]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mv",
+            "description": "Move a file or folder. Automatically calls AI on failure.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "destination": {
+                        "type": "string",
+                    }
+                },
+                "required": ["path", "destination"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rn",
+            "description": "Rename a file or folder. Automatically calls AI on failure.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "new_name": {
+                        "type": "string",
+                    }
+                },
+                "required": ["path", "new_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "wr_fil",
+            "description": "Write or append to a file. Automatically calls AI on failure.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "content": {
+                        "type": "string",
+                    },
+                    "mode": {
+                        "type": "string",
+                        "default": "write"
+                    }
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ds",
+            "description": "Discover files and folders in a path. Returns fuzzy search with score. Automatically calls AI all cases.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                    },
+                    "query": {
+                        "type": "string",
+                        "default": ""
+                    }
+                },
+                "required": ["path", "query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ai_call",
+            "description": "Make an additional call to AI. Used for multi-step reasoning.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": "The prompt to send to the AI."
+                    }
+                },
+                "required": ["prompt"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "tm_cmd",
+            "description": "Execute a terminal command. Does not automatically format for OS or run as Administrator.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                    }
+                },
+                "required": ["command"]
+            }
+        }
+    }
+]
 
 # Vosk Speech Recognition Variables
 vosk_model = None
@@ -71,6 +282,8 @@ STATUS_INDICATOR_WINDOW = None
 STATUS_CANVAS = None
 STATUS_TEXT_ID = None
 STATUS_DOT_IDS = []
+OVERLAY_QUEUE = deque() # Queue for overlay messages
+OVERLAY_ACTIVE = False
 
 def get_kilobuddy_pid():
     lock_file = os.path.join(tempfile.gettempdir(), "kilobuddy.lock")
@@ -597,19 +810,19 @@ def generate_text(input_prompt):
             result = local_generate(input_prompt, model)
         
         # If we got a successful result, return it
-        if result is not None and result.strip():
+        if result and isinstance(result, dict) and result.get("message"):
             print(f"INFO: Successfully generated text using {model.upper()}")
             return result
         else:
             print(f"WARNING: {model.upper()} failed to generate text, trying next AI model...")
-    
+
     # If we've exhausted all AI models without success
     print("ERROR: All AI models failed to generate text.\nERROR 127")
     show_failure_notification("ERROR 127: All AI models failed to generate text.")
     return "ERROR: All AI models failed to generate text."
 
 def local_generate(input_prompt, model_name):
-    result = {"text": None}
+    result = {"data": None}
     timeout_triggered = threading.Event()
 
     def local_call():
@@ -617,49 +830,59 @@ def local_generate(input_prompt, model_name):
             return
         try:
             response = requests.post(
-                "http://localhost:11434/api/generate",
-                json={"model": model_name, "prompt": input_prompt},
-                timeout=(API_TIMEOUT, API_TIMEOUT),
-                stream=True
+                "http://localhost:11434/api/chat",
+                json={
+                    "model": model_name,
+                    "messages": [{"role": "user", "content": input_prompt}],
+                    "tools": TOOLS,
+                    "stream": False,
+                    "options": {"temperature": 0.5}
+                },
+                timeout=(API_TIMEOUT, API_TIMEOUT)
             )
             if response.ok:
-                reply = ""
-                for line in response.iter_lines():
-                    if not line:
-                        continue
-                    obj = json.loads(line.decode("utf-8"))
-                    if "response" in obj:
-                        reply += obj["response"]
-                    if obj.get("done"):
-                        break
-                if reply and not timeout_triggered.is_set():
-                    result["text"] = reply
+                res_data = response.json()
+                msg = res_data.get("message", "{}")
+
+                tool_calls = []
+                for tc in msg.get("tool_calls", []):
+                    tool_calls.append({
+                        "function": {
+                            "name": tc["function"]["name"],
+                            "arguments": tc["function"]["arguments"]
+                        }
+                    })
+
+                if not timeout_triggered.is_set():
+                    result["data"] = {
+                        "message": {
+                            "content": msg.get("content", "") or "",
+                            "tool_calls": tool_calls
+                        }
+                    }
         except Exception as e:
             if not timeout_triggered.is_set():
-                print(f"ERROR: Failed to generate text with local model '{model_name}': {e}\nERROR 137")
-    
+                print(f"ERROR: Failed to generate text with local model {model_name}: {e}\nERROR 137")
+
     def fallback():
         timeout_triggered.set()
-        print(f"ERROR: Local model '{model_name}' API Timeout.\nERROR 149")
+        print(f"ERROR: Local model {model_name} API Timeout.\nERROR 149")
 
     thread = threading.Thread(target=local_call)
     thread.start()
-
     timer = threading.Timer(API_TIMEOUT, fallback)
     timer.start()
 
-    while result["text"] is None and not timeout_triggered.is_set():
+    while result["data"] is None and not timeout_triggered.is_set():
         thread.join(timeout=0.1)
-
     timer.cancel()
-
     if thread.is_alive():
         thread.join(timeout=1)
 
-    return result["text"]
+    return result["data"]
  
 def chatgpt_generate(input_prompt):
-    result = {"text": None}
+    result = {"data": None}
     timeout_triggered = threading.Event()
 
     def chatgpt_call():
@@ -667,61 +890,98 @@ def chatgpt_generate(input_prompt):
             return
         try:
             response = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "user", "content": input_prompt}
-                ]
+                model = "gpt-4o mini",
+                messages=[{"role": "user", "content": input_prompt}],
+                tools=TOOLS,
+                tool_choice="auto"
             )
-            reply = response.choices[0].message.content
-            if not timeout_triggered.is_set() and reply:
-                result["text"] = reply.strip()
+            msg = response.choices[0].message
+            content = msg.content or ""
+            tool_calls = []
+
+            if msg.tool_calls:
+                for tc in msg.tool_calls:
+                    args = json.loads(tc.function.arguments) if isinstance(tc.function.arguments, str) else tc.function.arguments
+                    tool_calls.append({
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": args
+                        }
+                    })
+
+            if not timeout_triggered.is_set():
+                result["data"] = {
+                    "message": {
+                        "content": content or "",
+                        "tool_calls": tool_calls
+                    }
+                }
         except Exception as e:
             if not timeout_triggered.is_set():
                 print(f"ERROR: Failed to generate text with ChatGPT: {e}\nERROR 128")
-    
     def fallback():
         timeout_triggered.set()
-        print("ERROR: ChatGPT API Timeout.\nERROR 129")
+        print(f"ERROR: ChatGPT API Timeout.\nERROR 129")
 
-    # Start ChatGPT call
     thread = threading.Thread(target=chatgpt_call)
     thread.start()
-
-    # Start timer
     timer = threading.Timer(API_TIMEOUT, fallback)
     timer.start()
 
-    # Check for result or timeout
-    while result["text"] is None and not timeout_triggered.is_set():
+    while result["data"] is None and not timeout_triggered.is_set():
         thread.join(timeout=0.1)
 
     timer.cancel()
-    
-    # Wait for thread to complete if it's still running
     if thread.is_alive():
         thread.join(timeout=1)
-    
-    return result["text"]
+
+    return result["data"]
 
 def claude_generate(input_prompt):
-    result = {"text": None}
+    result = {"data": None}
     timeout_triggered = threading.Event()
 
     def claude_call():
         if timeout_triggered.is_set():
             return
         try:
+            claude_tools = []
+            for t in TOOLS:
+                claude_tools.append({
+                    "name": t["function"]["name"],
+                    "description": t["function"]["description"],
+                    "input_schema": t["function"]["parameters"]
+                })
+
             client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
             response = client.messages.create(
-                model="claude-3-haiku-20240922",
+                model="claude-3-5-haiku-20241022",
                 max_tokens=4096,
-                messages=[
-                    {"role": "user", "content": input_prompt}
-                ]
+                messages=[{"role": "user", "content": input_prompt}],
+                tools=claude_tools,
             )
-            reply = response.content[0].text
-            if not timeout_triggered.is_set() and reply:
-                result["text"] = reply.strip()
+
+            content_text = ""
+            tool_calls = []
+
+            for block in response.content:
+                if block.type == "text":
+                    content_text += block.text
+                elif block.type == "tool_use":
+                    tool_calls.append({
+                        "function": {
+                            "name": block.name,
+                            "arguments": block.input
+                        }
+                    })
+
+            if not timeout_triggered.is_set():
+                result["data"] = {
+                    "message": {
+                        "content": content_text,
+                        "tool_calls": tool_calls
+                    }
+                }
         except Exception as e:
             if not timeout_triggered.is_set():
                 print(f"ERROR: Failed to generate text with Claude: {e}\nERROR 130")
@@ -730,73 +990,84 @@ def claude_generate(input_prompt):
         timeout_triggered.set()
         print("ERROR: Claude API Timeout.\nERROR 131")
 
-    # Start Claude call
     thread = threading.Thread(target=claude_call)
     thread.start()
-
-    # Start timer
     timer = threading.Timer(API_TIMEOUT, fallback)
     timer.start()
 
-    # Check for result or timeout
-    while result["text"] is None and not timeout_triggered.is_set():
+    while result["data"] is None and not timeout_triggered.is_set():
         thread.join(timeout=0.1)
 
     timer.cancel()
-    
-    # Wait for thread to complete if it's still running
     if thread.is_alive():
         thread.join(timeout=1)
-    
-    return result["text"]
+
+    return result["data"]
 
 # Generate Text With Gemini
 def gemini_generate(input_prompt):
-    result = {"text": None}
+    result = {"data": None}
     timeout_triggered = threading.Event()
 
     def gemini_call():
         if timeout_triggered.is_set():
             return
         try:
-            client = genai.Client(api_key=GEMINI_API_KEY)
+            gemini_tools = []
+            for t in TOOLS:
+                gemini_tools.append({
+                    "name": t["function"]["name"],
+                    "description": t["function"]["description"],
+                    "parameters": t["function"]["parameters"]
+                })
 
+            client = genai.Client(api_key=GEMINI_API_KEY)
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
-                contents=input_prompt
+                contents=input_prompt,
+                config={"tools": [{"function_declarations": gemini_tools}]}
             )
 
-            text = response.text
+            content_text = response.text or ""
+            tool_calls = []
 
-            if not timeout_triggered.is_set() and response:
-                result["text"] = text.strip()
+            if hasattr(response, "function_calls") and response.function_calls:
+                for fc in response.function_calls:
+                    tool_calls.append({
+                        "function": {
+                            "name": fc.name,
+                            "arguments": dict(fc.args)
+                        }
+                    })
+
+            if not timeout_triggered.is_set():
+                result["data"] = {
+                    "message": {
+                        "content": content_text,
+                        "tool_calls": tool_calls
+                    }
+                }
         except Exception as e:
             if not timeout_triggered.is_set():
-                print(f"ERROR: Failed to generate text with Gemini: {e}\nERROR 132")
+                print(f"ERROR: Gemini API error: {e}\nERROR 132")
 
     def fallback():
         timeout_triggered.set()
-        print("ERROR: Gemini API Timeout.\nERROR 133")
+        print(f"ERROR: Gemini API timeout.\nERROR 133")
 
-    # Start Gemini call
     thread = threading.Thread(target=gemini_call)
     thread.start()
-
-    # Start timer
     timer = threading.Timer(API_TIMEOUT, fallback)
     timer.start()
 
-    # Check for result or timeout
-    while result["text"] is None and not timeout_triggered.is_set():
+    while result["data"] is None and not timeout_triggered.is_set():
         thread.join(timeout=0.1)
 
     timer.cancel()
-    
-    # Wait for thread to complete if it's still running
     if thread.is_alive():
         thread.join(timeout=1)
-    
-    return result["text"]
+
+    return result["data"]
 
 # Listen for Wake Word
 def listen_for_wake_word():
@@ -875,8 +1146,8 @@ def listen_for_command():
     finally:
         hide_status_indicator()
 
-# Process Command
-def process_command(command):
+# Process Command (OLD)
+def process_command_old(command):
     if not command:
         print("INFO: No command to process.")
         return
@@ -897,6 +1168,154 @@ def process_command(command):
     else:
         hide_status_indicator()
         print("ERROR: No response generated.\nERROR 136")
+
+# Process Command
+def process_command(command):
+    if not command:
+        print("INFO: No command to process.")
+        return
+
+    global USER_INTENT, LAST_OUTPUT, CONVERSATION_HISTORY, PREVIOUS_COMMAND_OUTPUT, INITIAL_PROMPT, PROMPT, OS_VERSION
+    CONVERSATION_HISTORY.add_message("USER", command)
+
+    # Initial call to AI (populates USER_INTENT)
+    show_status_indicator("Processing", "#00FF22")
+    initial_model_prompt = (
+        f"OS: {OS_VERSION}\n"
+        f"DEFAULT PATH: {Path.home() / 'Desktop'}\n"
+        f"Conversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n"
+        f"{INITIAL_PROMPT}\n"
+        f"User Command: {command}"
+    )
+    response = generate_text(initial_model_prompt)
+    hide_status_indicator()
+
+    # Check if a response was generated
+    if response and response != "ERROR: All AI models failed to generate text.":
+        message = response.get("message", {})
+        tool_calls = message.get("tool_calls", [])
+        content = message.get("content", "").strip()
+    else:
+        print("ERROR: No response generated.\nERROR 136")
+        return
+
+    print("Tool Calls: ", tool_calls)
+
+    # Extract user output
+    if content:
+        # Extract user intent
+        user_intent_match = re.search(r"USER INTENT:\s*(.+)", content)
+        if user_intent_match:
+            USER_INTENT = user_intent_match.group(1).strip()
+
+        # Remove user intent from content
+        content = re.sub(r"USER INTENT:\s*.+", "", content).strip()
+
+        # Remove leading whitespace
+        content = content.lstrip()
+
+        # Add to conversation history
+        LAST_OUTPUT = content
+        CONVERSATION_HISTORY.add_message("AI", content)
+
+        # Display output
+        show_overlay(content)
+    else:
+        USER_INTENT = command
+
+    # Check for tool calls
+    if not tool_calls:
+        print("INFO: Initial call completed with no tools.")
+        return
+
+    requires_ai_followup = False
+
+    for call in tool_calls:
+        show_status_indicator(f"Executing", "#FFB700")
+        tool_name = call["function"]["name"]
+        tool_args = call["function"]["arguments"]
+
+        tool_output = execute_tool(tool_name, tool_args)
+        PREVIOUS_COMMAND_OUTPUT = tool_output
+        CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
+
+        # Check if the tool requires AI follow-up and stop tool execution if so
+        if needs_ai_followup(tool_name, tool_output):
+            print(f"INFO: {tool_name} failed or requires follow-up. Stopped execution list.")
+            requires_ai_followup = True
+            hide_status_indicator()
+            break
+
+    if not requires_ai_followup:
+        print("INFO: All tools executed successfully.")
+        hide_status_indicator()
+        return
+
+    print("INFO: Follow-up started.")
+    max_turns = 50
+    turn = 0
+
+    while turn < max_turns:
+        turn += 1
+
+        show_status_indicator("Processing", "#00FF22")
+        followup_model_prompt = (
+            f"OS: {OS_VERSION}\n"
+            f"DEFAULT PATH: {Path.home() / 'Desktop'}\n"
+            f"Conversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n"
+            f"{PROMPT}\n"
+            f"User Intent: {USER_INTENT}\n"
+            f"Previous Command Output: {PREVIOUS_COMMAND_OUTPUT}\n"
+        )
+
+        response = generate_text(followup_model_prompt)
+        hide_status_indicator()
+
+        # Check if a response was generated
+        if response and response != "ERROR: All AI models failed to generate text.":
+            message = response.get("message", {})
+            tool_calls = message.get("tool_calls", [])
+            content = message.get("content", "").strip()
+        else:
+            print("ERROR: No response generated.\nERROR 136")
+            return
+
+        # Extract user output
+        if content:
+            # Add to conversation history
+            LAST_OUTPUT = content
+            CONVERSATION_HISTORY.add_message("AI", content)
+
+            # Display output
+            show_overlay(content)
+
+        if not tool_calls:
+            print("INFO: Follow-up completed with no tools.")
+            break
+
+        requires_ai_followup = False
+        for call in tool_calls:
+            show_status_indicator(f"Executing", "#FFB700")
+            tool_name = call["function"]["name"]
+            tool_args = call["function"]["arguments"]
+
+            tool_output = execute_tool(tool_name, tool_args)
+            PREVIOUS_COMMAND_OUTPUT = tool_output
+            CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
+
+            # Check if the tool requires AI follow-up and stop tool execution if so
+            if needs_ai_followup(tool_name, tool_output):
+                print(f"INFO: {tool_name} failed or requires follow-up. Stopped execution list.")
+                requires_ai_followup = True
+                hide_status_indicator()
+                break
+
+        if not requires_ai_followup:
+            print("INFO: All tools executed successfully.")
+            hide_status_indicator()
+            break
+
+    hide_status_indicator()
 
 def process_response(response):
     if not response:
@@ -920,6 +1339,14 @@ def process_response(response):
         process_todo_list(todo_list)
     else:
         print("INFO: No todo list found in response.")
+
+
+    #############################
+    print("DEBUG: User Output: ", user_output)
+    print("DEBUG: Todo List: ", todo_list)
+    #############################
+
+
     return
 
 # Extract the todo list from AI response
@@ -937,6 +1364,17 @@ def extract_user_output(response):
         return output_pattern.group(1).strip()
     return None
 
+# Checks tool name and output to determine if the tool needs AI follow-up
+def needs_ai_followup(tool_name, tool_output):
+    if isinstance(tool_output, tuple):
+        tool_output = tool_output[1] if len(tool_output) > 1 else str(tool_output)
+        
+    if "[[>TOOL_FAIL<]]" in tool_output:
+        return True
+    if tool_name in ["rd_fil", "rd_inf", "ds"]:
+        return True
+    return False
+
 # Interprets the todo list and decides on user or AI call
 def process_todo_list(todo_list):
     # Check if there's a DO NEXT task, if not, promote the first PENDING task
@@ -951,13 +1389,18 @@ def process_todo_list(todo_list):
     for i, (step_num, command, executor, status) in enumerate(todo_list):
         if status == "DO NEXT":
             if executor == "USER":
-                user_call(command)
+                tool_name, tool_output = user_call(command)
                 update_status(todo_list, i)
+                if needs_ai_followup(tool_name, tool_output):
+                    print(f"INFO: Tool '{tool_name}' output requires AI follow-up.")
+                    ai_call(todo_list)
+                    return
                 continue
             elif executor == "AI":
                 print(f"INFO: Requesting AI command: {command}")
                 ai_call(todo_list)
-                break
+                update_status(todo_list, i)
+                return
 
 # Update the status of a task in the todo list
 def update_status(todo_list, current_step):
@@ -970,60 +1413,59 @@ def update_status(todo_list, current_step):
             todo_list[current_step + 1] = (next_step_num, next_command, next_executor, "DO NEXT")
 
 # Execute a tool command
-def execute_tool(tool_name, raw_args):
+def execute_tool(tool_name, args):
     try:
+        # Replace variables in the command
+        for key, val in args.items():
+            if isinstance(val, str) and "$LAST_OUTPUT" in val:
+                args[key] = val.replace("$LAST_OUTPUT", LAST_OUTPUT)
+
         if tool_name == "cr_dir":
-            return tl_create_directory(raw_args[0])
-
+            return tool_name, tl_create_directory(args["path"])
         elif tool_name == "cr_fil":
-            return tl_create_file(raw_args[0])
-
+            return tool_name, tl_create_file(args["path"])
         elif tool_name == "dl":
-            return tl_delete_file(raw_args[0])
-
+            return tool_name, tl_delete_file(args["path"])
         elif tool_name == "rd_fil":
-            path = raw_args[0]
-            peek = raw_args[1] if len(raw_args) > 1 else None
-            peek_lines = int(raw_args[2]) if len(raw_args) > 2 else 0
-            return tl_read_file(path, peek, peek_lines)
-
+            path = args["path"]
+            peek = args.get("peek", None)
+            peek_lines = args.get("peek_lines", 0)
+            return tool_name, tl_read_file(path, peek, peek_lines)
         elif tool_name == "rd_inf":
-            path = raw_args[0]
-            info_type = raw_args[1] if len(raw_args) > 1 else "all"
-            return tl_get_info(path, info_type)
-
+            path = args["path"]
+            info_type = args.get("info_type", "all")
+            return tool_name, tl_get_info(path, info_type)
         elif tool_name == "mv":
-            return tl_move(raw_args[0], raw_args[1])
-
+            return tool_name, tl_move(args["source"], args["destination"])
         elif tool_name == "rn":
-            return tl_rename(raw_args[0], raw_args[1])
-
+            return tool_name, tl_rename(args["old_name"], args["new_name"])
         elif tool_name == "wr_fil":
-            return tl_write_file(raw_args[0], raw_args[1], raw_args[2])
-
+            return tool_name, tl_write_file(args["path"], args["content"], args.get("mode", "write"))
         elif tool_name == "ds":
-            return tl_discover(raw_args[0], raw_args[1])
-
+            return tool_name, tl_discover(args["path"], args.get("pattern", ""))
+        #elif tool_name == "ai_call":
+        #    return tool_name, tl_ai_call(args["prompt"])
+        #elif tool_name == "tm_cmd":
+        #    return tool_name, tl_run_command(args["command"])
         else:
-            return f"Unknown tool command: {tool_name}"
-
+            return tool_name, f"[[>TOOL_FAIL<]] Unknown tool: {tool_name}"
     except Exception as e:
-        return f"Failed to execute tool command: {e}"
+        return tool_name, f"[[>TOOL_FAIL<]] Failed to execute tool {tool_name}: {e}"
 
 # Create directory
 def tl_create_directory(path):
     if not path:
-        return "No path provided for directory creation."
+        return "[[>TOOL_FAIL<]] No path provided for directory creation."
     try:
         os.makedirs(path, exist_ok=True)
         return "Successfully created directory."
     except Exception as e:
-        return f"Failed to create directory: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to create directory: {e}"
 
 # Create file
 def tl_create_file(path):
     if not path:
-        return "No path provided for file creation."
+        return "[[>TOOL_FAIL<]] No path provided for file creation."
     try:
         if os.path.exists(path):
             if os.path.getsize(path) > 0:
@@ -1035,36 +1477,36 @@ def tl_create_file(path):
                 if result:
                     pass
                 else:
-                    return "Write operation declined by user because of existing content."
+                    return "[[>TOOL_FAIL<]] Write operation declined by user because of existing content."
         with open(path, "w") as f:
             pass
         return "Successfully created file."
     except Exception as e:
-        return f"Failed to create file: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to create file: {e}"
 
 # Delete file or directory (send to trash)
 def tl_delete_file(path):
     if not path:
-        return "No path provided for deletion."
+        return "[[>TOOL_FAIL<]] No path provided for deletion."
     try:
         if not os.path.exists(path):
-            return f"Path {path} does not exist."
+            return f"[[>TOOL_FAIL<]] Path {path} does not exist."
 
         send2trash(path)
         return "Successfully sent to trash."
     except Exception as e:
-        return f"Failed to send to trash: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to send to trash: {e}"
 
 # Read or peek at file content
 # Truncates output automatically
 # Peek: top/bottom/None
 def tl_read_file(path, peek=None, peek_lines=0):
     if not path:
-        return "No path provided for file reading."
+        return "[[>TOOL_FAIL<]] No path provided for file reading."
     if not os.path.exists(path):
-        return f"Path {path} does not exist."
+        return f"[[>TOOL_FAIL<]] Path {path} does not exist."
     if not os.path.isfile(path):
-        return f"Path {path} is not a file."
+        return f"[[>TOOL_FAIL<]] Path {path} is not a file."
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -1076,7 +1518,7 @@ def tl_read_file(path, peek=None, peek_lines=0):
             full_content = "".join(lines)
             return truncate_middle(full_content, 800)
         if peek_lines <= 0:
-            return "Peek lines must be greater than 0."
+            return "[[>TOOL_FAIL<]] Peek lines must be greater than 0."
         if peek == "top":
             selected = lines[:peek_lines]
             text = "".join(selected)
@@ -1086,16 +1528,16 @@ def tl_read_file(path, peek=None, peek_lines=0):
             text = "".join(selected)
             return truncate_middle(text, 800)
 
-        return f"Invalid peek mode {peek}. Must be 'top', 'bottom', or None."
+        return f"[[>TOOL_FAIL<]] Invalid peek mode {peek}. Must be 'top', 'bottom', or None."
     except Exception as e:
-        return f"Failed to read file: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to read file: {e}"
 
 # Return file/directory information
 def tl_get_info(path, info_type="all"):
     if not path:
-        return "No path provided for file info."
+        return "[[>TOOL_FAIL<]] No path provided for file info."
     if not os.path.exists(path):
-        return f"Path {path} does not exist."
+        return f"[[>TOOL_FAIL<]] Path {path} does not exist."
     try:
         stats = os.stat(path)
 
@@ -1115,18 +1557,18 @@ def tl_get_info(path, info_type="all"):
         elif info_type == "all":
             return f"Size: {size} bytes\nCreated: {created}\nModified: {modified}\nExtension: {extension}"
         else:
-            return f"Invalid info_type {info_type}. Must be 'size', 'create', 'mod', 'ext', or 'all'."
+            return f"[[>TOOL_FAIL<]] Invalid info_type {info_type}. Must be 'size', 'create', 'mod', 'ext', or 'all'."
     except Exception as e:
-        return f"Failed to get file info: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to get file info: {e}"
 
 # Move a file or directory
 def tl_move(path, dest):
     if not path:
-        return "No source path provided for move."
+        return "[[>TOOL_FAIL<]] No source path provided for move."
     if not dest:
-        return "No destination path provided for move."
+        return "[[>TOOL_FAIL<]] No destination path provided for move."
     if not os.path.exists(path):
-        return f"Source path {path} does not exist."
+        return f"[[>TOOL_FAIL<]] Source path {path} does not exist."
     try:
         dest_dir = os.path.dirname(dest)
         if dest_dir and not os.path.exists(dest_dir):
@@ -1134,15 +1576,15 @@ def tl_move(path, dest):
         shutil.move(path, dest)
         return "Successfully moved."
     except Exception as e:
-        return f"Failed to move: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to move: {e}"
 
 def tl_rename(path, new_name):
     if not path:
-        return "No path provided for rename."
+        return "[[>TOOL_FAIL<]] No path provided for rename."
     if not new_name:
-        return "No new name provided for rename."
+        return "[[>TOOL_FAIL<]] No new name provided for rename."
     if not os.path.exists(path):
-        return f"Path {path} does not exist."
+        return f"[[>TOOL_FAIL<]] Path {path} does not exist."
 
     try:
         directory = os.path.dirname(path)
@@ -1150,14 +1592,14 @@ def tl_rename(path, new_name):
         return tl_move(path, dest)
 
     except Exception as e:
-        return f"Failed to rename: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to rename: {e}"
 
 # Write to a file
 def tl_write_file(path, content, mode):
     if not path:
-        return "No path provided for writing."
+        return "[[>TOOL_FAIL<]] No path provided for writing."
     try:
-        if mode.lower() == "write":
+        if mode.lower() == "write" or mode.lower() == "w":
             if os.path.exists(path):
                 if os.path.getsize(path) > 0:
                     result = show_custom_confirm(
@@ -1168,27 +1610,27 @@ def tl_write_file(path, content, mode):
                     if result:
                         pass
                     else:
-                        return "Write operation declined by user because of existing content."
+                        return "[[>TOOL_FAIL<]] Write operation declined by user because of existing content."
             with open(path, "w") as f:
                 f.write(content)
             return "Successfully wrote to file."
-        elif mode.lower() == "append":
+        elif mode.lower() == "append" or mode.lower() == "a":
             with open(path, "a") as f:
                 f.write(content)
             return "Successfully appended to file."
         else:
-            return f"Invalid mode {mode}."
+            return f"[[>TOOL_FAIL<]] Invalid mode {mode}."
     except Exception as e:
-        return f"Failed to write to file: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to write to file: {e}"
 
 # Search for files and directories
 def tl_discover(search_path, search_query):
     if not search_path:
-        return "No search path provided."
+        return "[[>TOOL_FAIL<]] No search path provided."
     if not search_query:
-        return "No search query provided."
+        return "[[>TOOL_FAIL<]] No search query provided."
     if not os.path.exists(search_path):
-        return f"Search path {search_path} does not exist."
+        return f"[[>TOOL_FAIL<]] Search path {search_path} does not exist."
     try:
         entries = os.listdir(search_path)
         full_paths = [os.path.join(search_path, entry) for entry in entries]
@@ -1203,13 +1645,13 @@ def tl_discover(search_path, search_query):
         filtered = [(name, score) for name, score, idx in matches if score >= 65]
 
         if not filtered:
-            return f"No matches found with sufficient score."
+            return f"[[>TOOL_FAIL<]] No matches found with sufficient score."
 
         filtered.sort(key=lambda x: x[1], reverse=True)
 
         return "\n".join(f"{name} (score: {score})" for name, score in filtered)
     except Exception as e:
-        return f"Failed to discover files: {e}"
+        return f"[[>TOOL_FAIL<]] Failed to discover files: {e}"
 
 # Strip quotes and commas from a string
 def strip_quotes_commas(s):
@@ -1247,8 +1689,7 @@ def try_execute_tool(command):
 
     tool_name, raw_args = parsed
     output = execute_tool(tool_name, raw_args)
-    print(output)
-    return output
+    return output, tool_name
 
 # USER Call Subprocess
 def user_call(command):
@@ -1263,14 +1704,14 @@ def user_call(command):
 
     CONVERSATION_HISTORY.add_message("LCI", command)
 
-    tool_output = try_execute_tool(command)
+    tool_output, tool_name = try_execute_tool(command)
     if tool_output is not None:
         print(f"INFO: Successfully executed tool command: {command}")
         hide_status_indicator()
 
         PREVIOUS_COMMAND_OUTPUT = tool_output
         CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
-        return
+        return tool_name, tool_output
     
     # Check for dangerous commands
     tokens = shlex.split(command)
@@ -1428,8 +1869,8 @@ def format_todo_list(todo_list):
     lines.append("<<")
     return "\n".join(lines)
 
-# Show overlay for AI output designated for user
-def show_overlay(text):
+# Creates the window for AI output designated for user
+def display_overlay():
     def open_overlay():
         root = tk.Tk()
         root.title("KiloBuddy")
@@ -1477,16 +1918,16 @@ def show_overlay(text):
         frame.pack(fill=tk.BOTH, expand=True, padx=int(5 * WINDOW_SCALING), pady=int(5 * WINDOW_SCALING))
 
         text_widget = tk.Text(frame, 
-                             font=overlay_font, 
-                             fg="white", 
-                             bg="#131313", 
-                             wrap=tk.WORD,
-                             selectbackground="#195cba",
-                             selectforeground="white",
-                             insertbackground="white",
-                             relief=tk.FLAT,
-                             borderwidth=1,
-                             highlightthickness=0)
+                                font=overlay_font, 
+                                fg="white", 
+                                bg="#131313", 
+                                wrap=tk.WORD,
+                                selectbackground="#195cba",
+                                selectforeground="white",
+                                insertbackground="white",
+                                relief=tk.FLAT,
+                                borderwidth=1,
+                                highlightthickness=0)
         
         needs_scrollbar = ideal_height >= max_height
         
@@ -1505,15 +1946,28 @@ def show_overlay(text):
         
         def close_overlay(event=None):
             root.destroy()
+            global OVERLAY_ACTIVE
+            OVERLAY_ACTIVE = False
         
         # Double-click to close
         text_widget.bind("<Double-Button-1>", close_overlay)
         root.bind("<Escape>", close_overlay)
         
-        root.after(len(text) * 15 + 5000, root.destroy)
+        root.after(len(text) * 15 + 5000, close_overlay)
         root.mainloop()
+        display_overlay()
 
-    threading.Thread(target=open_overlay).start()
+    global OVERLAY_ACTIVE
+    if OVERLAY_QUEUE is not None and not len(OVERLAY_QUEUE) == 0 and not OVERLAY_ACTIVE:
+        text = OVERLAY_QUEUE.popleft()
+        threading.Thread(target=open_overlay).start()
+        OVERLAY_ACTIVE = True
+
+# Show overlay for AI output designated for user
+def show_overlay(text):
+    if OVERLAY_QUEUE is not None:
+        OVERLAY_QUEUE.append(text)
+        display_overlay()
 
 def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
     if DASHBOARD_ROOT is None:
@@ -2564,12 +3018,12 @@ class LogRedirector:
 
 if __name__ == "__main__":
     if "--dev" not in sys.argv:
-        print("INFO: Non-developer mode launched.")
         sys.stdout = LogRedirector(LOG_PATH)
         sys.stderr = LogRedirector(LOG_PATH)
     else:
         print("INFO: Developer mode launched.")
 
+    print(f"STARTUP: [[[LAUNCH AT {time.strftime('%Y-%m-%d %H:%M:%S')}]]]")
     print("INFO: Launching KiloBuddy...")
 
     load_settings()
