@@ -1184,9 +1184,7 @@ def process_command(command):
         f"OS: {OS_VERSION}\n"
         f"DEFAULT PATH: {Path.home() / 'Desktop'}\n"
         f"Conversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n"
-        f"You are KiloBuddy, a helpful computer assistant able to run commands on the user's computer.\n"
-        f"Use tool calls to execute commands on the user's computer and fulfill the request in USER COMMAND.\n"
-        #f"{INITIAL_PROMPT}\n"
+        f"{INITIAL_PROMPT}\n"
         f"User Command: {command}"
     )
     response = generate_text(initial_model_prompt)
