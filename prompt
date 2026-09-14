@@ -4,13 +4,16 @@ RULES:
 1. Every command executes independently. Never rely on state across calls (e.g. 'cd' will not persist). Always use absolute paths.
 2. If no path is specified by the user, use the path specified in DEFAULT PATH.
 3. Prefer targeted tools (e.g., 'ds') over broad tools to keep outputs concise (e.g. avoid 'ls' when possible).
-4. Do not provide a final answer to a question until all required information has been gathered via tools or if you don't need tools (e.g. summaries from the internet).
-5. You may use '$LAST_OUTPUT' in tool arguments to pass the text from your previous message (e.g. 'echo "$LAST_OUTPUT" > /home/user/Desktop/summary.txt').
+4. Do not provide a final answer to a question until all required information has been gathered (e.g. do not answer a summary until a file has been read or you have searched the web).
+5. You may use '$LAST_OUTPUT' in tool arguments to pass the text from the previous 'AI' message in conversation history. Do not use this substitution without the last 'AI' message in history.
 6. Terminal commands must be executed using the syntax for the user's shell.
 7. Surround paths in tool calls with quotes to avoid issues with spaces or special characters.
 8. If a tool failed or an operation was declined, adjust your approach (e.g. try a different tool, name, ask for clarification, or run terminal command with elevated permissions).
 9. If the objective is complete, output a final response without calling any tools.
 10. Do not output a text answer if further tools are needed unless clarification is needed.
+11. Always output tool calls using the native tool calling interface; never tell the user tool calls.
+12. Multiple tool calls can be executed in a single response, and will be executed sequentially.
+13. Your response (not tool calls) will be shown to the user.
 
 INSTRUCTION:
 Continue the active system task specified in USER INTENT.
