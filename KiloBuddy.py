@@ -113,7 +113,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "rd_fil",
-            "description": "Read the contents of a file. Supports peeking (none/top/bottom). Automatically truncates as necessary. Automatically calls AI all cases.",
+            "description": "Read the contents of a file. Supports peeking (none/top/bottom). Peeking requires specifying how many lines. Automatically truncates as necessary. Automatically calls AI all cases.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -195,7 +195,7 @@ TOOLS = [ # Tools available for the AI to call
         "type": "function",
         "function": {
             "name": "wr_fil",
-            "description": "Write or append to a file. Automatically calls AI on failure.",
+            "description": "Write or append to a file. Only use for saving files. Do not use for outputting results. Automatically calls AI on failure.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -1236,6 +1236,7 @@ def process_command(command):
         tool_args = call["function"]["arguments"]
 
         tool_output = execute_tool(tool_name, tool_args)
+        print(tool_output)
         PREVIOUS_COMMAND_OUTPUT = tool_output
         CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
 
@@ -1252,7 +1253,7 @@ def process_command(command):
         return
 
     print("INFO: Follow-up started.")
-    max_turns = 50
+    max_turns = 10
     turn = 0
 
     while turn < max_turns:
@@ -1300,6 +1301,7 @@ def process_command(command):
             tool_args = call["function"]["arguments"]
 
             tool_output = execute_tool(tool_name, tool_args)
+            print(tool_output)
             PREVIOUS_COMMAND_OUTPUT = tool_output
             CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
 
@@ -1420,6 +1422,8 @@ def execute_tool(tool_name, args):
             if isinstance(val, str) and "$LAST_OUTPUT" in val:
                 args[key] = val.replace("$LAST_OUTPUT", LAST_OUTPUT)
 
+        CONVERSATION_HISTORY.add_message("LCI", f"{tool_name} {json.dumps(args)}")
+
         if tool_name == "cr_dir":
             return tool_name, tl_create_directory(args["path"])
         elif tool_name == "cr_fil":
@@ -1442,14 +1446,16 @@ def execute_tool(tool_name, args):
         elif tool_name == "wr_fil":
             return tool_name, tl_write_file(args["path"], args["content"], args.get("mode", "write"))
         elif tool_name == "ds":
-            return tool_name, tl_discover(args["path"], args.get("pattern", ""))
+            return tool_name, tl_discover(args["path"], args.get("query", ""))
         #elif tool_name == "ai_call":
         #    return tool_name, tl_ai_call(args["prompt"])
         #elif tool_name == "tm_cmd":
         #    return tool_name, tl_run_command(args["command"])
         else:
+            print(f"WARNING: Unknown tool name: {tool_name}")
             return tool_name, f"[[>TOOL_FAIL<]] Unknown tool: {tool_name}"
     except Exception as e:
+        print(f"WARNING: Failed to execute tool {tool_name}: {e}")
         return tool_name, f"[[>TOOL_FAIL<]] Failed to execute tool {tool_name}: {e}"
 
 # Create directory
@@ -1518,7 +1524,8 @@ def tl_read_file(path, peek=None, peek_lines=0):
             full_content = "".join(lines)
             return truncate_middle(full_content, 800)
         if peek_lines <= 0:
-            return "[[>TOOL_FAIL<]] Peek lines must be greater than 0."
+            full_content = "".join(lines)
+            return truncate_middle(full_content, 800)
         if peek == "top":
             selected = lines[:peek_lines]
             text = "".join(selected)
