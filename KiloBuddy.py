@@ -1453,8 +1453,8 @@ def execute_tool(tool_name, args):
             return tool_name, tl_discover(args["path"], args.get("query", ""))
         elif tool_name == "ai_call":
             return tool_name, tl_ai_call(args["prompt"])
-        #elif tool_name == "tm_cmd":
-        #    return tool_name, tl_run_command(args["command"])
+        elif tool_name == "tm_cmd":
+            return tool_name, tl_run_command(args["command"])
         else:
             print(f"WARNING: Unknown tool name: {tool_name}")
             return tool_name, f"[[>TOOL_FAIL<]] Unknown tool: {tool_name}"
@@ -1664,11 +1664,113 @@ def tl_discover(search_path, search_query):
     except Exception as e:
         return f"[[>TOOL_FAIL<]] Failed to discover files: {e}"
 
+# Call AI with a prompt
 def tl_ai_call(prompt):
     if not prompt:
         return "[[>TOOL_FAIL<]] No prompt provided for AI call."
     else:
         ai_followup(prompt)
+
+# Run a command in the terminal
+def tl_run_command(command):
+    if not command:
+        return "[[>TOOL_FAIL<]] No command provided."
+
+    global LAST_OUTPUT, OS_VERSION
+
+    # Check for dangerous commands
+    tokens = shlex.split(command)
+    exe = os.path.basename(tokens[0])
+    print(f"INFO: Running command: {exe}")
+    if exe.lower() in DANGEROUS_COMMANDS:
+        print(f"WARNING: Dangerous command {exe} detected. Prompting for administrator confirmation.")
+
+        # Linux prompt with pkexec
+        if OS_VERSION.startswith("linux"):
+            try:
+                print("INFO: Using pkexec for administrator authentication...")
+
+                actual_user = os.environ.get('USER') or os.environ.get('USERNAME')
+                if actual_user and actual_user != 'root':
+                    user_home = f"/home/{actual_user}"
+                    expanded_command = command.replace("~/", f"{user_home}/")
+                else:
+                    expanded_command = command
+
+                result = subprocess.run(["pkexec", "bash", "-c", expanded_command], capture_output=True, text=True, timeout=45)
+                if result.returncode == 0:
+                    print("INFO: Dangerous command executed successfully with administrator privileges.")
+                    return result.stdout
+                else:
+                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
+                return f"Command cancelled or failed: {result.stderr}"
+            except subprocess.TimeoutExpired:
+                print("ERROR: Administrator authentication timed out.")
+                return "Command timed out during authentication."
+            except Exception as e:
+                print(f"ERROR: Failed to prompt for administrator confirmation: {e}\nERROR 141")
+                return "Failed to authenticate as administrator."
+
+        # MacOS prompt with sudo
+        elif OS_VERSION.startswith("darwin"):
+            try:
+                print("INFO: Using sudo for administrator authentication...")
+
+                actual_user = os.environ.get('USER') or os.environ.get('USERNAME')
+                if actual_user and actual_user != 'root':
+                    user_home = f"/Users/{actual_user}"
+                    expanded_command = command.replace("~/", f"{user_home}/")
+                else:
+                    expanded_command = command
+
+                result = subprocess.run(["sudo", "bash", "-c", expanded_command], capture_output=True, text=True, timeout=45)
+                if result.returncode == 0:
+                    print("INFO: Dangerous command executed successfully with administrator privileges.")
+                    return result.stdout
+                else:
+                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
+                return f"Command cancelled or failed: {result.stderr}"
+            except subprocess.TimeoutExpired:
+                print("ERROR: Administrator authentication timed out.")
+                return "Command timed out during authentication."
+            except Exception as e:
+                print(f"ERROR: Failed to prompt for administrator confirmation: {e}\nERROR 141")
+                return "Failed to authenticate as administrator."
+
+        # Windows prompt with RunAs
+        elif OS_VERSION.startswith("windows"):
+            try:
+                print("INFO: Using PowerShell with RunAs for administrator authentication...")
+
+                actual_user = os.environ.get('USERNAME')
+                if actual_user:
+                    user_dir = f"C:\\Users\\{actual_user}"
+                    expanded_command = command.replace("%USERPROFILE%", user_dir)
+                else:
+                    expanded_command = command
+
+                ps_command = f'Start-Process -FilePath "cmd" -ArgumentList "/c {expanded_command}" -Verb RunAs -Wait -PassThru'
+                result = subprocess.run(["powershell", "-Command", ps_command], capture_output=True, text=True, timeout=45)
+                if result.returncode == 0:
+                    print("INFO: Dangerous command executed successfully with administrator privileges.")
+                    return result.stdout
+                else:
+                    print(f"ERROR: Dangerous command failed or was cancelled. {result.stderr}\nERROR 142")
+                return f"Command cancelled or failed: {result.stderr}"
+            except subprocess.TimeoutExpired:
+                print("ERROR: Administrator authentication timed out.")
+                return "Command timed out during authentication."
+            except Exception as e:
+                print(f"ERROR: Failed to prompt for administrator confirmation: {e}\nERROR 141")
+                return "Failed to authenticate as administrator."
+
+        # Unrecognized
+        else:
+            print(f"WARNING: Unrecognized OS {OS_VERSION}. Running dangerous command without elevation.")
+
+    print(f"INFO: Running command: {command}")
+    result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=45)
+    return result.stdout if result.returncode == 0 else f"Command failed: {result.stderr}"
 
 # Strip quotes and commas from a string
 def strip_quotes_commas(s):
