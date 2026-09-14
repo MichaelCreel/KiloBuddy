@@ -1184,7 +1184,7 @@ def process_command(command):
         f"OS: {OS_VERSION}\n"
         f"DEFAULT PATH: {Path.home() / 'Desktop'}\n"
         f"Conversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n"
-        f"{INITIAL_PROMPT}\n"
+        f"Guidelines:\n{INITIAL_PROMPT}\n"
         f"User Command: {command}"
     )
     response = generate_text(initial_model_prompt)
@@ -1251,7 +1251,10 @@ def process_command(command):
         print("INFO: All tools executed successfully.")
         hide_status_indicator()
         return
+    ai_followup()
 
+def ai_followup(followup_instruction = "Continue the active system task specified in USER INTENT."):
+    global USER_INTENT, LAST_OUTPUT, CONVERSATION_HISTORY, PREVIOUS_COMMAND_OUTPUT, PROMPT, OS_VERSION
     print("INFO: Follow-up started.")
     max_turns = 10
     turn = 0
@@ -1264,9 +1267,10 @@ def process_command(command):
             f"OS: {OS_VERSION}\n"
             f"DEFAULT PATH: {Path.home() / 'Desktop'}\n"
             f"Conversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n"
-            f"{PROMPT}\n"
+            f"Guidelines:\n{PROMPT}\n"
             f"User Intent: {USER_INTENT}\n"
             f"Previous Command Output: {PREVIOUS_COMMAND_OUTPUT}\n"
+            f"INSTRUCTION:\n{followup_instruction}\n"
         )
 
         response = generate_text(followup_model_prompt)
@@ -1447,8 +1451,8 @@ def execute_tool(tool_name, args):
             return tool_name, tl_write_file(args["path"], args["content"], args.get("mode", "write"))
         elif tool_name == "ds":
             return tool_name, tl_discover(args["path"], args.get("query", ""))
-        #elif tool_name == "ai_call":
-        #    return tool_name, tl_ai_call(args["prompt"])
+        elif tool_name == "ai_call":
+            return tool_name, tl_ai_call(args["prompt"])
         #elif tool_name == "tm_cmd":
         #    return tool_name, tl_run_command(args["command"])
         else:
@@ -1659,6 +1663,12 @@ def tl_discover(search_path, search_query):
         return "\n".join(f"{name} (score: {score})" for name, score in filtered)
     except Exception as e:
         return f"[[>TOOL_FAIL<]] Failed to discover files: {e}"
+
+def tl_ai_call(prompt):
+    if not prompt:
+        return "[[>TOOL_FAIL<]] No prompt provided for AI call."
+    else:
+        ai_followup(prompt)
 
 # Strip quotes and commas from a string
 def strip_quotes_commas(s):
