@@ -75,23 +75,14 @@ KiloBuddy uses AI to process user commands. Only some commands prompt user input
 
 ## Model Notes
 
-The cloud models Google Gemini, OpenAI ChatGPT, and Anthropic Claude are usable cloud models with KiloBuddy. Local models can also be used with KiloBuddy by changing 'AI Provider Preference' in settings. During installation, these local models are provided as viable options:
+The cloud models Google Gemini, OpenAI ChatGPT, and Anthropic Claude are usable cloud models with KiloBuddy. Local models can also be used with KiloBuddy by installing Ollama (option available in installer) and changing 'AI Provider Preference' in settings. During installation, these local models are provided as viable options:
 
-- Llama 3.1 8B - This is a balanced model created by Meta. It offers good reasoning abilities and instruction following while still being lightweight for mid to higher-range devices. This model is generally intelligent and capable for many tasks.
-  - Recommended PC Specs: >16 GB of RAM, 7-16+GB of VRAM
+- Gemma 4 E4B - This is a model created by Google. It is a relatively lightweight model with thinking capabilities. It provides fast generation with accurate results.
 
-- Qwen 2.5 14B Instruct - This is a large model created by Alibaba. It is designed for instruction following and complex reasoning while not being very conversational. This model is heavier and slower than Llama 3.1 and will require a higher-end system, but it is much better at reasoning and instruction following. This assistant is not very conversational.
-  - Recommended PC Specs: >24 GB of RAM, 12-32+ GB of VRAM
+While CPU processing is possible with local models, generation will be slow and a discrete video card is recommended for generation. If you do not have a discrete video card, it is recommended to use cloud models instead.
 
-While CPU processing is possible with local models, generation will be slow and a discrete video card is recommended for generation.
-
-### Model Tests
-
-These scatter plots below compare the performance of the models. They show the accuracy of the models compared to the time it took for generation. These tests looked at 12 models, and the performance of the recommended models above are supported by the tests.
-
-![Model Accuracy vs Generation Time Results](model_evaluation_results.png)
-
-![Model Accuracy vs Generation Time Results Zoomed](model_evaluation_results_zoomed.png)
+**NOTE: THE FIRST GENERATION OF LOCAL MODELS WILL BE SLOW:**  
+When models are first called, they must be loaded into memory. This takes some time, making the first call slow. Future calls will be faster until the model is kicked out of memory or the app is stopped.
 
 ## Notes
 
