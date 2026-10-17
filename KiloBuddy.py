@@ -234,23 +234,23 @@ TOOLS = [ # Tools available for the AI to call
             }
         }
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "ai_call",
-            "description": "Make an additional call to AI. Used for multi-step reasoning.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "prompt": {
-                        "type": "string",
-                        "description": "The prompt to send to the AI."
-                    }
-                },
-                "required": ["prompt"]
-            }
-        }
-    },
+    # {
+    #     "type": "function",
+    #     "function": {
+    #         "name": "ai_call",
+    #         "description": "Make an additional call to AI. Used for multi-step reasoning.",
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "prompt": {
+    #                     "type": "string",
+    #                     "description": "The prompt to send to the AI."
+    #                 }
+    #             },
+    #             "required": ["prompt"]
+    #         }
+    #     }
+    # },
     {
         "type": "function",
         "function": {
@@ -842,16 +842,31 @@ def local_generate(input_prompt, model_name):
             )
             if response.ok:
                 res_data = response.json()
+                print(json.dumps(res_data, indent=2))
                 msg = res_data.get("message", "{}")
 
+                print(f"RESPONSE DATA:\n{res_data}")
+
                 tool_calls = []
-                for tc in msg.get("tool_calls", []):
-                    tool_calls.append({
-                        "function": {
-                            "name": tc["function"]["name"],
-                            "arguments": tc["function"]["arguments"]
-                        }
-                    })
+                raw_tool_calls = msg.get("tool_calls", [])
+
+                if raw_tool_calls:
+                    for tc in raw_tool_calls:
+                        func_info = tc.get("function", {})
+                        args = func_info.get("arguments", {})
+
+                        if isinstance(args, str):
+                            try:
+                                args = json.loads(args)
+                            except:
+                                args = {}
+
+                        tool_calls.append({
+                            "function": {
+                                "name": func_info.get("name", ""),
+                                "arguments": args
+                            }
+                        })
 
                 if not timeout_triggered.is_set():
                     result["data"] = {
@@ -2413,7 +2428,7 @@ class KiloBuddyDashboard:
             pref_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 pref_entry,
-                "Enter the order of your preferred AI providers, separated by commas.\nEx: gemini, chatgpt, claude\n\nFor Ollama models, enter the model name as it appears in the Ollama list.\nEx: llama3.18B, phi3:mini"
+                "Enter the order of your preferred AI providers, separated by commas.\nEx: gemini, chatgpt, claude\n\nFor Ollama models, enter the model name as it appears in the Ollama list.\nEx: llama3.1:8b, phi3:mini"
             )
 
             wake_label = make_label("Wake Word")
