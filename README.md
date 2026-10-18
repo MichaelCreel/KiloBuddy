@@ -40,16 +40,19 @@ KiloBuddy uses AI to process user commands. Only some commands prompt user input
 - (Installed by Installer) PyAudio, Custom Tkinter, Vosk, Google Gemini, OpenAI ChatGPT, Anthropic Claude
 ## Installation
 
-**1.** Get an API Key
-  - Gemini
-    - Open [Google AI Studio](https://aistudio.google.com/apikey)
-  - ChatGPT
-    - Open [OpenAI Platform](https://platform.openai.com/api-keys)
-  - Claude
-    - Open [Anthropic Console](https://console.anthropic.com/)
-  - Sign in with your account
-  - Click "Create API key"
-  - Copy the API key when it generates
+**1.** Setting up KiloBuddy  
+KiloBuddy can use cloud models (Gemini, ChatGPT, Claude) or local models through Ollama. To set up cloud models, follow step **1-1**. To set up local models, read the **Model Notes** section below, and then continue at step **2**.
+
+  - **1-1. (CLOUD MODELS)** Get API Key(s)
+    - Gemini
+      - Open [Google AI Studio](https://aistudio.google.com/apikey)
+    - ChatGPT
+      - Open [OpenAI Platform](https://platform.openai.com/api-keys)
+    - Claude
+      - Open [Anthropic Console](https://console.anthropic.com/)
+    - Sign in with your account
+    - Click "Create API key"
+    - Copy the API key when it generates
 
 **2.** Download the KiloBuddy zip file from [Releases](https://github.com/MichaelCreel/KiloBuddy/releases)
 
@@ -69,9 +72,15 @@ KiloBuddy uses AI to process user commands. Only some commands prompt user input
         ```bash
         python3 Installer.py
         ```
-**4.** Paste your API key into the proper input field
+**4.** Based on your decision on model, you will follow certain steps. If you are using cloud models, follow step **4-1**. If you are using local models, follow step **4-2**.
+  - **4-1. (CLOUD MODELS)** Paste your API key(s) into their respective input fields.
+  - **4-2. (LOCAL MODELS)** Follow the steps below.
+    - Check "Use Local AI Models"
+    - If you have not installed Ollama, click "Install Ollama"
+      - This may cause a pop-up for Ollama installation during the installation process; complete this pop-up to install Ollama
+    - If you want KiloBuddy to manage the starting and stopping of Ollama, check "Manage Ollama". Read the section on Ollama Management below for more details
 
-**5.** Click "Install"
+**5.** Continue following the installer
 
 ## Model Notes
 
@@ -83,6 +92,13 @@ While CPU processing is possible with local models, generation will be slow and 
 
 **NOTE: THE FIRST GENERATION OF LOCAL MODELS WILL BE SLOW:**  
 When models are first called, they must be loaded into memory. This takes some time, making the first call slow. Future calls will be faster until the model is kicked out of memory or the app is stopped.
+
+## Ollama Management
+
+If KiloBuddy is configured to manage Ollama, it follows these rules:
+- If Ollama is running on app launch, KiloBuddy will not manage it
+  - This means that KiloBuddy will not interfere with Ollama to avoid disrupting previous operations
+- If Ollama is not running on app launch, KiloBuddy will manage the starting and stopping of Ollama
 
 ## Notes
 
