@@ -1372,10 +1372,6 @@ def run_gui_installer():
                            font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     timeout_help.pack(pady=(2, 0))
 
-    # GPT-OSS section
-    wake_word_entry.pack(pady=2)
-    wake_word_entry.insert(0, "computer")
-
     progress = ttk.Progressbar(scroll_frame.scrollable_frame, orient="horizontal", length=750, mode="determinate")
     progress.pack(pady=15)
 
