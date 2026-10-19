@@ -1496,8 +1496,7 @@ def tl_create_file(path):
             if os.path.getsize(path) > 0:
                 result = show_custom_confirm(
                     "Overwrite File Contents",
-                    f"Are you sure you want to overwrite the existing content of the file?\n\nFile Size: {os.path.getsize(path) / 1024:.2f} KB\nFile Path: {path}",
-                    parent=None
+                    f"Are you sure you want to overwrite the existing content of the file?\n\nFile Size: {os.path.getsize(path) / 1024:.2f} KB\nFile Path: {path}"
                 )
                 if result:
                     pass
@@ -1516,9 +1515,15 @@ def tl_delete_file(path):
     try:
         if not os.path.exists(path):
             return f"[[>TOOL_FAIL<]] Path {path} does not exist."
-
-        send2trash(path)
-        return "Successfully sent to trash."
+        result = show_custom_confirm(
+            "Move File or Folder to Trash",
+            f"Are you sure you want to move the following file or folder to the trash?\n\nFile Path: {path}"
+        )
+        if result:
+            send2trash(path)
+            return "Successfully sent to trash."
+        else:
+            return "[[>TOOL_FAIL<]] Delete operation declined by user."
     except Exception as e:
         return f"[[>TOOL_FAIL<]] Failed to send to trash: {e}"
 
@@ -1630,8 +1635,7 @@ def tl_write_file(path, content, mode):
                 if os.path.getsize(path) > 0:
                     result = show_custom_confirm(
                         "Overwrite File Contents",
-                        f"Are you sure you want to overwrite the existing content of the file?\n\nFile Size: {os.path.getsize(path) / 1024:.2f} KB\nFile Path: {path}",
-                        parent=None
+                        f"Are you sure you want to overwrite the existing content of the file?\n\nFile Size: {os.path.getsize(path) / 1024:.2f} KB\nFile Path: {path}"
                     )
                     if result:
                         pass
@@ -2685,8 +2689,7 @@ class KiloBuddyDashboard:
     def quit_kilobuddy(self):
         result = show_custom_confirm(
             "Stop KiloBuddy",
-            "Are you sure you want to stop KiloBuddy?\n\nThis will stop the voice assistant and close the dashboard.",
-            parent=self.root
+            "Are you sure you want to stop KiloBuddy?\n\nThis will stop the voice assistant and close the dashboard."
         )
         if result:
             request_kilobuddy_stop()
@@ -2833,7 +2836,10 @@ def show_dashboard():
 def show_failure_notification(message):
     def show_popup():
         try:
-            popup = tk.Tk()
+            global DASHBOARD_ROOT
+            parent = DASHBOARD_ROOT
+            
+            popup = ctk.CTkToplevel(parent)
             popup.title("KiloBuddy Error")
             popup.geometry("500x200")
             popup.configure(bg="#1e1e1e")
@@ -2879,8 +2885,6 @@ def show_failure_notification(message):
             y = (popup.winfo_screenheight() // 2) - (popup.winfo_height() // 2)
             popup.geometry(f"+{x}+{y}")
             
-            popup.mainloop()
-            
         except Exception as e:
             print(f"ERROR: Couldn't show failure notification: {e}\nERROR 138")
 
@@ -2889,17 +2893,30 @@ def show_failure_notification(message):
     popup_thread.start()
 
 
-def show_custom_confirm(title, message, parent=None):
+def show_custom_confirm(title, message):
     result = {"value": False}
+
+    if DASHBOARD_ROOT and DASHBOARD_ROOT.winfo_exists() and threading.current_thread() is not threading.main_thread():
+        event = threading.Event()
+
+        def thread_safe_show():
+            nonlocal result
+            result["value"] = show_custom_confirm(title, message)
+            event.set()
+
+        DASHBOARD_ROOT.after(0, thread_safe_show)
+        event.wait()
+        return result["value"]
+
     try:
-        dialog = ctk.CTkToplevel(parent) if parent else ctk.CTkToplevel()
+        dialog = ctk.CTkToplevel(DASHBOARD_ROOT) if DASHBOARD_ROOT else ctk.CTkToplevel()
         dialog.title(title)
         dialog.geometry("620x320")
         dialog.configure(fg_color="#131a2b")
         dialog.attributes("-topmost", True)
         dialog.resizable(True, True)
-        if parent:
-            dialog.transient(parent)
+        if DASHBOARD_ROOT:
+            dialog.transient(DASHBOARD_ROOT)
 
         dialog.update_idletasks()
         dialog.lift()
@@ -2945,7 +2962,9 @@ def show_custom_confirm(title, message, parent=None):
 def show_update_notification(latest_version, release_type, download_url):
     def show_popup():
         try:
-            popup = tk.Tk()
+            global DASHBOARD_ROOT
+            parent = DASHBOARD_ROOT
+            popup = ctk.CTkToplevel(parent)
             popup.title("KiloBuddy Update Available")
             popup.geometry("600x300")
             popup.configure(bg="#1e1e1e")
@@ -3021,8 +3040,6 @@ def show_update_notification(latest_version, release_type, download_url):
             x = (popup.winfo_screenwidth() // 2) - (popup.winfo_width() // 2)
             y = (popup.winfo_screenheight() // 2) - (popup.winfo_height() // 2)
             popup.geometry(f"+{x}+{y}")
-            
-            popup.mainloop()
             
         except Exception as e:
             print(f"ERROR: Couldn't show update notification: {e}\nERROR 139")
