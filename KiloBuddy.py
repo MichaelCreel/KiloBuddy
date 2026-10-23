@@ -57,7 +57,8 @@ CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key
 AI_PREFERENCE = "gemini, chatgpt, claude" # Preferred order of AI models to call, loaded from ai_preference file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for AI API calls, loaded from prompt file
 INITIAL_PROMPT = "Return 'Initial Prompt not loaded'." # Prompt for initial AI API call, loaded from initial prompt file
-TRUNCATION_LENGTH = 800 # The length of content at which truncation begins.
+TRUNCATION_LENGTH = 800 # The length of content at which truncation begins
+MAX_TURNS = 10 # Maximum number of turns the AI can have in one run
 USER_INTENT = "" # Store the last user command for AI use
 CONVERSATION_HISTORY = None # Store conversation history for better model context
 LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
@@ -555,21 +556,38 @@ def load_truncation_length(line):
     try:
         truncation_int = int(value)
         if truncation_int <= 0:
-            print(f"ERROR: Invalid truncation length value '{value}'.\nERROR 317")
+            print(f"ERROR: Invalid truncation length value '{value}'.\nERROR 123")
             truncation_int = 800
             return False
         TRUNCATION_LENGTH = truncation_int
         print(f"INFO: Loaded Truncation Length: {TRUNCATION_LENGTH}")
         return True
     except Exception as e:
-        print(f"ERROR: Failed to parse truncation length: {e}\nERROR 317")
+        print(f"ERROR: Failed to parse truncation length: {e}\nERROR 150")
         TRUNCATION_LENGTH = 800
         return False
 
+def load_max_turns(line):
+    global MAX_TURNS
+    value = line.split(":", 1)[1].strip()
+    try:
+        max_turns_int = int(value)
+        if max_turns_int <= 0:
+            print(f"ERROR: Invalid max turns value '{value}'.\nERROR 151")
+            max_turns_int = 10
+            return False
+        MAX_TURNS = max_turns_int
+        print(f"INFO: Loaded Max Turns: {MAX_TURNS}")
+        return True
+    except Exception as e:
+        print(f"ERROR: Failed to parse max turns: {e}\nERROR 152")
+        MAX_TURNS = 10
+        return False
+
 def load_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, MAX_TURNS
     success_count = 0
-    total_settings = 8
+    total_settings = 9
 
     try:
         with open(get_source_path("settings"), "r") as f:
@@ -634,6 +652,11 @@ def load_settings():
                     success_count += 1
                 else:
                     print("WARNING: Failed to properly initialize truncation length.\n    -Falling back to default 800 characters.\nWARN 317")
+            elif line.startswith("max_turns:"):
+                if load_max_turns(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize max turns.\n    -Falling back to default 10.\nWARN 318")
                     
     except FileNotFoundError:
         print("ERROR: Settings file not found.\nERROR 146")
@@ -650,12 +673,13 @@ def load_settings():
     return True
 
 def save_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH, MAX_TURNS
     try:
         with open(get_source_path("settings"), "w") as f:
             f.write(f"preference: {AI_PREFERENCE}\n")
             f.write(f"wake_word: {WAKE_WORD}\n")
             f.write(f"timeout: {API_TIMEOUT}\n")
+            f.write(f"max_turns: {MAX_TURNS}\n")
             f.write(f"truncation_length: {TRUNCATION_LENGTH}\n")
             f.write(f"gemini_api_key: {GEMINI_API_KEY}\n")
             f.write(f"chatgpt_api_key: {CHATGPT_API_KEY}\n")
@@ -1296,10 +1320,9 @@ def process_command(command):
 def ai_followup(followup_instruction = "Continue the active system task specified in USER INTENT."):
     global USER_INTENT, LAST_OUTPUT, CONVERSATION_HISTORY, PREVIOUS_COMMAND_OUTPUT, PROMPT, OS_VERSION
     print("INFO: Follow-up started.")
-    max_turns = 10
     turn = 0
 
-    while turn < max_turns:
+    while turn < MAX_TURNS:
         turn += 1
 
         show_status_indicator("Processing", "#00FF22")
@@ -2481,6 +2504,16 @@ class KiloBuddyDashboard:
                 "Enter the maximum time (in seconds) to wait for an AI provider to respond.\n\nIf your models keep timing out, increase this value.\n\nMust be an integer between 5 and 120 (no decimals)."
             )
 
+            max_turns_label = make_label("Max Turns")
+            max_turns_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            max_turns_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="10")
+            max_turns_entry.insert(0, str(MAX_TURNS))
+            max_turns_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
+            self.HoverToolTip(
+                max_turns_entry,
+                "Enter the maximum number of turns the AI can have in one run.\n\nBetween each user prompt, the AI has a maximum number of turns it is allowed to use. Turns are consumed by any additional generation after the initial generation (errors, follow-ups, etc.).\n\nIf you are asking the model to do complex tasks, consider increasing this value.\n\nMust be an integer greater than 0."
+            )
+
             truncation_label = make_label("Truncation Start (characters)")
             truncation_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
             truncation_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="800")
@@ -2585,6 +2618,7 @@ class KiloBuddyDashboard:
                 wake_value = wake_entry.get().strip().lower()
                 timeout_value = timeout_entry.get().strip()
                 truncation_value = truncation_entry.get().strip()
+                max_turns_value = max_turns_entry.get().strip()
                 gemini_value = gemini_entry.get().strip()
                 chatgpt_value = chatgpt_entry.get().strip()
                 claude_value = claude_entry.get().strip()
@@ -2619,6 +2653,14 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Truncation start must be an integer greater than 0.")
                     return
 
+                try:
+                    max_turns_int = int(max_turns_value)
+                    if max_turns_int <= 0:
+                        raise ValueError
+                except ValueError:
+                    status_label.configure(text="Max turns must be an integer greater than 0.")
+                    return
+
                 if gemini_value and (" " in gemini_value or len(gemini_value) < 20):
                     status_label.configure(text="Gemini key must be at least 20 chars or blank.")
                     return
@@ -2629,7 +2671,7 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Claude key must be at least 20 chars or blank.")
                     return
 
-                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH
+                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH, MAX_TURNS
                 AI_PREFERENCE = ", ".join(parsed)
                 WAKE_WORD = wake_value
                 API_TIMEOUT = timeout_int
@@ -2639,6 +2681,7 @@ class KiloBuddyDashboard:
                 MANAGE_OLLAMA = manage_ollama_value
                 UPDATES = update_pref_value
                 TRUNCATION_LENGTH = truncation_int
+                MAX_TURNS = max_turns_int
 
                 if save_settings():
                     status_label.configure(text="Settings saved successfully.", text_color="#81C784")
