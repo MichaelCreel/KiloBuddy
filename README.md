@@ -86,7 +86,8 @@ KiloBuddy can use cloud models (Gemini, ChatGPT, Claude) or local models through
 
 The cloud models Google Gemini, OpenAI ChatGPT, and Anthropic Claude are usable cloud models with KiloBuddy. Local models can also be used with KiloBuddy by installing Ollama (option available in installer) and changing 'AI Provider Preference' in settings. During installation, these local models are provided as viable options:
 
-- Gemma 4 E4B - This is a model created by Google. It is a relatively lightweight model with thinking capabilities. It provides fast generation with accurate results.
+- Gemma 4 E2B - This is a model created by Google. It is an extremely lightweight model with thinking capabilities. It provides extremely fast generation, but struggles more with multi-step reasoning and understanding tool calls. This results in problems fulfilling complex tasks.
+- Gemma 4 E4B - This is a model created by Google. It is a lightweight model with thinking capabilities. It provides fast generation with accurate results. It is suitable for mildly complex multi-step reasoning while maintaining fast generation and accuracy.
 
 While CPU processing is possible with local models, generation will be slow and a discrete video card is recommended for generation. If you do not have a discrete video card, it is recommended to use cloud models instead.
 
