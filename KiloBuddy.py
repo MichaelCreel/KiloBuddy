@@ -57,6 +57,7 @@ CLAUDE_API_KEY = "" # API Key for calling Claude API, loaded from claude_api_key
 AI_PREFERENCE = "gemini, chatgpt, claude" # Preferred order of AI models to call, loaded from ai_preference file
 PROMPT = "Return 'Prompt not loaded'." # Prompt for AI API calls, loaded from prompt file
 INITIAL_PROMPT = "Return 'Initial Prompt not loaded'." # Prompt for initial AI API call, loaded from initial prompt file
+TRUNCATION_LENGTH = 800 # The length of content at which truncation begins.
 USER_INTENT = "" # Store the last user command for AI use
 CONVERSATION_HISTORY = None # Store conversation history for better model context
 LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
@@ -548,10 +549,27 @@ def load_manage_ollama(line):
         print(f"ERROR: Failed to parse manage_ollama setting: {e}\nERROR 113")
         return False
 
+def load_truncation_length(line):
+    global TRUNCATION_LENGTH
+    value = line.split(":", 1)[1].strip()
+    try:
+        truncation_int = int(value)
+        if truncation_int <= 0:
+            print(f"ERROR: Invalid truncation length value '{value}'.\nERROR 317")
+            truncation_int = 800
+            return False
+        TRUNCATION_LENGTH = truncation_int
+        print(f"INFO: Loaded Truncation Length: {TRUNCATION_LENGTH}")
+        return True
+    except Exception as e:
+        print(f"ERROR: Failed to parse truncation length: {e}\nERROR 317")
+        TRUNCATION_LENGTH = 800
+        return False
+
 def load_settings():
     global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA
     success_count = 0
-    total_settings = 7
+    total_settings = 8
 
     try:
         with open(get_source_path("settings"), "r") as f:
@@ -610,6 +628,12 @@ def load_settings():
                     success_count += 1
                 else:
                     print("WARNING: Failed to properly initialize manage_ollama setting.\n    -Falling back to default 'false'.\nWARN 314")
+            elif line.startswith("truncation_length:"):
+                print(">>>>READ TRUNCATION SETTING")
+                if load_truncation_length(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize truncation length.\n    -Falling back to default 800 characters.\nWARN 317")
                     
     except FileNotFoundError:
         print("ERROR: Settings file not found.\nERROR 146")
@@ -626,12 +650,13 @@ def load_settings():
     return True
 
 def save_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH
     try:
         with open(get_source_path("settings"), "w") as f:
             f.write(f"preference: {AI_PREFERENCE}\n")
             f.write(f"wake_word: {WAKE_WORD}\n")
             f.write(f"timeout: {API_TIMEOUT}\n")
+            f.write(f"truncation_length: {TRUNCATION_LENGTH}\n")
             f.write(f"gemini_api_key: {GEMINI_API_KEY}\n")
             f.write(f"chatgpt_api_key: {CHATGPT_API_KEY}\n")
             f.write(f"claude_api_key: {CLAUDE_API_KEY}\n")
@@ -1543,22 +1568,22 @@ def tl_read_file(path, peek=None, peek_lines=0):
             lines = f.readlines()
         if peek is None:
             full_content = "".join(lines)
-            return truncate_middle(full_content, 800)
+            return truncate_middle(full_content)
         peek = peek.lower()
         if peek == "none":
             full_content = "".join(lines)
-            return truncate_middle(full_content, 800)
+            return truncate_middle(full_content)
         if peek_lines <= 0:
             full_content = "".join(lines)
-            return truncate_middle(full_content, 800)
+            return truncate_middle(full_content)
         if peek == "top":
             selected = lines[:peek_lines]
             text = "".join(selected)
-            return truncate_middle(text, 800)
+            return truncate_middle(text)
         elif peek == "bottom":
             selected = lines[-peek_lines:]
             text = "".join(selected)
-            return truncate_middle(text, 800)
+            return truncate_middle(text)
 
         return f"[[>TOOL_FAIL<]] Invalid peek mode {peek}. Must be 'top', 'bottom', or None."
     except Exception as e:
@@ -1980,12 +2005,12 @@ def user_call(command):
     CONVERSATION_HISTORY.add_message("LCO", PREVIOUS_COMMAND_OUTPUT)
 
 # Truncate the middle of an input
-def truncate_middle(pco, max_length = 800):
-    if (len(pco)) <= max_length:
+def truncate_middle(pco):
+    if (len(pco)) <= TRUNCATION_LENGTH:
         return pco
 
-    head_length = max_length // 2
-    tail_length = max_length - head_length
+    head_length = TRUNCATION_LENGTH // 2
+    tail_length = TRUNCATION_LENGTH - head_length
 
     head = pco[:head_length]
     tail = pco[-tail_length:]
@@ -2219,9 +2244,9 @@ class ConversationMemory:
 
             # Truncate
             if role in ["LCO", "LCI"]:
-                content = truncate_middle(content, 60)
+                content = truncate_middle(content)
             elif role in ["USER", "AI"]:
-                content = truncate_middle(content, 200)
+                content = truncate_middle(content)
 
             formatted.append(f"{role}: {content}")
 
@@ -2456,6 +2481,16 @@ class KiloBuddyDashboard:
                 "Enter the maximum time (in seconds) to wait for an AI provider to respond.\n\nIf your models keep timing out, increase this value.\n\nMust be an integer between 5 and 120 (no decimals)."
             )
 
+            truncation_label = make_label("Truncation Start (characters)")
+            truncation_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            truncation_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="800")
+            truncation_entry.insert(0, str(TRUNCATION_LENGTH))
+            truncation_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
+            self.HoverToolTip(
+                truncation_entry,
+                "Enter the number of characters at which truncation should start.\n\nTruncation happens in the middle, leaving the start and end intact.\n\nDecrease this value if reading files is causing errors.\n\nThis setting only affects the model and is not visible to you. Must be an integer greater than 0."
+            )
+
             gemini_label = make_label("Gemini API Key")
             gemini_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
             gemini_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="Gemini API Key", show="~")
@@ -2549,6 +2584,7 @@ class KiloBuddyDashboard:
                 preference_value = pref_entry.get().strip().lower()
                 wake_value = wake_entry.get().strip().lower()
                 timeout_value = timeout_entry.get().strip()
+                truncation_value = truncation_entry.get().strip()
                 gemini_value = gemini_entry.get().strip()
                 chatgpt_value = chatgpt_entry.get().strip()
                 claude_value = claude_entry.get().strip()
@@ -2575,6 +2611,14 @@ class KiloBuddyDashboard:
                     status_label.configure(text="API timeout must be an integer between 5 and 120.")
                     return
 
+                try:
+                    truncation_int = int(truncation_value)
+                    if truncation_int <= 0:
+                        raise ValueError
+                except ValueError:
+                    status_label.configure(text="Truncation start must be an integer greater than 0.")
+                    return
+
                 if gemini_value and (" " in gemini_value or len(gemini_value) < 20):
                     status_label.configure(text="Gemini key must be at least 20 chars or blank.")
                     return
@@ -2585,7 +2629,7 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Claude key must be at least 20 chars or blank.")
                     return
 
-                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES
+                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH
                 AI_PREFERENCE = ", ".join(parsed)
                 WAKE_WORD = wake_value
                 API_TIMEOUT = timeout_int
@@ -2594,6 +2638,7 @@ class KiloBuddyDashboard:
                 CLAUDE_API_KEY = claude_value
                 MANAGE_OLLAMA = manage_ollama_value
                 UPDATES = update_pref_value
+                TRUNCATION_LENGTH = truncation_int
 
                 if save_settings():
                     status_label.configure(text="Settings saved successfully.", text_color="#81C784")
