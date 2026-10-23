@@ -9,7 +9,7 @@
 2 - Failed to initialize KiloBuddy.
     This means that the script experienced an error while initializing necessary assets for the app. The app will quit.
 
-# ERRORS (101-300 : MISS 123)
+# ERRORS (101-300)
 
 101 - Invalid update type in file.
     This means that the script read a string from 'updates' that was not 'release' or 'pre-release'. The app will fallback to the type 'release' and will not fail. The file contains a string that is incorrectly formatted.
@@ -76,6 +76,9 @@
 
 122 - Failed to parse Cluade API key.
     This means that the script had an unknown error reading the Claude API key from 'settings'. The app will not fail, but will be unable to use ChatGPT.
+
+123 - Invalid truncation length value.
+    This means that the script read a value from 'settings' for the truncation length that was not a valid integer greater than 0. The app will not fail, but will use the default truncation length.
 
 124 - Prompt file is empty.
     This means that the script found the prompt length to be zero. The app requires the prompt file for proper generation parsing and will fail.
@@ -155,6 +158,21 @@
 149 - Local Model API Timeout.
     This means that the local model API did not respond before the maximum time allowed for generation was reached. The generation will fail, but the app will keep running.
 
+150 - Failed to parse truncation length.
+    This means that the script had an unknown error while reading the truncation length from 'settings'. The app will fallback to the default truncation length and will not fail.
+
+151 - Invalid max turns value.
+    This means that the script read a value from 'settings' for the max turns that was not a valid integer greater than 0. The app will not fail, but will use the default max turns.
+
+152 - Failed to parse max turns.
+    This means that the script had an unknown error while reading the max turns from 'settings'. The app will fallback to the default max turns and will not fail.
+
+153 - Invalid max messages value.
+    This means that the script read a value from 'settings' for the max messages that was not a valid integer greater than 0. The app will not fail, but will use the default max messages.
+
+154 - Failed to parse max messages.
+    This means that the script had an unknown error while reading the max messages from 'settings'. The app will fallback to the default max messages and will not fail.
+
 # WARN (301+)
 
 301 - Failed to properly retrieve update type preference.
@@ -204,3 +222,12 @@
 
 316 - Failed to retrieve system scaling.
     This means that the app failed to retrieve the scaling setting from the system. The app will not fail, but windows and window content may be scaled incorrectly.
+
+317 - Failed to properly initialize truncation length.
+    This means that the script failed to read the truncation length from the 'settings' file. The app will fallback to the default '800' characters and will not fail.
+
+318 - Failed to properly initialize max turns.
+    This means that the script failed to read the max turns from the 'settings' file. The app will fallback to the default '10' and will not fail.
+
+319 - Failed to properly initialize max messages.
+    This means that the script failed to read the max messages from the 'settings' file. The app will fallback to the default '16' and will not fail.
