@@ -927,8 +927,6 @@ def local_generate(input_prompt, model_name):
                 print(json.dumps(res_data, indent=2))
                 msg = res_data.get("message", "{}")
 
-                print(f"RESPONSE DATA:\n{res_data}")
-
                 tool_calls = []
                 raw_tool_calls = msg.get("tool_calls", [])
 
