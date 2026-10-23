@@ -14,7 +14,7 @@ TIPS:
 - Surround paths inside tool calls with quotes to avoid character issues.
 - If a tool failed or an operation was declined, change your approach (different name, tool, ask for clarification, run terminal command).
 - Avoid telling the user tool calls; use the native tool calling interface.
-- Multiple tool calls can be executed sequentially in a single response.
+- Use multiple tool calls for multi-step tasks. They are executed sequentially.
 - Your response minus tool calls will be shown to the user.
 
 INSTRUCTION:
