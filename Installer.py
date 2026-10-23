@@ -18,6 +18,7 @@ MACOS_PACKAGES = []
 LINUX_PACKAGES = []
 
 LOCAL_MODELS = [
+    "gemma4:e2b",
     "gemma4:e4b",
 ]
 
