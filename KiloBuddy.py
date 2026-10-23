@@ -59,6 +59,7 @@ PROMPT = "Return 'Prompt not loaded'." # Prompt for AI API calls, loaded from pr
 INITIAL_PROMPT = "Return 'Initial Prompt not loaded'." # Prompt for initial AI API call, loaded from initial prompt file
 TRUNCATION_LENGTH = 800 # The length of content at which truncation begins
 MAX_TURNS = 10 # Maximum number of turns the AI can have in one run
+MAX_MESSAGES = 16 # Maximum number of messages saved in the conversation counting tools and output
 USER_INTENT = "" # Store the last user command for AI use
 CONVERSATION_HISTORY = None # Store conversation history for better model context
 LAST_OUTPUT = "No previous output...\n\nType a task to fulfill below." # Store the last output by the AI that was designated for the user
@@ -584,10 +585,27 @@ def load_max_turns(line):
         MAX_TURNS = 10
         return False
 
+def load_max_messages(line):
+    global MAX_MESSAGES
+    value = line.split(":", 1)[1].strip()
+    try:
+        max_messages_int = int(value)
+        if max_messages_int <= 0:
+            print(f"ERROR: Invalid max messages value '{value}'.\nERROR 153")
+            max_messages_int = 16
+            return False
+        MAX_MESSAGES = max_messages_int
+        print(f"INFO: Loaded Max Messages: {MAX_MESSAGES}")
+        return True
+    except Exception as e:
+        print(f"ERROR: Failed to parse max messages: {e}\nERROR 154")
+        MAX_MESSAGES = 16
+        return False
+
 def load_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, MAX_TURNS
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, MAX_TURNS, MAX_MESSAGES
     success_count = 0
-    total_settings = 9
+    total_settings = 10
 
     try:
         with open(get_source_path("settings"), "r") as f:
@@ -657,6 +675,11 @@ def load_settings():
                     success_count += 1
                 else:
                     print("WARNING: Failed to properly initialize max turns.\n    -Falling back to default 10.\nWARN 318")
+            elif line.startswith("max_messages:"):
+                if load_max_messages(line):
+                    success_count += 1
+                else:
+                    print("WARNING: Failed to properly initialize max messages.\n    -Falling back to default 16.\nWARN 319")
                     
     except FileNotFoundError:
         print("ERROR: Settings file not found.\nERROR 146")
@@ -673,13 +696,14 @@ def load_settings():
     return True
 
 def save_settings():
-    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH, MAX_TURNS
+    global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH, MAX_MESSAGES, MAX_TURNS
     try:
         with open(get_source_path("settings"), "w") as f:
             f.write(f"preference: {AI_PREFERENCE}\n")
             f.write(f"wake_word: {WAKE_WORD}\n")
             f.write(f"timeout: {API_TIMEOUT}\n")
             f.write(f"max_turns: {MAX_TURNS}\n")
+            f.write(f"max_messages: {MAX_MESSAGES}\n")
             f.write(f"truncation_length: {TRUNCATION_LENGTH}\n")
             f.write(f"gemini_api_key: {GEMINI_API_KEY}\n")
             f.write(f"chatgpt_api_key: {CHATGPT_API_KEY}\n")
@@ -2239,9 +2263,8 @@ def hide_status_indicator():
 
 # Class for managing the conversation memory
 class ConversationMemory:
-    def __init__(self, max_messages = 32):
+    def __init__(self):
         self.history = []
-        self.max_messages = max_messages
 
     # Add a message to the conversation history
     # Automatically rotates history if needed
@@ -2249,8 +2272,8 @@ class ConversationMemory:
         self.history.append({"role": role, "content": content})
 
         # Rotate history if exceeding maximum messages
-        if len(self.history) > self.max_messages:
-            self.history = self.history[-self.max_messages:]
+        if len(self.history) > MAX_MESSAGES:
+            self.history = self.history[-MAX_MESSAGES:]
 
     def get_history(self):
         return self.history
@@ -2501,7 +2524,17 @@ class KiloBuddyDashboard:
             timeout_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
             self.HoverToolTip(
                 timeout_entry,
-                "Enter the maximum time (in seconds) to wait for an AI provider to respond.\n\nIf your models keep timing out, increase this value.\n\nMust be an integer between 5 and 120 (no decimals)."
+                "Enter the maximum time (in seconds) to wait for an AI provider to respond.\n\nIf the model keeps timing out, increase this value.\n\nMust be an integer between 5 and 120 (no decimals)."
+            )
+
+            max_messages_label = make_label("Conversation Messages")
+            max_messages_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(10 * WINDOW_SCALING), int(4 * WINDOW_SCALING)))
+            max_messages_entry = ctk.CTkEntry(scroll_frame, width=int(560 * WINDOW_SCALING), font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), fg_color="#0B3147", text_color="white", placeholder_text="16")
+            max_messages_entry.insert(0, str(MAX_MESSAGES))
+            max_messages_entry.pack(padx=int(20 * WINDOW_SCALING), pady=(0, int(10 * WINDOW_SCALING)))
+            self.HoverToolTip(
+                max_messages_entry,
+                "Enter the maximum number of messages to keep in the conversation history. This is the short-term memory of the model.\n\nThis includes user messages, AI responses, tool inputs, and tool outputs.\n\nIf the model does not remember recent context, increase this value. Decrease this value if the context window is causing errors.\n\nMust be an integer greater than 0."
             )
 
             max_turns_label = make_label("Max Turns")
@@ -2618,6 +2651,7 @@ class KiloBuddyDashboard:
                 wake_value = wake_entry.get().strip().lower()
                 timeout_value = timeout_entry.get().strip()
                 truncation_value = truncation_entry.get().strip()
+                max_messages_value = max_messages_entry.get().strip()
                 max_turns_value = max_turns_entry.get().strip()
                 gemini_value = gemini_entry.get().strip()
                 chatgpt_value = chatgpt_entry.get().strip()
@@ -2654,6 +2688,14 @@ class KiloBuddyDashboard:
                     return
 
                 try:
+                    max_messages_int = int(max_messages_value)
+                    if max_messages_int <= 0:
+                        raise ValueError
+                except ValueError:
+                    status_label.configure(text="Maximum messages must be an integer greater than 0.")
+                    return
+
+                try:
                     max_turns_int = int(max_turns_value)
                     if max_turns_int <= 0:
                         raise ValueError
@@ -2671,7 +2713,7 @@ class KiloBuddyDashboard:
                     status_label.configure(text="Claude key must be at least 20 chars or blank.")
                     return
 
-                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH, MAX_TURNS
+                global AI_PREFERENCE, WAKE_WORD, API_TIMEOUT, GEMINI_API_KEY, CHATGPT_API_KEY, CLAUDE_API_KEY, MANAGE_OLLAMA, UPDATES, TRUNCATION_LENGTH, MAX_MESSAGES, MAX_TURNS
                 AI_PREFERENCE = ", ".join(parsed)
                 WAKE_WORD = wake_value
                 API_TIMEOUT = timeout_int
@@ -2681,6 +2723,7 @@ class KiloBuddyDashboard:
                 MANAGE_OLLAMA = manage_ollama_value
                 UPDATES = update_pref_value
                 TRUNCATION_LENGTH = truncation_int
+                MAX_MESSAGES = max_messages_int
                 MAX_TURNS = max_turns_int
 
                 if save_settings():
@@ -3288,7 +3331,7 @@ if __name__ == "__main__":
     # Build dashboard UI
     dashboard = KiloBuddyDashboard(DASHBOARD_ROOT)
 
-    CONVERSATION_HISTORY = ConversationMemory(max_messages=40)
+    CONVERSATION_HISTORY = ConversationMemory()
 
     # Start voice listening thread if not running
     if is_primary_instance:
