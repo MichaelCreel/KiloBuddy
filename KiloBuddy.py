@@ -1439,7 +1439,8 @@ def execute_tool(tool_name, args):
         # Replace variables in the command
         for key, val in args.items():
             if isinstance(val, str) and "$LAST_OUTPUT" in val:
-                args[key] = val.replace("$LAST_OUTPUT", LAST_OUTPUT)
+                val = val.replace("$LAST_OUTPUT", LAST_OUTPUT)
+                args[key] = val.strip('"\'')
 
         CONVERSATION_HISTORY.add_message("LCI", f"{tool_name} {json.dumps(args)}")
 
@@ -2190,7 +2191,7 @@ def hide_status_indicator():
 
 # Class for managing the conversation memory
 class ConversationMemory:
-    def __init__(self, max_messages = 6):
+    def __init__(self, max_messages = 32):
         self.history = []
         self.max_messages = max_messages
 
@@ -3199,7 +3200,7 @@ if __name__ == "__main__":
     # Build dashboard UI
     dashboard = KiloBuddyDashboard(DASHBOARD_ROOT)
 
-    CONVERSATION_HISTORY = ConversationMemory(max_messages=6)
+    CONVERSATION_HISTORY = ConversationMemory(max_messages=40)
 
     # Start voice listening thread if not running
     if is_primary_instance:
