@@ -717,6 +717,15 @@ def save_settings():
         print(f"ERROR: Failed to save settings: {e}\nERROR 120")
         return False
 
+def open_log_file():
+    global LOG_PATH
+    if sys.platform.startswith("win"):
+        os.startfile(LOG_PATH)
+    elif sys.platform.startswith("darwin"):
+        subprocess.call(["open", LOG_PATH])
+    else:
+        subprocess.call(["xdg-open", LOG_PATH])
+
 # Load API Timemout in seconds from file
 def load_api_timeout():
     global API_TIMEOUT
@@ -2637,15 +2646,6 @@ class KiloBuddyDashboard:
             status_label = ctk.CTkLabel(settings_window, text="", font=ctk.CTkFont(family=self.stacksans_light_family, size=int(28 * WINDOW_SCALING)), text_color="#FFEE58")
             status_label.pack(anchor="w", padx=int(20 * WINDOW_SCALING), pady=(int(3 * WINDOW_SCALING), 0))
 
-            def open_log_file():
-                global LOG_PATH
-                if sys.platform.startswith("win"):
-                    os.startfile(LOG_PATH)
-                elif sys.platform.startswith("darwin"):
-                    subprocess.call(["open", LOG_PATH])
-                else:
-                    subprocess.call(["xdg-open", LOG_PATH])
-
             def save_and_close():
                 preference_value = pref_entry.get().strip().lower()
                 wake_value = wake_entry.get().strip().lower()
@@ -2973,7 +2973,7 @@ def show_failure_notification(message):
             
             popup = ctk.CTkToplevel(parent)
             popup.title("KiloBuddy Error")
-            popup.geometry("500x200")
+            popup.geometry("700x300")
             popup.configure(bg="#1e1e1e")
             popup.attributes("-topmost", True)
             popup.resizable(False, False)
@@ -3001,7 +3001,7 @@ def show_failure_notification(message):
                                   justify="center")
             message_label.pack(pady=(0, 20))
 
-            ok_btn = tk.Button(main_frame, text="OK", 
+            ok_btn = tk.Button(main_frame, text="Dismiss", 
                              command=popup.destroy,
                              bg="#F44336", fg="white", 
                              font=("Arial", 10, "bold"),
@@ -3009,6 +3009,15 @@ def show_failure_notification(message):
                              relief="flat",
                              cursor="hand2")
             ok_btn.pack(pady=(10, 0))
+
+            log_btn = tk.Button(main_frame, text="Open Log",
+                             command=open_log_file,
+                             bg="#1D4E89", fg="white", 
+                             font=("Arial", 10, "bold"),
+                             padx=20, pady=8,
+                             relief="flat",
+                             cursor="hand2")
+            log_btn.pack(pady=(10, 0))
             
             popup.after(30000, popup.destroy)
             
