@@ -17,10 +17,10 @@ WINDOWS_PACKAGES = []
 MACOS_PACKAGES = []
 LINUX_PACKAGES = []
 
-LOCAL_MODELS = {
-    "llama3.1:8b",
-    "qwen2.5:14b-instruct"
-}
+LOCAL_MODELS = [
+    "gemma4:e2b",
+    "gemma4:e4b",
+]
 
 SYSTEM_PACKAGE_HINTS = {
     "Linux": [
@@ -1167,6 +1167,8 @@ def run_gui_installer():
 
     def update_visibility():
         # Hide local values if local models are disabled
+        ai_options = ["Gemini", "ChatGPT", "Claude"]
+
         if not use_local_models_var.get():
             install_ollama_checkbox.pack_forget()
             manage_ollama_checkbox.pack_forget()
@@ -1175,19 +1177,21 @@ def run_gui_installer():
             install_ollama_var.set(False)
             manage_ollama_var.set(False)
 
-            ai_pref1_dropdown["values"] = ["Gemini", "ChatGPT", "Claude"]
-            ai_pref2_dropdown["values"] = ["None", "Gemini", "ChatGPT", "Claude"]
-            ai_pref3_dropdown["values"] = ["None", "Gemini", "ChatGPT", "Claude"]
+            ai_pref1_dropdown["values"] = ai_options
+            ai_pref2_dropdown["values"] = ["None"] + ai_options
+            ai_pref3_dropdown["values"] = ["None"] + ai_options
 
             return
         
         install_ollama_checkbox.pack(pady=(0, 10))
         ollama_help.pack(pady=(0, 10))
         manage_ollama_checkbox.pack(pady=(0, 10))
+    
+        ai_options = LOCAL_MODELS + ai_options
 
-        ai_pref1_dropdown["values"] = ["llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
-        ai_pref2_dropdown["values"] = ["None", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
-        ai_pref3_dropdown["values"] = ["None", "llama3.1:8b", "qwen2.5:14b-instruct", "Gemini", "ChatGPT", "Claude"]
+        ai_pref1_dropdown["values"] = ai_options
+        ai_pref2_dropdown["values"] = ["None"] + ai_options
+        ai_pref3_dropdown["values"] = ["None"] + ai_options
 
     root = tk.Tk()
     root.title("KiloBuddy Installer")
@@ -1368,10 +1372,6 @@ def run_gui_installer():
     timeout_help = tk.Label(timeout_frame, text="Range: 5-120 seconds", 
                            font=StackSans_EL, fg="#cccccc", bg="#190c3a")
     timeout_help.pack(pady=(2, 0))
-
-    # GPT-OSS section
-    wake_word_entry.pack(pady=2)
-    wake_word_entry.insert(0, "computer")
 
     progress = ttk.Progressbar(scroll_frame.scrollable_frame, orient="horizontal", length=750, mode="determinate")
     progress.pack(pady=15)

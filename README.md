@@ -40,16 +40,19 @@ KiloBuddy uses AI to process user commands. Only some commands prompt user input
 - (Installed by Installer) PyAudio, Custom Tkinter, Vosk, Google Gemini, OpenAI ChatGPT, Anthropic Claude
 ## Installation
 
-**1.** Get an API Key
-  - Gemini
-    - Open [Google AI Studio](https://aistudio.google.com/apikey)
-  - ChatGPT
-    - Open [OpenAI Platform](https://platform.openai.com/api-keys)
-  - Claude
-    - Open [Anthropic Console](https://console.anthropic.com/)
-  - Sign in with your account
-  - Click "Create API key"
-  - Copy the API key when it generates
+**1.** Setting up KiloBuddy  
+KiloBuddy can use cloud models (Gemini, ChatGPT, Claude) or local models through Ollama. To set up cloud models, follow step **1-1**. To set up local models, read the **Model Notes** section below, and then continue at step **2**.
+
+  - **1-1. (CLOUD MODELS)** Get API Key(s)
+    - Gemini
+      - Open [Google AI Studio](https://aistudio.google.com/apikey)
+    - ChatGPT
+      - Open [OpenAI Platform](https://platform.openai.com/api-keys)
+    - Claude
+      - Open [Anthropic Console](https://console.anthropic.com/)
+    - Sign in with your account
+    - Click "Create API key"
+    - Copy the API key when it generates
 
 **2.** Download the KiloBuddy zip file from [Releases](https://github.com/MichaelCreel/KiloBuddy/releases)
 
@@ -69,29 +72,34 @@ KiloBuddy uses AI to process user commands. Only some commands prompt user input
         ```bash
         python3 Installer.py
         ```
-**4.** Paste your API key into the proper input field
+**4.** Based on your decision on model, you will follow certain steps. If you are using cloud models, follow step **4-1**. If you are using local models, follow step **4-2**.
+  - **4-1. (CLOUD MODELS)** Paste your API key(s) into their respective input fields.
+  - **4-2. (LOCAL MODELS)** Follow the steps below.
+    - Check "Use Local AI Models"
+    - If you have not installed Ollama, click "Install Ollama"
+      - This may cause a pop-up for Ollama installation during the installation process; complete this pop-up to install Ollama
+    - If you want KiloBuddy to manage the starting and stopping of Ollama, check "Manage Ollama". Read the section on Ollama Management below for more details
 
-**5.** Click "Install"
+**5.** Continue following the installer
 
 ## Model Notes
 
-The cloud models Google Gemini, OpenAI ChatGPT, and Anthropic Claude are usable cloud models with KiloBuddy. Local models can also be used with KiloBuddy by changing 'AI Provider Preference' in settings. During installation, these local models are provided as viable options:
+The cloud models Google Gemini, OpenAI ChatGPT, and Anthropic Claude are usable cloud models with KiloBuddy. Local models can also be used with KiloBuddy by installing Ollama (option available in installer) and changing 'AI Provider Preference' in settings. During installation, these local models are provided as viable options:
 
-- Llama 3.1 8B - This is a balanced model created by Meta. It offers good reasoning abilities and instruction following while still being lightweight for mid to higher-range devices. This model is generally intelligent and capable for many tasks.
-  - Recommended PC Specs: >16 GB of RAM, 7-16+GB of VRAM
+- Gemma 4 E2B - This is a model created by Google. It is an extremely lightweight model with thinking capabilities. It provides extremely fast generation, but struggles more with multi-step reasoning and understanding tool calls. This results in problems fulfilling complex tasks.
+- Gemma 4 E4B - This is a model created by Google. It is a lightweight model with thinking capabilities. It provides fast generation with accurate results. It is suitable for mildly complex multi-step reasoning while maintaining fast generation and accuracy.
 
-- Qwen 2.5 14B Instruct - This is a large model created by Alibaba. It is designed for instruction following and complex reasoning while not being very conversational. This model is heavier and slower than Llama 3.1 and will require a higher-end system, but it is much better at reasoning and instruction following. This assistant is not very conversational.
-  - Recommended PC Specs: >24 GB of RAM, 12-32+ GB of VRAM
+While CPU processing is possible with local models, generation will be slow and a discrete video card is recommended for generation. If you do not have a discrete video card, it is recommended to use cloud models instead.
 
-While CPU processing is possible with local models, generation will be slow and a discrete video card is recommended for generation.
+**NOTE: THE FIRST GENERATION OF LOCAL MODELS WILL BE SLOW:**  
+When models are first called, they must be loaded into memory. This takes some time, making the first call slow. Future calls will be faster until the model is kicked out of memory or the app is stopped.
 
-### Model Tests
+## Ollama Management
 
-These scatter plots below compare the performance of the models. They show the accuracy of the models compared to the time it took for generation. These tests looked at 12 models, and the performance of the recommended models above are supported by the tests.
-
-![Model Accuracy vs Generation Time Results](model_evaluation_results.png)
-
-![Model Accuracy vs Generation Time Results Zoomed](model_evaluation_results_zoomed.png)
+If KiloBuddy is configured to manage Ollama, it follows these rules:
+- If Ollama is running on app launch, KiloBuddy will not manage it
+  - This means that KiloBuddy will not interfere with Ollama to avoid disrupting previous operations
+- If Ollama is not running on app launch, KiloBuddy will manage the starting and stopping of Ollama
 
 ## Notes
 
