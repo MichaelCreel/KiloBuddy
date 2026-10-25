@@ -1066,7 +1066,50 @@ def run_gui_installer():
                 base_progress = 20  # 20% for setup
                 for i, package in enumerate(REQUIRED_PACKAGES):
                     print(f"Installing {package}...")
-                    subprocess.check_call([python_path, "-m", "pip", "install", package])
+                    try:
+                        # subprocess.check_call([python_path, "-m", "pip", "install", package])
+                        result = subprocess.run([python_path, "-m", "pip", "install", "--prefer-binary", package], capture_output = True, text = True, check = True)
+                    except subprocess.CalledProcessError as e:
+                        error_message = (e.stderr or "") + "\n" + (e.stdout or "") + "\n" + str(e)
+                        if any(keyword in error_message.lower() for keyword in ["openssl", "openssl-sys", "openssl.pc"]) and platform.system() == "Darwin":
+                            print("OpenSSL is required for this package. Attempting to install...")
+                            try:
+                                # Try to find the OpenSSL prefix
+                                try:
+                                    print("Trying to install OpenSSL via Homebrew...")
+                                    try:
+                                        subprocess.check_call(["brew", "install", "openssl@3"])
+                                        brew_prefix = subprocess.check_output(["brew", "--prefix", "openssl"], text = True).strip()
+                                    except Exception as e:
+                                        # Give up
+                                        print(f"Failed to install OpenSSL via Homebrew: {e}")
+                                        raise e
+                                    brew_prefix = subprocess.check_output(["brew", "--prefix", "openssl"], text = True).strip()
+                                except Exception as e:
+                                    print(f"Failed to get OpenSSL prefix from Homebrew: {e}")
+                                    raise e
+
+                                print(f"Found OpenSSL at {brew_prefix}")
+
+                                os.environ["LDFLAGS"] = f"-L{brew_prefix}/lib"
+                                os.environ["CPPFLAGS"] = f"-I{brew_prefix}/include"
+                                os.environ["PKG_CONFIG_PATH"] = f"{brew_prefix}/lib/pkgconfig"
+
+                                print("OpenSSL environment variables set. Retrying installation...")
+                                try:
+                                    subprocess.run([python_path, "-m", "pip", "install", "--prefer-binary", package], check = True)
+                                except Exception as e:
+                                    print(f"Failed to install despite OpenSSL config: {e}")
+                                    raise e
+                            except Exception as e:
+                                print(f"Failed to configure OpenSSL: {e}")
+                                raise e
+                        else:
+                            if package == "PyQt5":
+                                print("Skipping PyQt5 installation.")
+                                continue
+                            print(f"Failed to install {package}: {e}")
+                            raise e
                     # Update progress bar (remaining 80% for packages)
                     progress['value'] = base_progress + ((i + 1) / total_packages) * 40
                     root.update_idletasks()
