@@ -72,7 +72,7 @@ KiloBuddy can use cloud models (Gemini, ChatGPT, Claude) or local models through
         ```bash
         python3 Installer.py
         ```
-**4.** Based on your decision on model, you will follow certain steps. If you are using cloud models, follow step **4-1**. If you are using local models, follow step **4-2**.
+**4.** Based on your decision on model, you will follow certain steps. If you are using cloud models, follow step **4-1**. If you are using local models, follow step **4-2**. If you are using both, follow both steps.
   - **4-1. (CLOUD MODELS)** Paste your API key(s) into their respective input fields.
   - **4-2. (LOCAL MODELS)** Follow the steps below.
     - Check "Use Local AI Models"
