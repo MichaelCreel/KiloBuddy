@@ -2090,7 +2090,12 @@ def format_todo_list(todo_list):
 # Creates the window for AI output designated for user
 def display_overlay():
     def open_overlay():
-        root = tk.Tk()
+        #root = tk.Tk()
+        global DASHBOARD_ROOT
+        root = tk.Toplevel(DASHBOARD_ROOT)
+        root.withdraw()
+        root.attributes("-topmost", True)
+        root.overrideredirect(True)
         root.title("KiloBuddy")
         
         # Load StackSans font or fallback to Helvetica
@@ -2111,9 +2116,7 @@ def display_overlay():
                 root.iconphoto(False, tk.PhotoImage(file="icon.png"))
             except Exception:
                 pass  # If icon fails to load, continue without it
-        
-        root.attributes("-topmost", True)
-        root.overrideredirect(True)
+
         root.configure(bg="#131313")
         root.lift()
         root.attributes("-alpha", 0.85)
@@ -2172,14 +2175,15 @@ def display_overlay():
         root.bind("<Escape>", close_overlay)
         
         root.after(len(text) * 15 + 5000, close_overlay)
-        root.mainloop()
+        root.deiconify()
         display_overlay()
 
-    global OVERLAY_ACTIVE
+    global OVERLAY_ACTIVE, OVERLAY_QUEUE, DASHBOARD_ROOT
     if OVERLAY_QUEUE is not None and not len(OVERLAY_QUEUE) == 0 and not OVERLAY_ACTIVE:
         text = OVERLAY_QUEUE.popleft()
-        threading.Thread(target=open_overlay).start()
         OVERLAY_ACTIVE = True
+        # Send overlay to main thread
+        DASHBOARD_ROOT.after(0, lambda: open_overlay())
 
 # Show overlay for AI output designated for user
 def show_overlay(text):
@@ -3277,14 +3281,17 @@ def start_voice_listening():
 def populate_scaling():
     global WINDOW_SCALING
     try:
-        from PyQt5.QtWidgets import QApplication
-        app = QApplication([])
-        screen = app.primaryScreen()
-        logical_dpi = screen.logicalDotsPerInch()
-        app.quit()
-        base_dpi = 192.0 # Logical DPI the interface was designed for
-        WINDOW_SCALING = logical_dpi / base_dpi
-        print(f"INFO: Scaling factor applied: {WINDOW_SCALING:.2f} (Logical DPI: {logical_dpi})")
+        if platform.system() != "Darwin":
+            from PyQt5.QtWidgets import QApplication
+            app = QApplication([])
+            screen = app.primaryScreen()
+            logical_dpi = screen.logicalDotsPerInch()
+            app.quit()
+            base_dpi = 192.0 # Logical DPI the interface was designed for
+            WINDOW_SCALING = logical_dpi / base_dpi
+            print(f"INFO: Scaling factor applied: {WINDOW_SCALING:.2f} (Logical DPI: {logical_dpi})")
+        else:
+            WINDOW_SCALING = 1.0
     except Exception as e:
         print(f"WARNING: Failed to retrieve system scaling: {e}\nWARN 316")
         WINDOW_SCALING = 1.0
