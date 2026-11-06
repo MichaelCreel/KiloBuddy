@@ -2201,6 +2201,7 @@ def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
         # If the window doesn't exist or was destroyed, create it
         if STATUS_INDICATOR_WINDOW is None or not STATUS_INDICATOR_WINDOW.winfo_exists():
             STATUS_INDICATOR_WINDOW = tk.Toplevel(DASHBOARD_ROOT)
+            STATUS_INDICATOR_WINDOW.withdraw()
             STATUS_INDICATOR_WINDOW.title("KB Status")
             STATUS_INDICATOR_WINDOW.overrideredirect(True)
             STATUS_INDICATOR_WINDOW.attributes("-topmost", True)
@@ -2255,9 +2256,12 @@ def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
             )
             STATUS_CANVAS.itemconfig(STATUS_DOT_IDS[i], fill=dot_color)
 
+        STATUS_INDICATOR_WINDOW.deiconify()
+        STATUS_INDICATOR_WINDOW.lift()
+        STATUS_INDICATOR_WINDOW.update_idletasks()
+
     # Schedule the UI update
     DASHBOARD_ROOT.after(0, _update_or_create)
-
 
 def hide_status_indicator():
     if DASHBOARD_ROOT is None:
