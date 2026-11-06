@@ -1294,7 +1294,7 @@ def process_command(command):
         print("ERROR: No response generated.\nERROR 136")
         return
 
-    print("Tool Calls: ", tool_calls)
+    print("INFO: Tool Calls: ", tool_calls)
 
     # Extract user output
     if content:
