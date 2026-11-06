@@ -38,6 +38,7 @@ KiloBuddy uses AI to process user commands. Only some commands prompt user input
     sudo apt-get install portaudio19-dev python3-pyaudio
     ```
 - (Installed by Installer) PyAudio, Custom Tkinter, Vosk, Google Gemini, OpenAI ChatGPT, Anthropic Claude
+
 ## Installation
 
 **1.** Setting up KiloBuddy  
@@ -54,13 +55,16 @@ KiloBuddy can use cloud models (Gemini, ChatGPT, Claude) or local models through
     - Click "Create API key"
     - Copy the API key when it generates
 
-**2.** Download the KiloBuddy zip file from [Releases](https://github.com/MichaelCreel/KiloBuddy/releases)
+**2.** Download the KiloBuddy zip file from [Releases](https://github.com/MichaelCreel/KiloBuddy/releases).
 
 **3.** Run the install script
   - Windows:
     Run `windows-install.bat`
   - Mac:
     Run `mac-install.command`
+    Click the question mark in the popup to open the user guide.
+    Click "Open the general panel for me" link to open *Security & Privacy* in system settings.
+    Look for `mac_install.command` in the window, and click *Open Anyway* to continue with the installation.
   - Linux:
     Run `linux-install.sh`
     - If nothing happens, tkinter is probably missing
