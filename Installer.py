@@ -369,7 +369,14 @@ def install_vosk_model(install_dir):
     model_zip = os.path.join(install_dir, "vosk-model.zip")
     
     try:
-        urllib.request.urlretrieve(model_url, model_zip)
+        if platform.system() == "Darwin":
+            import ssl
+            ssl_context = ssl._create_unverified_context()
+            with urllib.request.urlopen(model_url, context=ssl_context) as response, open(model_zip, 'wb') as out_file:
+                out_file.write(response.read())
+        else:
+            urllib.request.urlretrieve(model_url, model_zip)
+
         print("Extracting Vosk model...")
         
         with zipfile.ZipFile(model_zip, 'r') as zip_ref:
@@ -817,6 +824,28 @@ def create_macos_shortcuts(install_dir):
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     python_path = os.path.join(venv_path, "bin", "python")
     kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")
+
+    # Create icons
+    png_path = os.path.join(install_dir, "icon.png")
+    iconset_dir = os.path.join(install_dir, "temp_icon.iconset")
+    os.makedirs(iconset_dir, exist_ok=True)
+
+    try:
+        sizes = [16, 32, 64, 128, 256, 512, 1024]
+        for size in sizes:
+            subprocess.run(["sips", "-z", str(size), str(size), png_path, "--out", os.path.join(iconset_dir, f"icon_{size}x{size}.png")], check = True, capture_output = True)
+
+            if size < 1024:
+                double_size = size * 2
+                subprocess.run(["sips", "-z", str(double_size), str(double_size), png_path, "--out", os.path.join(iconset_dir, f"icon_{size}x{size}@2x.png")], check = True, capture_output = True)
+
+        subprocess.run(["iconutil", "-c", "icns", iconset_dir, "-o", os.path.join(install_dir, "icon.icns")], check = True, capture_output = True)
+        print("Icons created.")
+    except Exception as e:
+        print(f"Failed to create icons: {e}")
+    finally:
+        if os.path.exists(iconset_dir):
+            shutil.rmtree(iconset_dir)
     
     # Create a background launcher
     launcher_script = os.path.join(install_dir, "launch_kilobuddy.sh")
@@ -852,11 +881,19 @@ nohup "{python_path}" "{kilobuddy_script}" > /dev/null 2>&1 &
     <string>KiloBuddy</string>
     <key>CFBundleVersion</key>
     <string>1.5</string>
-    <key>LSUIElement</key>
-    <true/>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>icon.icns</string>
 </dict>
 </plist>""")
-    
+
+    #<key>LSUIElement</key>
+
+
+
+
+
     # Create the executable launcher
     app_launcher = os.path.join(macos_dir, "KiloBuddy")
     with open(app_launcher, 'w') as f:
@@ -876,18 +913,26 @@ exec "{python_path}" "{kilobuddy_script}"
     print(f"You can run KiloBuddy with: open '{app_path}'")
     
     # Ask about desktop shortcut (Alias to .app)
-    create_desktop = input("Create desktop alias? (y/n): ").lower().strip()
-    if create_desktop in ['y', 'yes']:
-        desktop_dir = os.path.expanduser('~/Desktop')
-        if os.path.exists(desktop_dir):
-            desktop_alias = os.path.join(desktop_dir, 'KiloBuddy.app')
-            try:
-                if os.path.exists(desktop_alias):
-                    os.remove(desktop_alias)
-                os.symlink(app_path, desktop_alias)
-                print("Desktop alias created")
-            except OSError:
-                print("Could not create desktop alias")
+    desktop_dir = os.path.expanduser('~/Desktop')
+    if os.path.exists(desktop_dir):
+        desktop_alias = os.path.join(desktop_dir, 'KiloBuddy.app')
+        if os.path.exists(desktop_alias):
+            os.remove(desktop_alias)
+        else:
+            shutil.rmtree(desktop_alias)
+
+        script = f'''
+        tell application "Finder"
+            make new alias file at folder (POSIX file "{desktop_dir}" as alias) to file (POSIX file "{app_path}" as alias) with properties {{name:"KiloBuddy.app"}}
+        end tell
+        '''
+        try:
+            subprocess.run(['osascript', '-e', script], check = True)
+            print("Desktop alias created.")
+        except Exception as e:
+            print(f"Failed to create desktop alias: {e}")
+            print("Creating symlink...")
+            os.symlink(app_path, desktop_alias)
 
 def run_gui_installer():
     import tkinter as tk
@@ -1111,8 +1156,8 @@ def run_gui_installer():
                             print(f"Failed to install {package}: {e}")
                             raise e
                     # Update progress bar (remaining 80% for packages)
-                    progress['value'] = base_progress + ((i + 1) / total_packages) * 40
-                    root.update_idletasks()
+                    new_val = base_progress + ((i + 1) / total_packages) * 40
+                    root.after(0, lambda v=new_val: [progress.config(value=v), root.update_idletasks()])
                 
                 print("KiloBuddy installed successfully.")
 
