@@ -18,27 +18,6 @@ KiloBuddy uses cloud and/or local models of your choice. No models are verified 
 
 KiloBuddy uses AI to process user commands. Only some commands prompt user input. Despite the safety layer in place in KiloBuddy, command accuracy and safety are not guaranteed. By using KiloBuddy, you are accepting the risk of data loss, system corruption, or any other issues that may arise from using KiloBuddy.
 
-## Dependencies
-- Python
-  - Windows:
-    Install [Python 3](https://python.org)
-    Check "Add Python to PATH" during installation
-  - Mac:
-    ```bash
-    brew install python
-    ```
-  - Linux:
-    ```bash
-    sudo apt update
-    sudo apt install python3 python3-pip
-    ```
-    
-    If PyAudio installation fails, run this command (or distribution equivalent):
-    ```bash
-    sudo apt-get install portaudio19-dev python3-pyaudio
-    ```
-- (Installed by Installer) PyAudio, Custom Tkinter, Vosk, Google Gemini, OpenAI ChatGPT, Anthropic Claude
-
 ## Installation
 
 **1.** Setting up KiloBuddy  
@@ -117,6 +96,39 @@ If KiloBuddy is configured to manage Ollama, it follows these rules:
 ## Issues
 
 Issues should be reported on the [Issues Page](https://github.com/MichaelCreel/KiloBuddy/issues). Make sure to include the issue, repeatable steps to the issue (if possible), the operating system, and whether voice or text was used to send the command.
+
+## Dependencies
+- Python
+  - Windows:
+    Install [Python 3](https://python.org)
+    Check "Add Python to PATH" during installation
+  - Mac:
+    ```bash
+    brew install python
+    ```
+  - Linux:
+    ```bash
+    sudo apt update
+    sudo apt install python3 python3-pip
+    ```
+    
+    If PyAudio installation fails, run this command (or distribution equivalent):
+    ```bash
+    sudo apt-get install portaudio19-dev python3-pyaudio
+    ```
+- Installed by the installer:
+  - Google Generative AI API (google-genai)
+  - OpenAI API (openai)
+  - Anthropic API (anthropic)
+  - Sound Device API (sounddevice)
+  - Tkinter (tk)
+  - Requests (requests)
+  - Custom Tkinter (customtkinter)
+  - Vosk API (vosk)
+  - Process and System Utilities (psutil)
+  - PyQt5 (PyQt5)
+  - Send2Trash (send2trash)
+  - Rapid Fuzz Fuzzy Search (rapidfuzz)
 
 ## Licenses
 
