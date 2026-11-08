@@ -665,7 +665,6 @@ def load_settings():
                 else:
                     print("WARNING: Failed to properly initialize manage_ollama setting.\n    -Falling back to default 'false'.\nWARN 314")
             elif line.startswith("truncation_length:"):
-                print(">>>>READ TRUNCATION SETTING")
                 if load_truncation_length(line):
                     success_count += 1
                 else:
