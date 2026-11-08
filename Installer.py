@@ -888,12 +888,6 @@ nohup "{python_path}" "{kilobuddy_script}" > /dev/null 2>&1 &
 </dict>
 </plist>""")
 
-    #<key>LSUIElement</key>
-
-
-
-
-
     # Create the executable launcher
     app_launcher = os.path.join(macos_dir, "KiloBuddy")
     with open(app_launcher, 'w') as f:
@@ -902,8 +896,11 @@ cd "{install_dir}"
 exec "{python_path}" "{kilobuddy_script}"
 """)
     os.chmod(app_launcher, 0o755)
-    
-    # Copy icon if available
+
+    # Copy icons to resources
+    icns_path = os.path.join(install_dir, "icon.icns")
+    if os.path.exists(icns_path):
+        shutil.copy2(icns_path, os.path.join(resources_dir, "icon.icns"))
     icon_src = os.path.join(install_dir, "icon.png")
     if os.path.exists(icon_src):
         icon_dst = os.path.join(resources_dir, "icon.png")
