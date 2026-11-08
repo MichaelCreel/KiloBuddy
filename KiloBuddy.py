@@ -985,7 +985,7 @@ def chatgpt_generate(input_prompt):
             return
         try:
             response = openai.chat.completions.create(
-                model = "gpt-4o mini",
+                model = "gpt-4o-mini",
                 messages=[{"role": "user", "content": input_prompt}],
                 tools=TOOLS,
                 tool_choice="auto"
