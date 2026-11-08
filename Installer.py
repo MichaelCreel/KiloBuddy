@@ -908,28 +908,50 @@ exec "{python_path}" "{kilobuddy_script}"
     
     print("Created KiloBuddy.app")
     print(f"You can run KiloBuddy with: open '{app_path}'")
-    
-    # Ask about desktop shortcut (Alias to .app)
+
+    # Add to applications
+    apps_dir = os.path.expanduser('~/Applications')
+    os.makedirs(apps_dir, exist_ok=True)
+    dest_app_path = os.path.join(apps_dir, "KiloBuddy.app")
+
+    if os.path.exists(dest_app_path):
+        shutil.rmtree(dest_app_path)
+
+    shutil.copytree(app_path, dest_app_path)
+    print(f"KiloBuddy.app added to Applications.")
+
+    # Add desktop shortcut
     desktop_dir = os.path.expanduser('~/Desktop')
     if os.path.exists(desktop_dir):
         desktop_alias = os.path.join(desktop_dir, 'KiloBuddy.app')
-        if os.path.exists(desktop_alias):
-            os.remove(desktop_alias)
-        else:
-            shutil.rmtree(desktop_alias)
+
+        # Remove existing alias or symlink
+        if os.path.lexists(desktop_alias):
+            if os.path.islink(desktop_alias) or os.path.isfile(desktop_alias):
+                os.remove(desktop_alias)
+            else:
+                shutil.rmtree(desktop_alias)
 
         script = f'''
         tell application "Finder"
-            make new alias file at folder (POSIX file "{desktop_dir}" as alias) to file (POSIX file "{app_path}" as alias) with properties {{name:"KiloBuddy.app"}}
+            set targetApp to POSIX file "{dest_app_path}" as alias
+            set desktopFolder to POSIX file "{desktop_dir}" as alias
+            make new alias file at desktopFolder to targetApp with properties {{name:"KiloBuddy.app"}}
         end tell
         '''
+
         try:
             subprocess.run(['osascript', '-e', script], check = True)
-            print("Desktop alias created.")
+            print("Desktop alias created successfully.")
         except Exception as e:
             print(f"Failed to create desktop alias: {e}")
             print("Creating symlink...")
-            os.symlink(app_path, desktop_alias)
+            try:
+                os.symlink(dest_app_path, desktop_alias)
+                print("Symlink created successfully.")
+            except Exception as e:
+                print(f"Failed to create symlink: {e}")
+                print("Desktop shortcut creation failed.")
 
 def run_gui_installer():
     import tkinter as tk
