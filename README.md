@@ -20,34 +20,50 @@ KiloBuddy uses AI to process user commands. Only some commands prompt user input
 
 ## Installation
 
-**1.** Setting up KiloBuddy  
-KiloBuddy can use cloud models (Gemini, ChatGPT, Claude) or local models through Ollama. To set up cloud models, follow step **1-1**. To set up local models, read the **Model Notes** section below, and then continue at step **2**.
+**0.** Install Python 3.
+  - **Windows:** Download and install [Python 3 for Windows](https://www.python.org/downloads/windows/). Check *"Add Python to PATH"* during installation.
+  - **Mac:** Download and install [Python 3 for Mac](https://www.python.org/downloads/macos/).
+  - **Linux:** Install Python 3.
+    - **Debian/Ubuntu:**
+      ```bash
+      sudo apt install python3 python3-venv python3-pip
+      ```
+    - **Fedora:**
+      ```bash
+      sudo dnf install python3 python3-pip
+      ```
+    - **Arch Linux:**
+      ```bash
+      sudo pacman -S python
+      ```
 
-  - **1-1. (CLOUD MODELS)** Get API Key(s)
+**1.** KiloBuddy can use cloud models (Gemini, ChatGPT, Claude) or local models through Ollama. To set up cloud models, follow step **1-1**. To set up local models, read the **Model Notes** section below, and then continue at step **2**.
+
+  - **1-1. (CLOUD MODELS)** Get API Key(s) from the provider(s) you want to use.
     - Gemini
-      - Open [Google AI Studio](https://aistudio.google.com/apikey)
+      - Open [Google AI Studio](https://aistudio.google.com/apikey).
     - ChatGPT
-      - Open [OpenAI Platform](https://platform.openai.com/api-keys)
+      - Open [OpenAI Platform](https://platform.openai.com/api-keys).
     - Claude
-      - Open [Anthropic Console](https://console.anthropic.com/)
+      - Open [Anthropic Console](https://console.anthropic.com/).
     - Sign in with your account
-    - Click "Create API key"
-    - Copy the API key when it generates
+    - Click "Create API key".
+    - Copy the API key when it generates.
 
-**2.** Download the KiloBuddy zip file from [Releases](https://github.com/MichaelCreel/KiloBuddy/releases).
+**2.** Download the KiloBuddy zip file from [Releases](https://github.com/MichaelCreel/KiloBuddy/releases). It is recommended to download the release labeled *"Latest"* and to not download releases labeled *"Pre-release"*.
 
 **3.** Run the install script
-  - Windows:
+  - **Windows:**
     Run `windows-install.bat`
-  - Mac:
-    Run `mac-install.command`
-    Click the question mark in the popup to open the user guide.
-    Click "Open the general panel for me" link to open *Security & Privacy* in system settings.
-    Look for `mac_install.command` in the window, and click *Open Anyway* to continue with the installation.
-  - Linux:
+  - **Mac:**
+    Run `mac-install.command`  
+    Click the question mark in the popup to open the user guide.  
+    Click "Open the general panel for me" link to open *Security & Privacy* in system settings.  
+    Look for `mac_install.command` in the window, and click *Open Anyway* to continue with the installation.  
+  - **Linux:**
     Run `linux-install.sh`
-    - If nothing happens, tkinter is probably missing
-      - Install tkinter (or distribution equivalent):
+    - If nothing happens, tkinter is probably missing.
+      - Install tkinter (use distribution equivalent; this is for Debian systems):
         ```bash
         sudo apt install python3-tk
         ```
@@ -59,11 +75,15 @@ KiloBuddy can use cloud models (Gemini, ChatGPT, Claude) or local models through
   - **4-1. (CLOUD MODELS)** Paste your API key(s) into their respective input fields.
   - **4-2. (LOCAL MODELS)** Follow the steps below.
     - Check "Use Local AI Models"
-    - If you have not installed Ollama, click "Install Ollama"
-      - This may cause a pop-up for Ollama installation during the installation process; complete this pop-up to install Ollama
-    - If you want KiloBuddy to manage the starting and stopping of Ollama, check "Manage Ollama". Read the section on Ollama Management below for more details
+    - If you have not installed Ollama, click "Install Ollama".
+      - This may cause a pop-up for Ollama installation during the installation process; complete this pop-up to install Ollama.
+    - If you want KiloBuddy to manage the starting and stopping of Ollama, check "Manage Ollama". Read the section on Ollama Management below for more details.
 
-**5.** Continue following the installer
+**5.** Continue following the installer.
+  - **5-1. (LINUX)** If PyAudio installation fails, run this command (use distribution equivalent; this is for Debian systems):
+    ```bash
+    sudo apt-get install portaudio19-dev python3-pyaudio
+    ```
 
 ## Model Notes
 
@@ -75,7 +95,7 @@ The cloud models Google Gemini, OpenAI ChatGPT, and Anthropic Claude are usable 
 While CPU processing is possible with local models, generation will be slow and a discrete video card is recommended for generation. If you do not have a discrete video card, it is recommended to use cloud models instead.
 
 **NOTE: THE FIRST GENERATION OF LOCAL MODELS WILL BE SLOW:**  
-When models are first called, they must be loaded into memory. This takes some time, making the first call slow. Future calls will be faster until the model is kicked out of memory or the app is stopped.
+When models are first called, they must be loaded into memory. This takes some time, making the first call slow. Future calls will be faster until the model is kicked out of memory or the app is stopped. Because of this, the first call may fail while future calls succeed.
 
 ## Ollama Management
 
@@ -101,30 +121,12 @@ Issues should be reported on the [Issues Page](https://github.com/MichaelCreel/K
 
 KiloBuddy is mainly developed and tested on Linux Mint. While the app is intended to support Windows, Mac, and Linux, errors on some platforms may not be found during development and testing. If you encounter any issues, report them on the [Issues Page](https://github.com/MichaelCreel/KiloBuddy/issues) and include your operating system so that the problem can be looked into.
 
-Because KiloBuddy is independently distributed and is not published through official stores, Windows, Mac, and some Linux systems will display security warnings or prompts when installing and running the app for the first time. This is not an issue; this is a consequence of personal distribution.
+Because KiloBuddy is independently distributed and is not published through official stores, Windows, Mac, and some Linux systems will display security warnings or prompts when installing and running the app for the first time. This is expected behavior and is a consequence of personal distribution.
 
 KiloBuddy is developed with AI assistance. AI is primarily used for inline code completion, design brainstorming, troubleshooting, and working with unfamiliar APIs. All AI assistance is reviewed and guided to ensure correctness, efficiency, and functionality. Code is often written manually with AI assistance. Any AI generated code is reviewed and held to the same standards as manually written code. Final implementations, whether written manually or generated by AI, are determined by the developer based on review and testing, never by AI.
 
-
 ## Dependencies
 - Python
-  - Windows:
-    Install [Python 3](https://python.org)
-    Check "Add Python to PATH" during installation
-  - Mac:
-    ```bash
-    brew install python
-    ```
-  - Linux:
-    ```bash
-    sudo apt update
-    sudo apt install python3 python3-pip
-    ```
-    
-    If PyAudio installation fails, run this command (or distribution equivalent):
-    ```bash
-    sudo apt-get install portaudio19-dev python3-pyaudio
-    ```
 - Installed by the installer:
   - Google Generative AI API (google-genai)
   - OpenAI API (openai)
