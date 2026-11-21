@@ -401,6 +401,17 @@ def detect_os():
     else:
         return "unknown"
 
+def get_ollama_executable():
+    if platform.system() == "Darwin":
+        paths = [
+            os.path.expanduser("~/Applications/Ollama.app/Contents/Resources/ollama"),
+            "/Applications/Ollama.app/Contents/Resources/ollama"
+        ]
+        for path in paths:
+            if os.path.exists(path):
+                return path
+    return "ollama"
+
 # Starts the Ollama server if managed
 def start_ollama():
     global MANAGE_OLLAMA, OLLAMA_THREAD
@@ -413,7 +424,7 @@ def start_ollama():
             return True
         else:
             print("INFO: Starting Ollama server and management...")
-            OLLAMA_THREAD = subprocess.Popen(["ollama", "serve"])
+            OLLAMA_THREAD = subprocess.Popen([get_ollama_executable(), "serve"])
             return True
     return False
 
@@ -665,7 +676,6 @@ def load_settings():
                 else:
                     print("WARNING: Failed to properly initialize manage_ollama setting.\n    -Falling back to default 'false'.\nWARN 314")
             elif line.startswith("truncation_length:"):
-                print(">>>>READ TRUNCATION SETTING")
                 if load_truncation_length(line):
                     success_count += 1
                 else:
@@ -985,7 +995,7 @@ def chatgpt_generate(input_prompt):
             return
         try:
             response = openai.chat.completions.create(
-                model = "gpt-4o mini",
+                model = "gpt-4o-mini",
                 messages=[{"role": "user", "content": input_prompt}],
                 tools=TOOLS,
                 tool_choice="auto"
@@ -1241,29 +1251,6 @@ def listen_for_command():
     finally:
         hide_status_indicator()
 
-# Process Command (OLD)
-def process_command_old(command):
-    if not command:
-        print("INFO: No command to process.")
-        return
-
-    global USER_INTENT
-    USER_INTENT = command
-    CONVERSATION_HISTORY.add_message("USER", command)
-
-    global INITIAL_PROMPT, OS_VERSION
-    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n{INITIAL_PROMPT}\nUser Command: {command}"
-
-    print("INFO: Generating response...")
-    show_status_indicator("Processing", "#00FF22")
-    response = generate_text(combined_prompt)
-    if response:
-        hide_status_indicator()
-        process_response(response)
-    else:
-        hide_status_indicator()
-        print("ERROR: No response generated.\nERROR 136")
-
 # Process Command
 def process_command(command):
     if not command:
@@ -1294,7 +1281,7 @@ def process_command(command):
         print("ERROR: No response generated.\nERROR 136")
         return
 
-    print("Tool Calls: ", tool_calls)
+    print("INFO: Tool Calls: ", tool_calls)
 
     # Extract user output
     if content:
@@ -1439,14 +1426,6 @@ def process_response(response):
         process_todo_list(todo_list)
     else:
         print("INFO: No todo list found in response.")
-
-
-    #############################
-    print("DEBUG: User Output: ", user_output)
-    print("DEBUG: Todo List: ", todo_list)
-    #############################
-
-
     return
 
 # Extract the todo list from AI response
@@ -2090,7 +2069,12 @@ def format_todo_list(todo_list):
 # Creates the window for AI output designated for user
 def display_overlay():
     def open_overlay():
-        root = tk.Tk()
+        #root = tk.Tk()
+        global DASHBOARD_ROOT
+        root = tk.Toplevel(DASHBOARD_ROOT)
+        root.withdraw()
+        root.attributes("-topmost", True)
+        root.overrideredirect(True)
         root.title("KiloBuddy")
         
         # Load StackSans font or fallback to Helvetica
@@ -2111,9 +2095,7 @@ def display_overlay():
                 root.iconphoto(False, tk.PhotoImage(file="icon.png"))
             except Exception:
                 pass  # If icon fails to load, continue without it
-        
-        root.attributes("-topmost", True)
-        root.overrideredirect(True)
+
         root.configure(bg="#131313")
         root.lift()
         root.attributes("-alpha", 0.85)
@@ -2172,14 +2154,15 @@ def display_overlay():
         root.bind("<Escape>", close_overlay)
         
         root.after(len(text) * 15 + 5000, close_overlay)
-        root.mainloop()
+        root.deiconify()
         display_overlay()
 
-    global OVERLAY_ACTIVE
+    global OVERLAY_ACTIVE, OVERLAY_QUEUE, DASHBOARD_ROOT
     if OVERLAY_QUEUE is not None and not len(OVERLAY_QUEUE) == 0 and not OVERLAY_ACTIVE:
         text = OVERLAY_QUEUE.popleft()
-        threading.Thread(target=open_overlay).start()
         OVERLAY_ACTIVE = True
+        # Send overlay to main thread
+        DASHBOARD_ROOT.after(0, lambda: open_overlay())
 
 # Show overlay for AI output designated for user
 def show_overlay(text):
@@ -2197,6 +2180,7 @@ def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
         # If the window doesn't exist or was destroyed, create it
         if STATUS_INDICATOR_WINDOW is None or not STATUS_INDICATOR_WINDOW.winfo_exists():
             STATUS_INDICATOR_WINDOW = tk.Toplevel(DASHBOARD_ROOT)
+            STATUS_INDICATOR_WINDOW.withdraw()
             STATUS_INDICATOR_WINDOW.title("KB Status")
             STATUS_INDICATOR_WINDOW.overrideredirect(True)
             STATUS_INDICATOR_WINDOW.attributes("-topmost", True)
@@ -2251,9 +2235,12 @@ def show_status_indicator(text="Listening", dot_color="#4FA4FF"):
             )
             STATUS_CANVAS.itemconfig(STATUS_DOT_IDS[i], fill=dot_color)
 
+        STATUS_INDICATOR_WINDOW.deiconify()
+        STATUS_INDICATOR_WINDOW.lift()
+        STATUS_INDICATOR_WINDOW.update_idletasks()
+
     # Schedule the UI update
     DASHBOARD_ROOT.after(0, _update_or_create)
-
 
 def hide_status_indicator():
     if DASHBOARD_ROOT is None:
@@ -3277,14 +3264,17 @@ def start_voice_listening():
 def populate_scaling():
     global WINDOW_SCALING
     try:
-        from PyQt5.QtWidgets import QApplication
-        app = QApplication([])
-        screen = app.primaryScreen()
-        logical_dpi = screen.logicalDotsPerInch()
-        app.quit()
-        base_dpi = 192.0 # Logical DPI the interface was designed for
-        WINDOW_SCALING = logical_dpi / base_dpi
-        print(f"INFO: Scaling factor applied: {WINDOW_SCALING:.2f} (Logical DPI: {logical_dpi})")
+        if platform.system() != "Darwin":
+            from PyQt5.QtWidgets import QApplication
+            app = QApplication([])
+            screen = app.primaryScreen()
+            logical_dpi = screen.logicalDotsPerInch()
+            app.quit()
+            base_dpi = 192.0 # Logical DPI the interface was designed for
+            WINDOW_SCALING = logical_dpi / base_dpi
+            print(f"INFO: Scaling factor applied: {WINDOW_SCALING:.2f} (Logical DPI: {logical_dpi})")
+        else:
+            WINDOW_SCALING = 1.0
     except Exception as e:
         print(f"WARNING: Failed to retrieve system scaling: {e}\nWARN 316")
         WINDOW_SCALING = 1.0

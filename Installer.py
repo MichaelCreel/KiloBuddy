@@ -316,16 +316,29 @@ def install_ollama():
             dmg_path = os.path.join("/tmp", "Ollama.dmg")
 
             print("Downloading Ollama for macOS...")
-            urllib.request.urlretrieve(ollama_dmg_url, dmg_path)
+            import ssl
+            ssl_context = ssl._create_unverified_context()
+            with urllib.request.urlopen(ollama_dmg_url, context=ssl_context) as response, open(dmg_path, 'wb') as out_file:
+                out_file.write(response.read())
 
             print("Mounting DMG...")
-            subprocess.run(["hdiutil", "attach", dmg_path], check=True)
+            subprocess.run(["hdiutil", "attach", dmg_path, "-nobrowse"], check=True)
 
-            print("Copying Ollama to Applications...")
-            subprocess.run(["cp", "-R", "/Volumes/Ollama/Ollama.app", "/Applications/"], check=True)
+            #print("Copying Ollama to Applications...")
+            #subprocess.run(["cp", "-R", "/Volumes/Ollama/Ollama.app", "/Applications/"], check=True)
+
+            user_apps_dir = "/Applications"
+            os.makedirs(user_apps_dir, exist_ok=True)
+            ollama_dest = os.path.join(user_apps_dir, "Ollama.app")
+
+            if os.path.exists(ollama_dest):
+                shutil.rmtree(ollama_dest)
+
+            print("Copying Ollama to user Applications...")
+            subprocess.run(["cp", "-R", "/Volumes/Ollama/Ollama.app", user_apps_dir], check=True)
 
             print("Unmounting DMG...")
-            subprocess.run(["hdiutil", "detach", "/Volumes/Ollama"], check=True)
+            subprocess.run(["hdiutil", "detach", "/Volumes/Ollama", "-quiet"], check=True)
 
             print("Ollama installed successfully.")
             return True
@@ -346,11 +359,23 @@ def install_ollama():
         print("Unsupported OS for Ollama installation. Please install Ollama manually.")
         return False
 
+def get_ollama_executable():
+    if platform.system() == "Darwin":
+        paths = [
+            os.path.expanduser("~/Applications/Ollama.app/Contents/Resources/ollama"),
+            "/Applications/Ollama.app/Contents/Resources/ollama"
+        ]
+        for path in paths:
+            if os.path.exists(path):
+                return path
+    return "ollama"
+
 # Download a local model
 def install_local_model(model_name):
     print(f"Installing local model: {model_name}")
     try:
-        subprocess.run(["ollama", "pull", model_name], check=True)
+        ollama_executable = get_ollama_executable()
+        subprocess.run([ollama_executable, "pull", model_name], check=True)
         print(f"Model {model_name} installed successfully.")
         return True
     except Exception as e:
@@ -369,7 +394,14 @@ def install_vosk_model(install_dir):
     model_zip = os.path.join(install_dir, "vosk-model.zip")
     
     try:
-        urllib.request.urlretrieve(model_url, model_zip)
+        if platform.system() == "Darwin":
+            import ssl
+            ssl_context = ssl._create_unverified_context()
+            with urllib.request.urlopen(model_url, context=ssl_context) as response, open(model_zip, 'wb') as out_file:
+                out_file.write(response.read())
+        else:
+            urllib.request.urlretrieve(model_url, model_zip)
+
         print("Extracting Vosk model...")
         
         with zipfile.ZipFile(model_zip, 'r') as zip_ref:
@@ -646,6 +678,34 @@ def run_terminal_installer():
                     print("Ollama installed successfully.")
                 else:
                     print("Warning: Failed to install Ollama. Local models may not work.")
+
+            running_ollama = False
+
+            # Start Ollama if needed
+            if any(model in LOCAL_MODELS for model in ai_preferences):
+                print("Starting Ollama for local model install.")
+                # Run Ollama
+                ollama_executable = get_ollama_executable()
+                ollama_thread = subprocess.Popen(
+                    [ollama_executable, "serve"],
+                    stdout = subprocess.PIPE,
+                    stderr = subprocess.PIPE,
+                    text = True
+                )
+                # Give time for output production
+                time.sleep(5)
+                # Read error outputs
+                error_output = ollama_thread.stderr.readline()
+
+                if "address already in use" in error_output.lower():
+                    print("Ollama already running.")
+                    ollama_thread = None
+                else:
+                    print("Ollama managed by installer, starting.")
+                    running_ollama = True
+                    # Give Ollama more time to start
+                    time.sleep(10)
+
             # Download local models if necessary
             for model in ai_preferences:
                 if model in LOCAL_MODELS:
@@ -653,6 +713,17 @@ def run_terminal_installer():
                         print(f"Local model {model} installed successfully.")
                     else:
                         print(f"Warning: Failed to install local model {model}.")
+
+            # Stop Ollama if started by installer
+            if running_ollama and ollama_thread is not None:
+                print("Stopping Ollama.")
+                ollama_thread.terminate()
+                ollama_thread.wait()
+                ollama_thread = None
+            if install_local_model(model):
+                print(f"Local model {model} installed successfully.")
+            else:
+                print(f"Warning: Failed to install local model {model}.")
         
         # Download and install Vosk model
         if not install_vosk_model(install_dir):
@@ -817,6 +888,28 @@ def create_macos_shortcuts(install_dir):
     venv_path = os.path.join(install_dir, "kilobuddy_env")
     python_path = os.path.join(venv_path, "bin", "python")
     kilobuddy_script = os.path.join(install_dir, "KiloBuddy.py")
+
+    # Create icons
+    png_path = os.path.join(install_dir, "icon.png")
+    iconset_dir = os.path.join(install_dir, "temp_icon.iconset")
+    os.makedirs(iconset_dir, exist_ok=True)
+
+    try:
+        sizes = [16, 32, 64, 128, 256, 512, 1024]
+        for size in sizes:
+            subprocess.run(["sips", "-z", str(size), str(size), png_path, "--out", os.path.join(iconset_dir, f"icon_{size}x{size}.png")], check = True, capture_output = True)
+
+            if size < 1024:
+                double_size = size * 2
+                subprocess.run(["sips", "-z", str(double_size), str(double_size), png_path, "--out", os.path.join(iconset_dir, f"icon_{size}x{size}@2x.png")], check = True, capture_output = True)
+
+        subprocess.run(["iconutil", "-c", "icns", iconset_dir, "-o", os.path.join(install_dir, "icon.icns")], check = True, capture_output = True)
+        print("Icons created.")
+    except Exception as e:
+        print(f"Failed to create icons: {e}")
+    finally:
+        if os.path.exists(iconset_dir):
+            shutil.rmtree(iconset_dir)
     
     # Create a background launcher
     launcher_script = os.path.join(install_dir, "launch_kilobuddy.sh")
@@ -852,11 +945,13 @@ nohup "{python_path}" "{kilobuddy_script}" > /dev/null 2>&1 &
     <string>KiloBuddy</string>
     <key>CFBundleVersion</key>
     <string>1.5</string>
-    <key>LSUIElement</key>
-    <true/>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>icon.icns</string>
 </dict>
 </plist>""")
-    
+
     # Create the executable launcher
     app_launcher = os.path.join(macos_dir, "KiloBuddy")
     with open(app_launcher, 'w') as f:
@@ -865,8 +960,11 @@ cd "{install_dir}"
 exec "{python_path}" "{kilobuddy_script}"
 """)
     os.chmod(app_launcher, 0o755)
-    
-    # Copy icon if available
+
+    # Copy icons to resources
+    icns_path = os.path.join(install_dir, "icon.icns")
+    if os.path.exists(icns_path):
+        shutil.copy2(icns_path, os.path.join(resources_dir, "icon.icns"))
     icon_src = os.path.join(install_dir, "icon.png")
     if os.path.exists(icon_src):
         icon_dst = os.path.join(resources_dir, "icon.png")
@@ -874,20 +972,50 @@ exec "{python_path}" "{kilobuddy_script}"
     
     print("Created KiloBuddy.app")
     print(f"You can run KiloBuddy with: open '{app_path}'")
-    
-    # Ask about desktop shortcut (Alias to .app)
-    create_desktop = input("Create desktop alias? (y/n): ").lower().strip()
-    if create_desktop in ['y', 'yes']:
-        desktop_dir = os.path.expanduser('~/Desktop')
-        if os.path.exists(desktop_dir):
-            desktop_alias = os.path.join(desktop_dir, 'KiloBuddy.app')
+
+    # Add to applications
+    apps_dir = os.path.expanduser('~/Applications')
+    os.makedirs(apps_dir, exist_ok=True)
+    dest_app_path = os.path.join(apps_dir, "KiloBuddy.app")
+
+    if os.path.exists(dest_app_path):
+        shutil.rmtree(dest_app_path)
+
+    shutil.copytree(app_path, dest_app_path)
+    print(f"KiloBuddy.app added to Applications.")
+
+    # Add desktop shortcut
+    desktop_dir = os.path.expanduser('~/Desktop')
+    if os.path.exists(desktop_dir):
+        desktop_alias = os.path.join(desktop_dir, 'KiloBuddy.app')
+
+        # Remove existing alias or symlink
+        if os.path.lexists(desktop_alias):
+            if os.path.islink(desktop_alias) or os.path.isfile(desktop_alias):
+                os.remove(desktop_alias)
+            else:
+                shutil.rmtree(desktop_alias)
+
+        script = f'''
+        tell application "Finder"
+            set targetApp to POSIX file "{dest_app_path}" as alias
+            set desktopFolder to POSIX file "{desktop_dir}" as alias
+            make new alias file at desktopFolder to targetApp with properties {{name:"KiloBuddy.app"}}
+        end tell
+        '''
+
+        try:
+            subprocess.run(['osascript', '-e', script], check = True)
+            print("Desktop alias created successfully.")
+        except Exception as e:
+            print(f"Failed to create desktop alias: {e}")
+            print("Creating symlink...")
             try:
-                if os.path.exists(desktop_alias):
-                    os.remove(desktop_alias)
-                os.symlink(app_path, desktop_alias)
-                print("Desktop alias created")
-            except OSError:
-                print("Could not create desktop alias")
+                os.symlink(dest_app_path, desktop_alias)
+                print("Symlink created successfully.")
+            except Exception as e:
+                print(f"Failed to create symlink: {e}")
+                print("Desktop shortcut creation failed.")
 
 def run_gui_installer():
     import tkinter as tk
@@ -1066,10 +1194,53 @@ def run_gui_installer():
                 base_progress = 20  # 20% for setup
                 for i, package in enumerate(REQUIRED_PACKAGES):
                     print(f"Installing {package}...")
-                    subprocess.check_call([python_path, "-m", "pip", "install", package])
+                    try:
+                        # subprocess.check_call([python_path, "-m", "pip", "install", package])
+                        result = subprocess.run([python_path, "-m", "pip", "install", "--prefer-binary", package], capture_output = True, text = True, check = True)
+                    except subprocess.CalledProcessError as e:
+                        error_message = (e.stderr or "") + "\n" + (e.stdout or "") + "\n" + str(e)
+                        if any(keyword in error_message.lower() for keyword in ["openssl", "openssl-sys", "openssl.pc"]) and platform.system() == "Darwin":
+                            print("OpenSSL is required for this package. Attempting to install...")
+                            try:
+                                # Try to find the OpenSSL prefix
+                                try:
+                                    print("Trying to install OpenSSL via Homebrew...")
+                                    try:
+                                        subprocess.check_call(["brew", "install", "openssl@3"])
+                                        brew_prefix = subprocess.check_output(["brew", "--prefix", "openssl"], text = True).strip()
+                                    except Exception as e:
+                                        # Give up
+                                        print(f"Failed to install OpenSSL via Homebrew: {e}")
+                                        raise e
+                                    brew_prefix = subprocess.check_output(["brew", "--prefix", "openssl"], text = True).strip()
+                                except Exception as e:
+                                    print(f"Failed to get OpenSSL prefix from Homebrew: {e}")
+                                    raise e
+
+                                print(f"Found OpenSSL at {brew_prefix}")
+
+                                os.environ["LDFLAGS"] = f"-L{brew_prefix}/lib"
+                                os.environ["CPPFLAGS"] = f"-I{brew_prefix}/include"
+                                os.environ["PKG_CONFIG_PATH"] = f"{brew_prefix}/lib/pkgconfig"
+
+                                print("OpenSSL environment variables set. Retrying installation...")
+                                try:
+                                    subprocess.run([python_path, "-m", "pip", "install", "--prefer-binary", package], check = True)
+                                except Exception as e:
+                                    print(f"Failed to install despite OpenSSL config: {e}")
+                                    raise e
+                            except Exception as e:
+                                print(f"Failed to configure OpenSSL: {e}")
+                                raise e
+                        else:
+                            if package == "PyQt5":
+                                print("Skipping PyQt5 installation.")
+                                continue
+                            print(f"Failed to install {package}: {e}")
+                            raise e
                     # Update progress bar (remaining 80% for packages)
-                    progress['value'] = base_progress + ((i + 1) / total_packages) * 40
-                    root.update_idletasks()
+                    new_val = base_progress + ((i + 1) / total_packages) * 40
+                    root.after(0, lambda v=new_val: [progress.config(value=v), root.update_idletasks()])
                 
                 print("KiloBuddy installed successfully.")
 
@@ -1097,8 +1268,9 @@ def run_gui_installer():
                     if any(model in LOCAL_MODELS for model in models_to_install):
                         print("Starting Ollama for local model install.")
                         # Run Ollama
+                        ollama_executable = get_ollama_executable()
                         ollama_thread = subprocess.Popen(
-                            ["ollama", "serve"],
+                            [ollama_executable, "serve"],
                             stdout = subprocess.PIPE,
                             stderr = subprocess.PIPE,
                             text = True
@@ -1259,46 +1431,52 @@ def run_gui_installer():
     local_model_frame = tk.Frame(scroll_frame.scrollable_frame, bg="#190c3a")
     local_model_frame.pack(pady=(10, 10))
 
-    use_local_models_checkbox = tk.Checkbutton(
-        local_model_frame,
-        text = "Use Local AI Models",
-        variable = use_local_models_var,
-        font=StackSans_L,
-        fg="white",
-        bg="#190c3a",
-        selectcolor="#2e2e2e",
-        activebackground="#1e1e1e",
-        activeforeground="white",
-        command=lambda: update_visibility()
-    )
-    use_local_models_checkbox.pack(pady=(0, 10))
+    if platform.system() == "Darwin" and platform.mac_ver()[0] < "14.0":
+        print("MacOS Version: " + platform.mac_ver()[0])
+        local_model_help = tk.Label(local_model_frame, text = "Ollama does not work on Mac versions below 14.0.\nYou are using " + platform.mac_ver()[0],
+                                font=StackSans_EL, fg="#cccccc", bg="#190c3a")
+        local_model_help.pack(pady=(0, 10))
+    else:
+        use_local_models_checkbox = tk.Checkbutton(
+            local_model_frame,
+            text = "Use Local AI Models",
+            variable = use_local_models_var,
+            font=StackSans_L,
+            fg="white",
+            bg="#190c3a",
+            selectcolor="#2e2e2e",
+            activebackground="#1e1e1e",
+            activeforeground="white",
+            command=lambda: update_visibility()
+        )
+        use_local_models_checkbox.pack(pady=(0, 10))
 
-    install_ollama_checkbox = tk.Checkbutton(
-        local_model_frame,
-        text = "Install Ollama (runs local AI models)",
-        variable=install_ollama_var,
-        font=StackSans_L,
-        fg="white",
-        bg="#190c3a",
-        selectcolor="#2e2e2e",
-        activebackground="#1e1e1e",
-        activeforeground="white",
-    )
+        install_ollama_checkbox = tk.Checkbutton(
+            local_model_frame,
+            text = "Install Ollama (runs local AI models)",
+            variable=install_ollama_var,
+            font=StackSans_L,
+            fg="white",
+            bg="#190c3a",
+            selectcolor="#2e2e2e",
+            activebackground="#1e1e1e",
+            activeforeground="white",
+        )
 
-    ollama_help = tk.Label(local_model_frame, text="If you have already installed Ollama, leave this unchecked.", 
-                          font=StackSans_EL, fg="#cccccc", bg="#190c3a")
+        ollama_help = tk.Label(local_model_frame, text="If you have already installed Ollama, leave this unchecked.", 
+                            font=StackSans_EL, fg="#cccccc", bg="#190c3a")
 
-    manage_ollama_checkbox = tk.Checkbutton(
-        local_model_frame,
-        text = "Manage Ollama",
-        variable = manage_ollama_var,
-        font=StackSans_L,
-        fg="white",
-        bg="#190c3a",
-        selectcolor="#2e2e2e",
-        activebackground="#1e1e1e",
-        activeforeground="white",
-    )
+        manage_ollama_checkbox = tk.Checkbutton(
+            local_model_frame,
+            text = "Manage Ollama",
+            variable = manage_ollama_var,
+            font=StackSans_L,
+            fg="white",
+            bg="#190c3a",
+            selectcolor="#2e2e2e",
+            activebackground="#1e1e1e",
+            activeforeground="white",
+        )
 
     # AI Preference section
     ai_pref_section_label = tk.Label(scroll_frame.scrollable_frame, text="AI Provider Preference", 
