@@ -1251,29 +1251,6 @@ def listen_for_command():
     finally:
         hide_status_indicator()
 
-# Process Command (OLD)
-def process_command_old(command):
-    if not command:
-        print("INFO: No command to process.")
-        return
-
-    global USER_INTENT
-    USER_INTENT = command
-    CONVERSATION_HISTORY.add_message("USER", command)
-
-    global INITIAL_PROMPT, OS_VERSION
-    combined_prompt = f"OS: {OS_VERSION}\nDEFAULT PATH: {Path.home() / 'Desktop'}\nConversation History:\n{CONVERSATION_HISTORY.get_formatted_history()}\n{INITIAL_PROMPT}\nUser Command: {command}"
-
-    print("INFO: Generating response...")
-    show_status_indicator("Processing", "#00FF22")
-    response = generate_text(combined_prompt)
-    if response:
-        hide_status_indicator()
-        process_response(response)
-    else:
-        hide_status_indicator()
-        print("ERROR: No response generated.\nERROR 136")
-
 # Process Command
 def process_command(command):
     if not command:
