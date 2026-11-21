@@ -401,6 +401,17 @@ def detect_os():
     else:
         return "unknown"
 
+def get_ollama_executable():
+    if platform.system() == "Darwin":
+        paths = [
+            os.path.expanduser("~/Applications/Ollama.app/Contents/Resources/ollama"),
+            "/Applications/Ollama.app/Contents/Resources/ollama"
+        ]
+        for path in paths:
+            if os.path.exists(path):
+                return path
+    return "ollama"
+
 # Starts the Ollama server if managed
 def start_ollama():
     global MANAGE_OLLAMA, OLLAMA_THREAD
@@ -413,7 +424,7 @@ def start_ollama():
             return True
         else:
             print("INFO: Starting Ollama server and management...")
-            OLLAMA_THREAD = subprocess.Popen(["ollama", "serve"])
+            OLLAMA_THREAD = subprocess.Popen([get_ollama_executable(), "serve"])
             return True
     return False
 
