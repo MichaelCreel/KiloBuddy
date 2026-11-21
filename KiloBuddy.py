@@ -1426,14 +1426,6 @@ def process_response(response):
         process_todo_list(todo_list)
     else:
         print("INFO: No todo list found in response.")
-
-
-    #############################
-    print("DEBUG: User Output: ", user_output)
-    print("DEBUG: Todo List: ", todo_list)
-    #############################
-
-
     return
 
 # Extract the todo list from AI response
